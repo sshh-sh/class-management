@@ -25,9 +25,9 @@ body{font-family:'Noto Sans KR',sans-serif;font-size:17px;background:#f5f5f5;col
 .app-header{display:flex;align-items:center;justify-content:space-between;padding:14px 32px;background:#fff;border-bottom:0.5px solid #e0e0e0;gap:12px;flex-wrap:wrap;}
 .header-left{display:flex;align-items:center;gap:14px;cursor:pointer;}
 .header-left:hover .app-title{color:#534AB7;}
-.app-title{font-size:26px;font-weight:500;color:#3C3489;transition:color 0.15s;}
-.app-sub{font-size:14px;color:#aaa;}
-.header-icon-main{width:60px;height:60px;border-radius:50%;object-fit:cover;flex-shrink:0;transition:transform 0.15s;}
+.app-title{font-size:32px;font-weight:500;color:#3C3489;transition:color 0.15s;}
+.app-sub{font-size:15px;color:#aaa;}
+.header-icon-main{width:88px;height:88px;border-radius:50%;object-fit:cover;flex-shrink:0;transition:transform 0.15s;}
 .header-left:hover .header-icon-main{transform:scale(1.08);}
 .header-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
 .header-btn{background:#f0f0f0;border:0.5px solid #ddd;border-radius:20px;padding:6px 14px;font-size:12px;color:#555;cursor:pointer;display:flex;align-items:center;gap:6px;}
@@ -171,6 +171,18 @@ body{font-family:'Noto Sans KR',sans-serif;font-size:17px;background:#f5f5f5;col
 .help-body{font-size:13px;color:#555;line-height:1.7;}
 
 .app-footer{text-align:center;font-size:11px;color:#bbb;padding:14px;border-top:0.5px solid #eee;background:#fff;margin-top:24px;}
+
+.tt-layout{display:grid;grid-template-columns:auto 1fr;gap:24px;align-items:start;}
+.full-tt-wrap{overflow-x:auto;}
+.full-tt{border-collapse:collapse;font-size:12px;white-space:nowrap;}
+.full-tt th{background:#f0f0f0;padding:5px 7px;border:0.5px solid #ddd;text-align:center;font-weight:500;color:#666;}
+.full-tt td{padding:4px 6px;border:0.5px solid #eee;text-align:center;color:#555;font-size:11px;}
+.full-tt .week-num{background:#EEEDFE;color:#3C3489;font-weight:600;}
+.full-tt .date-cell{background:#f8f8f8;color:#888;font-size:11px;white-space:nowrap;}
+.full-tt .day-header{background:#dddaf8;color:#3C3489;font-weight:500;}
+.full-tt .period-header{background:#f0f0f0;color:#aaa;font-size:10px;}
+.full-tt .has-class{background:#EEEDFE;color:#3C3489;font-weight:500;}
+.full-tt .empty-cell{color:#ddd;}
 
 @media(max-width:768px){
   .main-grid{grid-template-columns:1fr;}

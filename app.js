@@ -64,6 +64,7 @@ async function initApp() {
   buildProgress();
   buildMyTT();
   renderClassTTs();
+  buildFullTimetable();
   buildSyllabus();
   loadJournal();
 
@@ -324,7 +325,62 @@ window.saveMyTT = async () => {
   await saveUserData();
   alert('시간표가 저장되었습니다!');
   renderWeek(selectedDate || new Date().getDate(), selectedDow || new Date().getDay());
+  buildFullTimetable();
 };
+
+function buildFullTimetable() {
+  const el = document.getElementById('full-timetable');
+  if (!el) return;
+
+  // 2026학년도 1학기: 3월 3일 ~ 7월 17일
+  const semStart = new Date(2026, 2, 3);
+  const semEnd   = new Date(2026, 6, 17);
+
+  // 첫 번째 월요일 찾기
+  const start = new Date(semStart);
+  const dow = start.getDay();
+  if (dow === 0) start.setDate(start.getDate() + 1);
+  else if (dow > 1) start.setDate(start.getDate() - (dow - 1));
+
+  // 주 목록 생성
+  const weeks = [];
+  let cur = new Date(start);
+  let wn = 1;
+  while (cur <= semEnd) {
+    const mon = new Date(cur);
+    const fri = new Date(cur); fri.setDate(fri.getDate() + 4);
+    weeks.push({ num: wn++, mon, fri });
+    cur.setDate(cur.getDate() + 7);
+  }
+
+  const fmt = d => `${d.getMonth()+1}.${d.getDate()}`;
+  const DAYS = ['월','화','수','목','금'];
+
+  let html = '<div class="full-tt-wrap"><table class="full-tt"><thead>';
+  html += '<tr><th rowspan="2">주</th><th rowspan="2" class="date-cell">기간</th>';
+  DAYS.forEach(d => html += `<th colspan="5" class="day-header">${d}</th>`);
+  html += '</tr><tr>';
+  DAYS.forEach(() => {
+    for (let p = 1; p <= 5; p++) html += `<th class="period-header">${p}</th>`;
+  });
+  html += '</tr></thead><tbody>';
+
+  weeks.forEach(w => {
+    html += `<tr><td class="week-num">${w.num}</td><td class="date-cell">${fmt(w.mon)}~${fmt(w.fri)}</td>`;
+    for (let d = 0; d < 5; d++) {
+      for (let p = 1; p <= 5; p++) {
+        const cls = myTT[p] && myTT[p][d] ? myTT[p][d] : '';
+        html += cls
+          ? `<td class="has-class">${cls}</td>`
+          : `<td class="empty-cell">—</td>`;
+      }
+    }
+    html += '</tr>';
+  });
+
+  html += '</tbody></table></div>';
+  el.innerHTML = html;
+}
 
 window.addClassTT = async () => {
   const cls = prompt('학급을 입력하세요 (예: 4-2)');
