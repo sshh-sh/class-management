@@ -30,23 +30,13 @@ let journalData = [];
 let progressData = [];
 let sheetsUrl = '';
 let semYear = 2026;
-let semHalf = 1;
+let timetableEvents = {};
 
 function getSemDates(year, half) {
   if (half === 1) {
-    return {
-      label: `${year}학년도 1학기`,
-      start: new Date(year, 2, 2),   // 3월 2일
-      end:   new Date(year, 6, 18),  // 7월 18일
-      initMonth: 2
-    };
+    return { label: `${year}학년도 1학기`, start: new Date(year, 2, 2), end: new Date(year, 6, 18) };
   } else {
-    return {
-      label: `${year}학년도 2학기`,
-      start: new Date(year, 8, 1),         // 9월 1일
-      end:   new Date(year + 1, 1, 14),    // 다음해 2월 14일
-      initMonth: 8
-    };
+    return { label: `${year}학년도 2학기`, start: new Date(year, 8, 1), end: new Date(year + 1, 1, 14) };
   }
 }
 
@@ -55,20 +45,16 @@ function buildSemSelect() {
   if (!sel) return;
   const opts = [];
   for (let y = 2024; y <= 2030; y++) {
-    opts.push(`<option value="${y}-1">${y}학년도 1학기</option>`);
-    opts.push(`<option value="${y}-2">${y}학년도 2학기</option>`);
+    opts.push(`<option value="${y}">${y}학년도</option>`);
   }
   sel.innerHTML = opts.join('');
-  sel.value = `${semYear}-${semHalf}`;
+  sel.value = String(semYear);
 }
 
 window.changeSemester = (val) => {
-  const [y, h] = val.split('-').map(Number);
-  semYear = y;
-  semHalf = h;
-  const sem = getSemDates(y, h);
-  currentYear = y;
-  currentMonth = sem.initMonth;
+  semYear = Number(val);
+  currentYear = semYear;
+  currentMonth = new Date().getMonth();
   saveUserData();
   buildCalendar();
   buildFullTimetable();
@@ -105,10 +91,8 @@ async function initApp() {
 
   await loadUserData();
   buildSemSelect();
-
-  const sem = getSemDates(semYear, semHalf);
   currentYear = semYear;
-  currentMonth = sem.initMonth;
+  currentMonth = new Date().getMonth();
 
   buildCalendar();
   buildProgress();
@@ -160,7 +144,7 @@ async function loadUserData() {
     if (d.progressData) progressData = d.progressData;
     if (d.sheetsUrl) { sheetsUrl = d.sheetsUrl; updateSheetsBtn(true); }
     if (d.semYear) semYear = d.semYear;
-    if (d.semHalf) semHalf = d.semHalf;
+    if (d.timetableEvents) timetableEvents = d.timetableEvents;
   } else {
     progressData = [
       {n:'3학년 과학', done:0, total:50, color:'#B5D4F4', warn:false},
@@ -175,7 +159,7 @@ async function loadUserData() {
 
 async function saveUserData() {
   const uid = currentUser.uid;
-  await setDoc(doc(db, 'users', uid), { myTT, classTTList, syllabusData, progressData, sheetsUrl, semYear, semHalf }, { merge: true });
+  await setDoc(doc(db, 'users', uid), { myTT, classTTList, syllabusData, progressData, sheetsUrl, semYear, timetableEvents }, { merge: true });
 }
 
 // ==================== 달력 ====================
@@ -383,52 +367,51 @@ window.saveMyTT = async () => {
 function buildFullTimetable() {
   const el = document.getElementById('full-timetable');
   if (!el) return;
-
-  const sem = getSemDates(semYear, semHalf);
   const titleEl = document.getElementById('full-tt-title');
-  if (titleEl) titleEl.textContent = `전체 시간표 (${sem.label})`;
+  if (titleEl) titleEl.textContent = `전체 시간표 (${semYear}학년도)`;
+  el.innerHTML = `<div class="full-tt-split">${buildOneSemTable(semYear,1)}${buildOneSemTable(semYear,2)}</div>`;
+  el.querySelectorAll('.event-cell-input').forEach(input => {
+    input.addEventListener('change', async e => {
+      timetableEvents[e.target.dataset.key] = e.target.value;
+      await saveUserData();
+    });
+  });
+}
 
-  // 첫 번째 월요일 찾기
+function buildOneSemTable(year, half) {
+  const sem = getSemDates(year, half);
   const start = new Date(sem.start);
   const dow = start.getDay();
   if (dow === 0) start.setDate(start.getDate() + 1);
   else if (dow > 1) start.setDate(start.getDate() - (dow - 1));
-
   const weeks = [];
-  let cur = new Date(start);
-  let wn = 1;
+  let cur = new Date(start), wn = 1;
   while (cur <= sem.end) {
-    const mon = new Date(cur);
-    const fri = new Date(cur); fri.setDate(fri.getDate() + 4);
+    const mon = new Date(cur), fri = new Date(cur);
+    fri.setDate(fri.getDate() + 4);
     weeks.push({ num: wn++, mon, fri });
     cur.setDate(cur.getDate() + 7);
   }
-
   const fmt = d => `${d.getMonth()+1}.${d.getDate()}`;
   const DAYS = ['월','화','수','목','금'];
-
-  let html = '<div class="full-tt-wrap"><table class="full-tt"><thead>';
+  let html = `<div><div class="full-tt-section-title">${sem.label}</div><div class="full-tt-wrap"><table class="full-tt"><thead>`;
   html += '<tr><th rowspan="2">주</th><th rowspan="2" class="date-cell">기간</th>';
   DAYS.forEach(d => html += `<th colspan="5" class="day-header">${d}</th>`);
-  html += '</tr><tr>';
-  DAYS.forEach(() => {
-    for (let p = 1; p <= 5; p++) html += `<th class="period-header">${p}</th>`;
-  });
+  html += '<th rowspan="2" class="day-header">행사</th></tr><tr>';
+  DAYS.forEach(() => { for (let p=1;p<=5;p++) html += `<th class="period-header">${p}</th>`; });
   html += '</tr></thead><tbody>';
-
   weeks.forEach(w => {
     html += `<tr><td class="week-num">${w.num}</td><td class="date-cell">${fmt(w.mon)}~${fmt(w.fri)}</td>`;
-    for (let d = 0; d < 5; d++) {
-      for (let p = 1; p <= 5; p++) {
-        const cls = myTT[p] && myTT[p][d] ? myTT[p][d] : '';
-        html += cls ? `<td class="has-class">${cls}</td>` : `<td class="empty-cell">—</td>`;
-      }
+    for (let d=0;d<5;d++) for (let p=1;p<=5;p++) {
+      const cls = myTT[p]&&myTT[p][d] ? myTT[p][d] : '';
+      html += cls ? `<td class="has-class">${cls}</td>` : `<td class="empty-cell">—</td>`;
     }
-    html += '</tr>';
+    const evKey = `${year}-${half}-${w.num}`;
+    const evVal = (timetableEvents[evKey]||'').replace(/"/g,'&quot;');
+    html += `<td><input class="event-cell-input" data-key="${evKey}" value="${evVal}" placeholder="행사"></td></tr>`;
   });
-
-  html += '</tbody></table></div>';
-  el.innerHTML = html;
+  html += '</tbody></table></div></div>';
+  return html;
 }
 
 window.addClassTT = async () => {
@@ -541,6 +524,39 @@ window.toggleStatus = async (subject, idx) => {
 };
 
 window.handleSylUpload = (input, subject) => { if (input.files[0]) alert(`"${input.files[0].name}" 업로드 기능은 준비 중입니다.`); };
+
+window.downloadSylTemplate = () => {
+  const csv = '﻿과목,차시,단원,학습주제,준비물,상태\n3학년 과학,1,1. 생물과 환경,먹이 사슬과 먹이 그물,교과서,todo\n3학년 과학,2,1. 생물과 환경,생태계 평형,교과서,todo\n';
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = '진도표_양식.csv'; a.click();
+};
+
+window.handleSylGlobalUpload = (input) => {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async e => {
+    const lines = e.target.result.split('\n').slice(1);
+    syllabusData = {};
+    lines.forEach(row => {
+      const cols = row.split(',').map(c => c.trim().replace(/^"|"$/g,''));
+      if (cols.length < 4 || !cols[0]) return;
+      const [subject, ch, unit, topic, prep, status] = cols;
+      if (!syllabusData[subject]) syllabusData[subject] = [];
+      syllabusData[subject].push({ch:ch||'', unit:unit||'', topic:topic||'', prep:prep||'', status:status||'todo'});
+    });
+    await saveUserData();
+    buildSyllabus();
+    alert('업로드 완료!');
+  };
+  reader.readAsText(file, 'UTF-8');
+  input.value = '';
+};
+
+window.saveSyllabus = async () => {
+  await saveUserData();
+  alert('진도표가 저장되었습니다!');
+};
 
 // ==================== 구글 시트 연동 ====================
 window.openSheetsModal = () => {
