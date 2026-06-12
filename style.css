@@ -153,10 +153,22 @@ body{font-family:'Noto Sans KR',sans-serif;font-size:17px;background:#f5f5f5;col
 .upload-box{border:1px dashed #ddd;border-radius:8px;padding:14px;text-align:center;cursor:pointer;margin-top:10px;font-size:17px;color:#aaa;}
 .upload-box:hover{background:#fafafa;}
 
-.full-tt-split{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
-.full-tt-section-title{font-size:16px;font-weight:500;color:#3C3489;margin-bottom:8px;}
-.event-cell-input{font-size:11px;width:100%;border:none;background:transparent;color:#555;padding:2px 3px;}
+.full-tt-split{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.full-tt-section-title{font-size:16px;font-weight:500;color:#3C3489;margin-bottom:6px;}
+.full-tt-wrap{overflow-x:auto;}
+.full-tt{border-collapse:collapse;font-size:14px;white-space:nowrap;}
+.full-tt th{background:#f0f0f0;padding:6px 8px;border:0.5px solid #ddd;text-align:center;font-weight:500;color:#666;}
+.full-tt td{padding:5px 7px;border:0.5px solid #eee;text-align:center;color:#555;font-size:13px;}
+.full-tt .week-num{background:#EEEDFE;color:#3C3489;font-weight:600;}
+.full-tt .date-cell{background:#f8f8f8;color:#888;font-size:12px;white-space:nowrap;}
+.full-tt .day-header{background:#dddaf8;color:#3C3489;font-weight:500;}
+.full-tt .period-header{background:#f0f0f0;color:#aaa;font-size:11px;}
+.full-tt .has-class{background:#EEEDFE;color:#3C3489;font-weight:500;}
+.full-tt .empty-cell{color:#ddd;}
+.event-cell-input{font-size:12px;width:80px;border:none;background:transparent;color:#555;padding:2px 3px;}
 .event-cell-input:focus{background:#fff8e1;outline:none;border-radius:2px;}
+#tab-timetable .app-content-inner{padding:0;}
+#tab-timetable{padding-left:4px;padding-right:4px;}
 
 .popup-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:50;display:flex;align-items:flex-start;justify-content:center;padding-top:60px;}
 .popup-box{background:#fff;border-radius:12px;border:0.5px solid #ddd;width:100%;max-width:420px;padding:1.5rem;}
@@ -184,8 +196,8 @@ body{font-family:'Noto Sans KR',sans-serif;font-size:17px;background:#f5f5f5;col
 
 .app-footer{text-align:center;font-size:11px;color:#bbb;padding:14px;border-top:0.5px solid #eee;background:#fff;margin-top:24px;}
 
-.sem-select{font-size:15px;color:#534AB7;border:none;background:transparent;cursor:pointer;padding:2px 4px;font-family:inherit;outline:none;}
-.sem-select:hover{color:#3C3489;}
+.sem-select{font-size:15px;color:#534AB7;border:none;border-bottom:1px solid #AFA9EC;background:transparent;cursor:text;padding:2px 4px;font-family:inherit;outline:none;width:110px;}
+.sem-select:focus{border-bottom-color:#534AB7;}
 #tab-journal,#tab-timetable,#tab-syllabus{overflow-y:auto;}
 .full-tt-wrap{overflow-x:auto;}
 .full-tt{border-collapse:collapse;font-size:12px;white-space:nowrap;}

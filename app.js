@@ -36,25 +36,28 @@ function getSemDates(year, half) {
   if (half === 1) {
     return { label: `${year}학년도 1학기`, start: new Date(year, 2, 2), end: new Date(year, 6, 18) };
   } else {
-    return { label: `${year}학년도 2학기`, start: new Date(year, 8, 1), end: new Date(year + 1, 1, 14) };
+    return { label: `${year}학년도 2학기`, start: new Date(year, 8, 1), end: new Date(year + 1, 0, 8) };
   }
 }
 
 function buildSemSelect() {
-  const sel = document.getElementById('sem-select');
-  if (!sel) return;
-  const opts = [];
-  for (let y = 2024; y <= 2030; y++) {
-    opts.push(`<option value="${y}">${y}학년도</option>`);
+  const input = document.getElementById('sem-select');
+  const dl = document.getElementById('sem-years-list');
+  if (!input || !dl) return;
+  dl.innerHTML = '';
+  for (let y = 2020; y <= 2040; y++) {
+    dl.innerHTML += `<option value="${y}학년도">`;
   }
-  sel.innerHTML = opts.join('');
-  sel.value = String(semYear);
+  input.value = `${semYear}학년도`;
 }
 
 window.changeSemester = (val) => {
-  semYear = Number(val);
+  const y = parseInt(val);
+  if (!y || isNaN(y)) return;
+  semYear = y;
   currentYear = semYear;
   currentMonth = new Date().getMonth();
+  document.getElementById('sem-select').value = `${semYear}학년도`;
   saveUserData();
   buildCalendar();
   buildFullTimetable();

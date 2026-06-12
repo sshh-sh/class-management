@@ -64,7 +64,8 @@
       <img src="images/ilhaeyong.jpg" class="header-icon-main" alt="일해용" onclick="location.reload()" title="새로고침" style="cursor:pointer;">
       <div>
         <div class="app-title">일해용! 전담</div>
-        <select class="sem-select" id="sem-select" onchange="changeSemester(this.value)" onclick="event.stopPropagation()"></select>
+        <input class="sem-select" id="sem-select" list="sem-years-list" onchange="changeSemester(this.value)" onclick="event.stopPropagation()" placeholder="2026학년도">
+        <datalist id="sem-years-list"></datalist>
       </div>
     </div>
     <div class="header-right">
@@ -129,6 +130,7 @@
         </select>
         <input type="text" id="jl-filter-name" placeholder="학생명 검색" oninput="filterJournal()">
         <input type="month" id="jl-filter-month" onchange="filterJournal()">
+        <button class="btn-sm" onclick="filterJournal()">검색</button>
         <button class="btn-sm" onclick="exportJournalExcel()">&#8595; 엑셀</button>
       </div>
       <div class="table-wrap">
