@@ -172,7 +172,8 @@ body{font-family:'Noto Sans KR',sans-serif;font-size:17px;background:#f5f5f5;col
 
 .app-footer{text-align:center;font-size:11px;color:#bbb;padding:14px;border-top:0.5px solid #eee;background:#fff;margin-top:24px;}
 
-.tt-layout{display:grid;grid-template-columns:auto 1fr;gap:24px;align-items:start;}
+.sem-select{font-size:18px;color:#534AB7;border:none;background:transparent;cursor:pointer;padding:2px 4px;font-family:inherit;outline:none;}
+.sem-select:hover{color:#3C3489;}
 .full-tt-wrap{overflow-x:auto;}
 .full-tt{border-collapse:collapse;font-size:12px;white-space:nowrap;}
 .full-tt th{background:#f0f0f0;padding:5px 7px;border:0.5px solid #ddd;text-align:center;font-weight:500;color:#666;}

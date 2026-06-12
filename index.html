@@ -60,11 +60,11 @@
 <div id="app" class="hidden">
   <!-- 헤더 -->
   <header class="app-header">
-    <div class="header-left" onclick="location.reload()" title="새로고침">
-      <img src="images/ilhaeyong.jpg" class="header-icon-main" alt="일해용">
+    <div class="header-left">
+      <img src="images/ilhaeyong.jpg" class="header-icon-main" alt="일해용" onclick="location.reload()" title="새로고침" style="cursor:pointer;">
       <div>
         <div class="app-title">일해용! 전담</div>
-        <div class="app-sub">2026학년도 1학기</div>
+        <select class="sem-select" id="sem-select" onchange="changeSemester(this.value)" onclick="event.stopPropagation()"></select>
       </div>
     </div>
     <div class="header-right">
@@ -141,47 +141,43 @@
 
     <!-- 시간표 탭 -->
     <div id="tab-timetable" class="tab-content hidden">
-      <div class="tt-layout">
-        <!-- 내 시간표 (좌측) -->
-        <div>
-          <div class="section-block">
-            <div class="section-header">
-              <span class="section-title">내 시간표</span>
-              <div class="btn-group">
-                <button class="btn-xs" onclick="downloadMyTTTemplate()">&#8595; 양식</button>
-                <button class="btn-xs primary" onclick="document.getElementById('my-tt-upload').click()">&#8593; 업로드</button>
-                <input type="file" id="my-tt-upload" accept=".xlsx,.csv" style="display:none" onchange="handleMyTTUpload(this)">
-                <button class="btn-xs" onclick="saveMyTT()">저장</button>
-              </div>
-            </div>
-            <div class="table-wrap">
-              <table class="tt-table" id="my-tt-table">
-                <thead><tr><th style="width:52px;">교시</th><th>월</th><th>화</th><th>수</th><th>목</th><th>금</th></tr></thead>
-                <tbody id="my-tt-body"></tbody>
-              </table>
-            </div>
-          </div>
-          <!-- 담당 학급 시간표 -->
-          <div class="section-block">
-            <div class="section-header">
-              <span class="section-title">담당 학급 시간표</span>
-              <div class="btn-group">
-                <button class="btn-xs" onclick="downloadClsTTTemplate()">&#8595; 양식</button>
-                <button class="btn-xs primary" onclick="document.getElementById('cls-tt-upload').click()">&#8593; 업로드</button>
-                <input type="file" id="cls-tt-upload" accept=".xlsx,.csv" style="display:none" onchange="handleClsTTUpload(this)">
-                <button class="btn-xs" onclick="addClassTT()">+ 학급 추가</button>
-              </div>
-            </div>
-            <div id="cls-tt-list"></div>
+      <!-- 전체 시간표 -->
+      <div class="section-block">
+        <div class="section-header">
+          <span class="section-title" id="full-tt-title">전체 시간표</span>
+        </div>
+        <div id="full-timetable"></div>
+      </div>
+      <!-- 내 시간표 -->
+      <div class="section-block">
+        <div class="section-header">
+          <span class="section-title">내 시간표</span>
+          <div class="btn-group">
+            <button class="btn-xs" onclick="downloadMyTTTemplate()">&#8595; 양식</button>
+            <button class="btn-xs primary" onclick="document.getElementById('my-tt-upload').click()">&#8593; 업로드</button>
+            <input type="file" id="my-tt-upload" accept=".xlsx,.csv" style="display:none" onchange="handleMyTTUpload(this)">
+            <button class="btn-xs" onclick="saveMyTT()">저장</button>
           </div>
         </div>
-        <!-- 전체시간표 (우측) -->
-        <div class="section-block">
-          <div class="section-header">
-            <span class="section-title">전체 시간표 (2026-1학기)</span>
-          </div>
-          <div id="full-timetable"></div>
+        <div class="table-wrap">
+          <table class="tt-table" id="my-tt-table">
+            <thead><tr><th style="width:52px;">교시</th><th>월</th><th>화</th><th>수</th><th>목</th><th>금</th></tr></thead>
+            <tbody id="my-tt-body"></tbody>
+          </table>
         </div>
+      </div>
+      <!-- 담당 학급 시간표 -->
+      <div class="section-block">
+        <div class="section-header">
+          <span class="section-title">담당 학급 시간표</span>
+          <div class="btn-group">
+            <button class="btn-xs" onclick="downloadClsTTTemplate()">&#8595; 양식</button>
+            <button class="btn-xs primary" onclick="document.getElementById('cls-tt-upload').click()">&#8593; 업로드</button>
+            <input type="file" id="cls-tt-upload" accept=".xlsx,.csv" style="display:none" onchange="handleClsTTUpload(this)">
+            <button class="btn-xs" onclick="addClassTT()">+ 학급 추가</button>
+          </div>
+        </div>
+        <div id="cls-tt-list"></div>
       </div>
     </div>
 
