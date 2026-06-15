@@ -41,27 +41,11 @@ function getSemDates(year, half) {
 }
 
 function buildSemSelect() {
-  const input = document.getElementById('sem-select');
-  const dl = document.getElementById('sem-years-list');
-  if (!input || !dl) return;
-  dl.innerHTML = '';
-  for (let y = 2020; y <= 2040; y++) {
-    dl.innerHTML += `<option value="${y}학년도">`;
-  }
-  input.value = `${semYear}학년도`;
+  const today = new Date();
+  semYear = today.getMonth() >= 2 ? today.getFullYear() : today.getFullYear() - 1;
+  const label = document.getElementById('sem-label');
+  if (label) label.textContent = `${semYear}학년도`;
 }
-
-window.changeSemester = (val) => {
-  const y = parseInt(val);
-  if (!y || isNaN(y)) return;
-  semYear = y;
-  currentYear = semYear;
-  currentMonth = new Date().getMonth();
-  document.getElementById('sem-select').value = `${semYear}학년도`;
-  saveUserData();
-  buildCalendar();
-  buildFullTimetable();
-};
 
 // ==================== 초기화 ====================
 window.addEventListener('DOMContentLoaded', () => {
