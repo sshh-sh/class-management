@@ -466,31 +466,34 @@ function buildSyllabus() {
   const subjects = Object.keys(syllabusData);
   const tabBar = document.getElementById('syllabus-tabs');
   const content = document.getElementById('syllabus-content');
+  tabBar.innerHTML = subjects.map((s, i) =>
+    `<button class="sub-tab${i===0?' active':''}" onclick="switchSyllabus('${s.replace(/'/g,"\\'")}',this)">${s}</button>`
+  ).join('') + `<button class="sub-tab" onclick="addSyllabusSubject()" style="color:#534AB7;border-color:#AFA9EC;">+ 과목 추가</button>`;
   if (!subjects.length) {
-    tabBar.innerHTML = '';
-    content.innerHTML = '<div style="font-size:12px;color:#aaa;padding:12px 0;">구글 시트 연동 또는 엑셀 업로드로 진도표를 등록하세요.</div>';
+    content.innerHTML = '<div style="font-size:15px;color:#aaa;padding:20px 0;">위의 <b>+ 과목 추가</b> 버튼으로 과목을 등록하거나, CSV 업로드 또는 구글 시트 연동을 이용하세요.</div>';
     return;
   }
-  tabBar.innerHTML = subjects.map((s, i) => `<button class="sub-tab${i===0?' active':''}" onclick="switchSyllabus('${s}',this)">${s}</button>`).join('');
-  content.innerHTML = subjects.map((s, i) => `
-    <div class="sub-content${i===0?' active':''}" id="syl-${s.replace(/ /g,'_')}">
+  content.innerHTML = subjects.map((s, i) => {
+    const sId = s.replace(/ /g,'_').replace(/'/g,'');
+    return `<div class="sub-content${i===0?' active':''}" id="syl-${sId}">
+      <div style="display:flex;justify-content:flex-end;gap:6px;margin-bottom:8px;">
+        <button class="btn-xs" onclick="deleteSyllabusSubject('${s.replace(/'/g,"\\'")}')">🗑 과목 삭제</button>
+      </div>
       <table class="syl-table">
-        <thead><tr><th style="width:30px;">차시</th><th>단원</th><th>학습주제</th><th>준비물</th><th style="width:64px;">상태</th></tr></thead>
-        <tbody>${syllabusData[s].map((r,idx) => `
+        <thead><tr><th style="width:44px;">차시</th><th>단원</th><th>학습주제</th><th>준비물</th><th style="width:80px;">상태</th></tr></thead>
+        <tbody>${(syllabusData[s]||[]).map((r,idx) => `
           <tr>
-            <td style="text-align:center;">${r.ch}</td>
-            <td>${r.unit}</td>
-            <td>${r.topic}</td>
-            <td>${r.prep}</td>
-            <td><span class="status-badge status-${r.status}" onclick="toggleStatus('${s}',${idx})">${r.status==='done'?'완료':r.status==='next'?'다음수업':'예정'}</span></td>
+            <td style="text-align:center;"><input value="${r.ch}" style="width:40px;text-align:center;border:none;font-size:inherit;background:transparent;" onchange="updateSylField('${s.replace(/'/g,"\\'")}',${idx},'ch',this.value)"></td>
+            <td><input value="${r.unit}" style="width:100%;border:none;font-size:inherit;background:transparent;" onchange="updateSylField('${s.replace(/'/g,"\\'")}',${idx},'unit',this.value)"></td>
+            <td><input value="${r.topic}" style="width:100%;border:none;font-size:inherit;background:transparent;" onchange="updateSylField('${s.replace(/'/g,"\\'")}',${idx},'topic',this.value)"></td>
+            <td><input value="${r.prep}" style="width:100%;border:none;font-size:inherit;background:transparent;" onchange="updateSylField('${s.replace(/'/g,"\\'")}',${idx},'prep',this.value)"></td>
+            <td style="text-align:center;"><span class="status-badge status-${r.status}" onclick="toggleStatus('${s.replace(/'/g,"\\'")}',${idx})">${r.status==='done'?'완료':r.status==='next'?'다음수업':'예정'}</span></td>
           </tr>`).join('')}
         </tbody>
       </table>
-      <div class="upload-box" onclick="document.getElementById('syl-upload-${i}').click()">
-        ↑ 진도표 업로드 (Excel/CSV)
-        <input type="file" id="syl-upload-${i}" accept=".xlsx,.csv" style="display:none" onchange="handleSylUpload(this,'${s}')">
-      </div>
-    </div>`).join('');
+      <button class="btn-xs" style="margin-top:8px;" onclick="addSyllabusRow('${s.replace(/'/g,"\\'")}')">+ 행 추가</button>
+    </div>`;
+  }).join('');
 }
 
 window.switchSyllabus = (name, el) => {
@@ -550,17 +553,127 @@ window.openSheetsModal = () => {
   document.getElementById('sheets-url').value = sheetsUrl;
   document.getElementById('sheets-modal').classList.remove('hidden');
 };
+
+window.addSyllabusSubject = async () => {
+  const name = prompt('과목명을 입력하세요\n예: 3학년 과학, 4학년 과학, 5학년 놀이');
+  if (!name || !name.trim()) return;
+  const n = name.trim();
+  if (syllabusData[n]) { alert('이미 있는 과목입니다.'); return; }
+  syllabusData[n] = [];
+  await saveUserData();
+  buildSyllabus();
+  // 새 과목 탭 활성화
+  const tabs = document.querySelectorAll('.sub-tab');
+  tabs.forEach(t => { if (t.textContent === n) t.click(); });
+};
+
+window.deleteSyllabusSubject = async (subject) => {
+  if (!confirm(`"${subject}" 진도표를 삭제할까요?`)) return;
+  delete syllabusData[subject];
+  await saveUserData();
+  buildSyllabus();
+};
+
+window.addSyllabusRow = async (subject) => {
+  const ch = (syllabusData[subject]?.length || 0) + 1;
+  syllabusData[subject].push({ ch: String(ch), unit: '', topic: '', prep: '', status: 'todo' });
+  await saveUserData();
+  buildSyllabus();
+  setTimeout(() => {
+    const rows = document.querySelectorAll(`#syl-${subject.replace(/ /g,'_')} tbody tr`);
+    const lastRow = rows[rows.length - 1];
+    if (lastRow) lastRow.querySelector('input')?.focus();
+  }, 100);
+};
+
+window.updateSylField = (subject, idx, field, val) => {
+  if (syllabusData[subject]?.[idx]) syllabusData[subject][idx][field] = val;
+};
 window.closeSheetsModal = (e) => { if (e.target === document.getElementById('sheets-modal')) closeSheetsModalDirect(); };
 window.closeSheetsModalDirect = () => document.getElementById('sheets-modal').classList.add('hidden');
 
 window.connectSheets = async () => {
   const url = document.getElementById('sheets-url').value.trim();
+  const namesInput = document.getElementById('sheets-names').value.trim();
   if (!url) { alert('구글 시트 URL을 입력하세요.'); return; }
-  sheetsUrl = url;
-  await saveUserData();
-  updateSheetsBtn(true);
-  closeSheetsModalDirect();
-  alert('연결 설정이 저장되었습니다!\n(실제 데이터 연동은 구글 시트 공유 설정 후 사용 가능합니다)');
+  const match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
+  if (!match) { alert('올바른 구글 시트 URL이 아닙니다.'); return; }
+  const id = match[1];
+  const names = namesInput ? namesInput.split(',').map(s => s.trim()).filter(Boolean) : [];
+  if (!names.length) { alert('읽어올 시트 이름을 입력하세요.\n예: 내시간표, 3학년과학, 4학년과학'); return; }
+  const btn = document.getElementById('sheets-connect-btn');
+  btn.textContent = '불러오는 중...'; btn.disabled = true;
+  try {
+    const result = await loadFromSheets(id, names);
+    sheetsUrl = url;
+    await saveUserData();
+    updateSheetsBtn(true);
+    buildMyTT(); renderClassTTs(); buildSyllabus(); buildProgress();
+    closeSheetsModalDirect();
+    alert(`불러오기 완료!\n${result.join('\n')}`);
+  } catch(e) {
+    alert('불러오기 실패: ' + e.message + '\n\n시트가 "링크가 있는 모든 사용자" 공개로 설정되어 있는지 확인하세요.');
+  } finally {
+    btn.textContent = '불러오기'; btn.disabled = false;
+  }
+};
+
+function parseCSV(text) {
+  const rows = [];
+  for (const line of text.trim().split('\n')) {
+    const cols = []; let cur = '', inQ = false;
+    for (const c of line) {
+      if (c === '"') inQ = !inQ;
+      else if (c === ',' && !inQ) { cols.push(cur.trim()); cur = ''; }
+      else cur += c;
+    }
+    cols.push(cur.trim());
+    rows.push(cols);
+  }
+  return rows;
+}
+
+async function loadFromSheets(id, names) {
+  const base = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&sheet=`;
+  const result = [];
+  for (const name of names) {
+    const res = await fetch(base + encodeURIComponent(name));
+    if (!res.ok) { result.push(`❌ "${name}" - 시트를 찾을 수 없음`); continue; }
+    const text = await res.text();
+    if (text.trim().startsWith('<!')) { result.push(`❌ "${name}" - 접근 거부 (공개 설정 확인)`); continue; }
+    const rows = parseCSV(text);
+    if (!rows.length || !rows[0].length) { result.push(`⚠ "${name}" - 데이터 없음`); continue; }
+    const headers = rows[0].map(h => h.toLowerCase());
+    if (headers.includes('교시') && (headers.includes('월') || headers.includes('화'))) {
+      // 내 시간표
+      for (let i = 1; i < rows.length; i++) {
+        const p = parseInt(rows[i][0]);
+        if (p >= 1 && p <= 5) {
+          myTT[p] = [rows[i][1]||'', rows[i][2]||'', rows[i][3]||'', rows[i][4]||'', rows[i][5]||''];
+        }
+      }
+      result.push(`✅ "${name}" → 내 시간표 (${rows.length-1}교시)`);
+    } else if (headers.includes('차시') || headers.includes('단원')) {
+      // 진도표
+      const chIdx = headers.indexOf('차시'), unitIdx = headers.indexOf('단원');
+      const topicIdx = headers.indexOf('학습주제'), prepIdx = headers.indexOf('준비물'), statusIdx = headers.indexOf('상태');
+      syllabusData[name] = rows.slice(1).filter(r => r[chIdx||0]).map(r => ({
+        ch: r[chIdx]||'', unit: r[unitIdx>=0?unitIdx:1]||'', topic: r[topicIdx>=0?topicIdx:2]||'',
+        prep: r[prepIdx>=0?prepIdx:3]||'', status: r[statusIdx>=0?statusIdx:4]||'todo'
+      }));
+      result.push(`✅ "${name}" → 진도표 (${syllabusData[name].length}차시)`);
+    } else if (/^\d+-\d+$/.test(name)) {
+      // 담당 학급 시간표 (예: 3-1)
+      const existing = classTTList.find(c => c.name === name);
+      const tt = [0,1,2,3,4].map(p => [0,1,2,3,4].map(d => (rows[p+1] && rows[p+1][d+1]) ? rows[p+1][d+1] : ''));
+      if (existing) existing.tt = tt;
+      else { classTTList.push({ name, tt }); classTTList.sort((a,b) => a.name.localeCompare(b.name)); }
+      result.push(`✅ "${name}" → 담당 학급 시간표`);
+    } else {
+      result.push(`⚠ "${name}" - 형식 인식 불가 (헤더: ${rows[0].slice(0,3).join(', ')})`);
+    }
+  }
+  return result;
 };
 
 function updateSheetsBtn(connected) {
