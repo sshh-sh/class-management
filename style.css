@@ -103,10 +103,16 @@ body{font-family:'Noto Sans KR',sans-serif;font-size:17px;background:#f5f5f5;col
 .btn-sm:hover{background:#f0f0f0;}
 
 .table-wrap{overflow-x:auto;}
-.data-table{width:100%;border-collapse:collapse;font-size:19px;}
-.data-table th{background:#f8f8f8;padding:10px 14px;font-weight:500;color:#888;border:0.5px solid #eee;text-align:left;white-space:nowrap;}
-.data-table td{padding:10px 14px;border:0.5px solid #eee;color:#222;vertical-align:middle;}
+.data-table{width:100%;border-collapse:collapse;font-size:19px;table-layout:fixed;}
+.data-table th{background:#f8f8f8;padding:10px 14px;font-weight:500;color:#888;border:0.5px solid #eee;text-align:left;white-space:nowrap;overflow:hidden;}
+.data-table td{padding:10px 14px;border:0.5px solid #eee;color:#222;vertical-align:middle;overflow:hidden;text-overflow:ellipsis;}
 .data-table tr:hover td{background:#fafafa;}
+#journal-table th:nth-child(1),#journal-table td:nth-child(1){width:40px;text-align:center;}
+#journal-table th:nth-child(2),#journal-table td:nth-child(2){width:80px;}
+#journal-table th:nth-child(3),#journal-table td:nth-child(3){width:70px;}
+#journal-table th:nth-child(4),#journal-table td:nth-child(4){width:80px;}
+#journal-table th:nth-child(5),#journal-table td:nth-child(5){width:90px;}
+#journal-table th:nth-child(6),#journal-table td:nth-child(6){width:auto;white-space:normal;}
 .check-cell{width:18px;height:18px;border-radius:3px;border:0.5px solid #ddd;display:inline-block;vertical-align:middle;cursor:pointer;}
 .check-cell.done{background:#639922;border-color:#639922;}
 
