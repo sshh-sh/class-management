@@ -805,14 +805,6 @@ async function loadFromSheets(id, names) {
   return result;
 };
 
-function updateSheetsBtn(connected) {
-  const btn = document.getElementById('sheets-btn');
-  const icon = document.getElementById('sheets-status-icon');
-  const text = document.getElementById('sheets-status-text');
-  if (connected) { btn.classList.add('connected'); icon.textContent = '☁'; text.textContent = '구글 시트 연결됨 ✓'; }
-  else { btn.classList.remove('connected'); icon.textContent = '☁'; text.textContent = '구글 시트 연결'; }
-}
-
 window.downloadSheetsTemplate = () => {
   const csv = '\uFEFF시트 구성 안내\n시트1: 내 시간표\n교시,월,화,수,목,금\n1교시,,,,,\n\n시트2~: 학급 시간표\n교시,월,화,수,목,금\n\n진도표 시트: 과목명\n차시,단원,학습주제,준비물,상태\n';
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
