@@ -820,6 +820,65 @@ window.downloadSheetsTemplate = () => {
 };
 
 // ==================== 사용설명서 ====================
+// ==================== 구글 시트 연동 상태 모달 ====================
+window.openSheetsModal = () => {
+  document.getElementById('sheets-modal').classList.remove('hidden');
+  testSheetsConnection();
+};
+window.closeSheetsModal = (e) => { if (e.target === document.getElementById('sheets-modal')) closeSheetsModalDirect(); };
+window.closeSheetsModalDirect = () => document.getElementById('sheets-modal').classList.add('hidden');
+
+window.testSheetsConnection = async () => {
+  const box = document.getElementById('sheets-status-box');
+  const btn = document.getElementById('sheets-connect-btn');
+  box.innerHTML = '<div style="font-size:15px;color:#aaa;text-align:center;">연결 확인 중...</div>';
+  btn.disabled = true;
+  try {
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      body: JSON.stringify({ app: 'journal-management', action: 'loadJournal', userId: currentUser.email })
+    });
+    const result = await res.json();
+    if (result.success) {
+      box.innerHTML = `
+        <div style="text-align:center;padding:8px 0;">
+          <div style="font-size:28px;margin-bottom:8px;">✅</div>
+          <div style="font-size:16px;font-weight:500;color:#27500A;">구글 시트 연결됨</div>
+          <div style="font-size:13px;color:#aaa;margin-top:6px;">수업일지 ${result.journals?.length || 0}건 확인</div>
+        </div>`;
+      updateSheetsBtn(true);
+    } else {
+      throw new Error(result.message);
+    }
+  } catch(e) {
+    box.innerHTML = `
+      <div style="text-align:center;padding:8px 0;">
+        <div style="font-size:28px;margin-bottom:8px;">❌</div>
+        <div style="font-size:16px;font-weight:500;color:#A32D2D;">연결 실패</div>
+        <div style="font-size:12px;color:#aaa;margin-top:6px;">GAS 재배포 후 다시 시도하세요</div>
+      </div>`;
+    updateSheetsBtn(false);
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+function updateSheetsBtn(connected) {
+  const btn = document.getElementById('sheets-btn');
+  const icon = document.getElementById('sheets-status-icon');
+  const text = document.getElementById('sheets-status-text');
+  if (!btn) return;
+  if (connected) {
+    btn.classList.add('connected');
+    icon.textContent = '☁';
+    text.textContent = '구글 시트 연결됨 ✓';
+  } else {
+    btn.classList.remove('connected');
+    icon.textContent = '☁';
+    text.textContent = '구글 시트 연결 확인';
+  }
+}
+
 window.openHelp = () => document.getElementById('help-modal').classList.remove('hidden');
 window.closeHelp = (e) => { if (e.target === document.getElementById('help-modal')) closeHelpDirect(); };
 window.closeHelpDirect = () => document.getElementById('help-modal').classList.add('hidden');
