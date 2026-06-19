@@ -421,7 +421,9 @@ window.filterJournal = () => {
   const month = document.getElementById('jl-filter-month').value;
   let filtered = journalData;
   if (!showOldJournals) {
-    filtered = filtered.filter(j => j.date && j.date.startsWith(String(semYear)));
+    const startDate = `${semYear}-03-01`;
+    const endDate = `${semYear + 1}-03-01`;
+    filtered = filtered.filter(j => j.date && j.date >= startDate && j.date < endDate);
   }
   if (cls) filtered = filtered.filter(j => fmtClass(j.class) === cls);
   if (name) filtered = filtered.filter(j => j.name && j.name.includes(name));
