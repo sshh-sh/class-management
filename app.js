@@ -14,7 +14,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
 // GAS API URL
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbzC1_lWy8Lb9MVqBXTyRWAe1KzL94lxBSyq0g0lVtpB2j494AfupMPZkHP_S3YPRb6T/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxJ5fZqiWQnWdGRw_R3tC0zyh50NPXMUyYiANeRSFZU663rVZ3DjY7LtP4nZOKloslR/exec';
 
 const TIMES = ['09:00~09:40','09:50~10:30','10:40~11:20','11:30~12:10','13:00~13:40'];
 const DAY_NAMES = ['일','월','화','수','목','금','토'];
@@ -146,14 +146,15 @@ window.logout = async () => {
 async function loadUserData() {
   const userId = currentUser.email;
   try {
-    // 내 시간표 로드
+    // 내 시간표 + 담당 학급 시간표 로드
     const ttRes = await fetch(GAS_URL, {
       method: 'POST',
-      body: JSON.stringify({ app: 'journal-management', action: 'loadMyTimetable', userId })
+      body: JSON.stringify({ app: 'journal-management', action: 'loadAllTimetables', userId })
     });
     const ttData = await ttRes.json();
-    if (ttData.success && ttData.timetable) {
-      myTT = ttData.timetable;
+    if (ttData.success) {
+      if (ttData.myTT) myTT = ttData.myTT;
+      if (ttData.classTTList && ttData.classTTList.length) classTTList = ttData.classTTList;
     }
 
     // 진도표 로드
