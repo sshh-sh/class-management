@@ -847,7 +847,7 @@ window.testSheetsConnection = async () => {
       <div style="text-align:center;padding:8px 0;">
         <div style="font-size:28px;margin-bottom:8px;">❌</div>
         <div style="font-size:16px;font-weight:500;color:#A32D2D;">연결 실패</div>
-        <div style="font-size:12px;color:#aaa;margin-top:6px;">GAS 재배포 후 다시 시도하세요</div>
+        <div style="font-size:12px;color:#aaa;margin-top:6px;">${e.message}</div>
       </div>`;
     updateSheetsBtn(false);
   } finally {
