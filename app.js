@@ -341,7 +341,8 @@ window.autoFillClass = () => {
   if (!p) { document.getElementById('jp-class').value = ''; return; }
   const pNum = parseInt(p);
   const v = myTT[pNum] && myTT[pNum][selectedDow - 1] ? myTT[pNum][selectedDow - 1] : '';
-  document.getElementById('jp-class').value = v || '(수업 없음)';
+  const m = v.match(/(\d+-\d+)/);
+  document.getElementById('jp-class').value = m ? m[1] : (v || '(수업 없음)');
 };
 
 window.saveJournal = async () => {
@@ -388,7 +389,7 @@ async function loadJournal() {
     });
     const result = await res.json();
     if (result.success && result.journals) {
-      journalData = result.journals.sort((a, b) => new Date(b.date) - new Date(a.date));
+      journalData = result.journals.sort((a, b) => new Date(a.date) - new Date(b.date));
     }
   } catch(e) {
     console.log('수업일지 로드 실패:', e);
@@ -415,15 +416,28 @@ window.filterJournal = () => {
   renderJournal(filtered);
 };
 
+function fmtJournalDate(d) {
+  if (!d) return '';
+  const p = String(d).split('-');
+  if (p.length < 3) return d;
+  return `${parseInt(p[1])}월 ${parseInt(p[2])}일`;
+}
+
+function fmtClass(cls) {
+  if (!cls) return '';
+  const m = String(cls).match(/(\d+-\d+)/);
+  return m ? m[1] : cls;
+}
+
 function renderJournal(data) {
   const tbody = document.getElementById('journal-body');
   if (!data.length) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:16px;color:#aaa;">기록이 없습니다</td></tr>'; return; }
-  tbody.innerHTML = data.map(j => `
+  tbody.innerHTML = data.map((j, idx) => `
     <tr>
-      <td><span class="check-cell done"></span></td>
-      <td>${j.date ? j.date.slice(5).replace('-','/') : ''}</td>
+      <td style="text-align:center;color:#aaa;font-size:12px;">${idx + 1}</td>
+      <td>${fmtJournalDate(j.date)}</td>
       <td>${j.period || ''}</td>
-      <td>${j.class || ''}</td>
+      <td>${fmtClass(j.class)}</td>
       <td>${j.name || ''}</td>
       <td>${j.content || ''}</td>
     </tr>`).join('');
