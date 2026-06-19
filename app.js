@@ -14,7 +14,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
 // GAS API URL
-const GAS_URL = 'https://script.google.com/macros/s/AKfycby5dv26ZGerq0Dc5O6VROF-4LWpgQ1bCT5T2hKTJ8Krs4W1vnbxIbsz9VN67sTty7ic/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzd0ks_moqYgkzGdpMKIgmfIHVS2dl_wxlwD99lqnlm_rwX8owzisVa5LlgzRh631Dj/exec';
 
 const TIMES = ['09:00~09:40','09:50~10:30','10:40~11:20','11:30~12:10','13:00~13:40'];
 const DAY_NAMES = ['일','월','화','수','목','금','토'];
@@ -321,6 +321,15 @@ function openJournalPopup(d, dow) {
   document.getElementById('jp-content').value = '';
   document.getElementById('journal-popup').classList.remove('hidden');
 }
+
+window.openNewJournal = () => {
+  const today = new Date();
+  currentYear = today.getFullYear();
+  currentMonth = today.getMonth();
+  selectedDate = today.getDate();
+  selectedDow = today.getDay();
+  openJournalPopup(selectedDate, selectedDow);
+};
 
 window.closeJournalPopup = (e) => {
   if (e.target === document.getElementById('journal-popup')) closeJournalPopupDirect();
