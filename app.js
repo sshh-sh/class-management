@@ -14,7 +14,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
 // GAS API URL
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbxJ5fZqiWQnWdGRw_R3tC0zyh50NPXMUyYiANeRSFZU663rVZ3DjY7LtP4nZOKloslR/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxp2bp-x0n3jzrF9gw2vPLSY44Eetaqa4OzPoz5N8kbPfWVYD0riQ43N_iS3QluMe2_/exec';
 
 const TIMES = ['09:00~09:40','09:50~10:30','10:40~11:20','11:30~12:10','13:00~13:40'];
 const DAY_NAMES = ['일','월','화','수','목','금','토'];
@@ -110,7 +110,8 @@ async function initApp() {
   renderClassTTs();
   buildFullTimetable();
   buildSyllabus();
-  loadJournal();
+  renderJournal(journalData);
+  updateJournalFilter();
 
   const today = new Date();
   selectedDate = today.getDate();
@@ -143,43 +144,40 @@ window.logout = async () => {
 };
 
 // ==================== 데이터 로드/저장 ====================
+function applyUserData(d) {
+  if (d.myTT) myTT = d.myTT;
+  if (d.classTTList && d.classTTList.length) classTTList = d.classTTList;
+  if (d.syllabusData && Object.keys(d.syllabusData).length) syllabusData = d.syllabusData;
+  if (d.journals) journalData = d.journals.sort((a, b) => new Date(a.date) - new Date(b.date));
+}
+
 async function loadUserData() {
   const userId = currentUser.email;
-  try {
-    // 내 시간표 + 담당 학급 시간표 로드
-    const ttRes = await fetch(GAS_URL, {
-      method: 'POST',
-      body: JSON.stringify({ app: 'journal-management', action: 'loadAllTimetables', userId })
-    });
-    const ttData = await ttRes.json();
-    if (ttData.success) {
-      if (ttData.myTT) myTT = ttData.myTT;
-      if (ttData.classTTList && ttData.classTTList.length) classTTList = ttData.classTTList;
-    }
+  const cacheKey = `userdata_${userId}`;
 
-    // 진도표 로드
-    const syllabuses = ['3학년 과학', '4학년 과학', '5학년 과학', '6학년 과학', '2학년 놀이'];
-    for (const subject of syllabuses) {
-      const sylRes = await fetch(GAS_URL, {
-        method: 'POST',
-        body: JSON.stringify({ app: 'journal-management', action: 'loadSyllabus', userId, subject })
-      });
-      const sylData = await sylRes.json();
-      if (sylData.success && sylData.items) {
-        syllabusData[subject] = sylData.items.map(item => ({
-          ch: item.ch,
-          unit: item.unit,
-          topic: item.topic,
-          prep: item.prep,
-          status: 'todo'
-        }));
-      }
+  // 캐시된 데이터 즉시 적용 (GAS 응답 전에 화면 표시)
+  try {
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) applyUserData(JSON.parse(cached));
+  } catch(e) {}
+
+  // GAS에서 최신 데이터 한 번에 로드
+  try {
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      body: JSON.stringify({ app: 'journal-management', action: 'loadAll', userId })
+    });
+    const d = await res.json();
+    if (d.success) {
+      applyUserData(d);
+      localStorage.setItem(cacheKey, JSON.stringify({
+        myTT, classTTList, syllabusData, journals: journalData
+      }));
     }
   } catch(e) {
     console.log('데이터 로드 실패:', e);
   }
 
-  // 기본값 설정
   if (!progressData.length) {
     progressData = [
       {n:'3학년 과학', done:0, total:50, color:'#B5D4F4', warn:false},
