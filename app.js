@@ -14,7 +14,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
 // GAS API URL
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbzd0ks_moqYgkzGdpMKIgmfIHVS2dl_wxlwD99lqnlm_rwX8owzisVa5LlgzRh631Dj/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzC1_lWy8Lb9MVqBXTyRWAe1KzL94lxBSyq0g0lVtpB2j494AfupMPZkHP_S3YPRb6T/exec';
 
 const TIMES = ['09:00~09:40','09:50~10:30','10:40~11:20','11:30~12:10','13:00~13:40'];
 const DAY_NAMES = ['일','월','화','수','목','금','토'];
@@ -377,6 +377,8 @@ window.saveJournal = async () => {
 };
 
 // ==================== 수업일지 탭 ====================
+let showOldJournals = false;
+
 async function loadJournal() {
   try {
     const res = await fetch(GAS_URL, {
@@ -401,16 +403,26 @@ async function loadJournal() {
 
 function updateJournalFilter() {
   const sel = document.getElementById('jl-filter-class');
-  const classes = [...new Set(journalData.map(j => j.class).filter(Boolean))].sort();
+  const classes = [...new Set(journalData.map(j => fmtClass(j.class)).filter(Boolean))].sort();
   sel.innerHTML = '<option value="">전체 학급</option>' + classes.map(c => `<option>${c}</option>`).join('');
 }
+
+window.toggleOldJournals = () => {
+  showOldJournals = !showOldJournals;
+  const btn = document.getElementById('toggle-old-btn');
+  btn.textContent = showOldJournals ? '이전 학년도 숨기기' : '이전 학년도 보기';
+  filterJournal();
+};
 
 window.filterJournal = () => {
   const cls = document.getElementById('jl-filter-class').value;
   const name = document.getElementById('jl-filter-name').value.trim();
   const month = document.getElementById('jl-filter-month').value;
   let filtered = journalData;
-  if (cls) filtered = filtered.filter(j => j.class === cls);
+  if (!showOldJournals) {
+    filtered = filtered.filter(j => j.date && j.date.startsWith(String(semYear)));
+  }
+  if (cls) filtered = filtered.filter(j => fmtClass(j.class) === cls);
   if (name) filtered = filtered.filter(j => j.name && j.name.includes(name));
   if (month) filtered = filtered.filter(j => j.date && j.date.startsWith(month));
   renderJournal(filtered);
