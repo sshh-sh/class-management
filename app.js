@@ -585,13 +585,20 @@ function renderClassTTs() {
               ${[0,1,2,3,4].map(d => {
                 const v = cls.tt && cls.tt[p] && cls.tt[p][d] ? cls.tt[p][d] : '';
                 const isMine = v && (myTT[p+1] && myTT[p+1][d] === v);
-                return `<td class="${isMine?'mine':''}">${v||'—'}</td>`;
+                return `<td class="${isMine?'mine':''}"><input value="${v||''}" placeholder="—" onchange="updateClsTT('${cls.name.replace(/'/g,"\\'")}',${p},${d},this.value)"></td>`;
               }).join('')}
             </tr>`).join('')}</tbody>
           </table>
         </div>`).join('')}
     </div>`).join('');
 }
+
+window.updateClsTT = (name, p, d, val) => {
+  const cls = classTTList.find(c => c.name === name);
+  if (!cls) return;
+  if (!Array.isArray(cls.tt[p])) cls.tt[p] = ['','','','',''];
+  cls.tt[p][d] = val;
+};
 
 window.downloadMyTTTemplate = () => {
   const csv = '\uFEFF교시,월,화,수,목,금\n' + [1,2,3,4,5].map(p => `${p}교시,,,,,`).join('\n');
