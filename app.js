@@ -239,7 +239,7 @@ function buildCalendar() {
       rows += `<td><div class="${cls}" onclick="selectDay(${d},${c+1})"><span>${d}</span></div></td>`;
     }
     rows += '</tr>';
-    startD += 5;
+    startD += 7;
   }
   body.innerHTML = rows;
 }
