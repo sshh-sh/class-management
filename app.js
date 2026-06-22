@@ -110,7 +110,7 @@ async function initApp() {
   renderClassTTs();
   buildFullTimetable();
   buildSyllabus();
-  renderJournal(journalData);
+  filterJournal();
   updateJournalFilter();
 
   const today = new Date();
@@ -280,12 +280,15 @@ function renderWeek(d, dow) {
 }
 
 function getSyllabusCurrent(cls) {
+  const grade = cls.split('-')[0];
   for (const subject in syllabusData) {
+    if (!subject.includes(grade + '학년')) continue;
     const items = syllabusData[subject];
-    if (!items) continue;
-    const next = items.find(i => i.status === 'next');
-    const relevant = next && (next.class === cls || subject.includes(cls.split('-')[0] + '학년'));
-    if (relevant) return { unit: next.unit, topic: next.topic, prep: next.prep, cur: items.filter(i => i.status === 'done').length + 1, total: items.length };
+    if (!items || !items.length) continue;
+    const next = items.find(i => !isDone(i));
+    if (!next) continue;
+    const doneCount = items.filter(i => isDone(i)).length;
+    return { unit: next.unit, topic: next.topic, prep: next.prep, cur: doneCount + 1, total: items.length };
   }
   return null;
 }
@@ -397,7 +400,7 @@ async function loadJournal() {
     console.log('수업일지 로드 실패:', e);
     journalData = [];
   }
-  renderJournal(journalData);
+  filterJournal();
   updateJournalFilter();
 }
 
@@ -484,7 +487,8 @@ window.saveMyTT = async () => {
         userId: currentUser.email,
         myTT,
         classTTList,
-        events: timetableEvents
+        events: timetableEvents,
+        semYear
       })
     });
     const result = await res.json();
@@ -618,6 +622,10 @@ window.handleMyTTUpload = (input) => { if (input.files[0]) alert(`"${input.files
 window.handleClsTTUpload = (input) => { if (input.files[0]) alert(`"${input.files[0].name}" 업로드 기능은 준비 중입니다.`); };
 
 // ==================== 진도표 ====================
+function isDone(r) {
+  return r.done === true || r.done === 'true' || r.done === 'TRUE';
+}
+
 function buildSyllabus() {
   const subjects = Object.keys(syllabusData);
   const tabBar = document.getElementById('syllabus-tabs');
@@ -636,15 +644,30 @@ function buildSyllabus() {
         <button class="btn-xs" onclick="deleteSyllabusSubject('${s.replace(/'/g,"\\'")}')">🗑 과목 삭제</button>
       </div>
       <table class="syl-table">
-        <thead><tr><th style="width:44px;">차시</th><th>단원</th><th>학습주제</th><th>준비물</th><th style="width:80px;">상태</th></tr></thead>
-        <tbody>${(syllabusData[s]||[]).map((r,idx) => `
-          <tr>
-            <td style="text-align:center;"><input value="${r.ch}" style="width:40px;text-align:center;border:none;font-size:inherit;background:transparent;" onchange="updateSylField('${s.replace(/'/g,"\\'")}',${idx},'ch',this.value)"></td>
-            <td><input value="${r.unit}" style="width:100%;border:none;font-size:inherit;background:transparent;" onchange="updateSylField('${s.replace(/'/g,"\\'")}',${idx},'unit',this.value)"></td>
-            <td><input value="${r.topic}" style="width:100%;border:none;font-size:inherit;background:transparent;" onchange="updateSylField('${s.replace(/'/g,"\\'")}',${idx},'topic',this.value)"></td>
-            <td><input value="${r.prep}" style="width:100%;border:none;font-size:inherit;background:transparent;" onchange="updateSylField('${s.replace(/'/g,"\\'")}',${idx},'prep',this.value)"></td>
-            <td style="text-align:center;"><span class="status-badge status-${r.status}" onclick="toggleStatus('${s.replace(/'/g,"\\'")}',${idx})">${r.status==='done'?'완료':r.status==='next'?'다음수업':'예정'}</span></td>
-          </tr>`).join('')}
+        <thead><tr>
+          <th style="width:54px;">차시</th>
+          <th>단원</th>
+          <th>학습주제</th>
+          <th>준비물</th>
+          <th>메모</th>
+          <th style="width:44px;">완료</th>
+        </tr></thead>
+        <tbody>${(syllabusData[s]||[]).map((r,idx) => {
+          const done = isDone(r);
+          const memo = (r.memo||'').replace(/"/g,'&quot;');
+          const isUrl = (r.memo||'').startsWith('http');
+          return `<tr class="${done ? 'syl-done-row' : ''}">
+            <td style="text-align:center;"><input value="${String(r.ch||'')}" style="width:50px;text-align:center;border:none;font-size:inherit;background:transparent;" onchange="updateSylField('${s.replace(/'/g,"\\'")}',${idx},'ch',this.value)"></td>
+            <td><input value="${(r.unit||'').replace(/"/g,'&quot;')}" style="width:100%;border:none;font-size:inherit;background:transparent;" onchange="updateSylField('${s.replace(/'/g,"\\'")}',${idx},'unit',this.value)"></td>
+            <td><input value="${(r.topic||'').replace(/"/g,'&quot;')}" style="width:100%;border:none;font-size:inherit;background:transparent;" onchange="updateSylField('${s.replace(/'/g,"\\'")}',${idx},'topic',this.value)"></td>
+            <td><input value="${(r.prep||'').replace(/"/g,'&quot;')}" style="width:100%;border:none;font-size:inherit;background:transparent;" onchange="updateSylField('${s.replace(/'/g,"\\'")}',${idx},'prep',this.value)"></td>
+            <td class="syl-memo-cell">
+              <input value="${memo}" style="width:100%;border:none;font-size:inherit;background:transparent;" onchange="updateSylField('${s.replace(/'/g,"\\'")}',${idx},'memo',this.value)">
+              ${isUrl ? `<a href="${(r.memo||'').replace(/"/g,'&quot;')}" target="_blank" rel="noopener" class="syl-link-btn" title="링크 열기">🔗</a>` : ''}
+            </td>
+            <td style="text-align:center;"><input type="checkbox" class="syl-done-check" ${done ? 'checked' : ''} onchange="toggleDone('${s.replace(/'/g,"\\'")}',${idx},this.checked)"></td>
+          </tr>`;
+        }).join('')}
         </tbody>
       </table>
       <button class="btn-xs" style="margin-top:8px;" onclick="addSyllabusRow('${s.replace(/'/g,"\\'")}')">+ 행 추가</button>
@@ -660,19 +683,18 @@ window.switchSyllabus = (name, el) => {
   if (el2) el2.classList.add('active');
 };
 
-window.toggleStatus = async (subject, idx) => {
-  const item = syllabusData[subject][idx];
-  const statuses = ['todo','next','done'];
-  const cur = statuses.indexOf(item.status);
-  item.status = statuses[(cur + 1) % 3];
-  await saveUserData();
-  buildSyllabus();
+window.toggleDone = async (subject, idx, checked) => {
+  if (syllabusData[subject]?.[idx]) {
+    syllabusData[subject][idx].done = checked;
+    await saveUserData();
+    buildSyllabus();
+  }
 };
 
 window.handleSylUpload = (input, subject) => { if (input.files[0]) alert(`"${input.files[0].name}" 업로드 기능은 준비 중입니다.`); };
 
 window.downloadSylTemplate = () => {
-  const csv = '﻿과목,차시,단원,학습주제,준비물,상태\n3학년 과학,1,1. 생물과 환경,먹이 사슬과 먹이 그물,교과서,todo\n3학년 과학,2,1. 생물과 환경,생태계 평형,교과서,todo\n';
+  const csv = '﻿과목,차시,단원,학습주제,준비물,메모,완료\n3학년 과학,1,1. 생물과 환경,먹이 사슬과 먹이 그물,교과서,,\n3학년 과학,2,1. 생물과 환경,생태계 평형,교과서,,\n';
   const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = '진도표_양식.csv'; a.click();
 };
@@ -687,9 +709,9 @@ window.handleSylGlobalUpload = (input) => {
     lines.forEach(row => {
       const cols = row.split(',').map(c => c.trim().replace(/^"|"$/g,''));
       if (cols.length < 4 || !cols[0]) return;
-      const [subject, ch, unit, topic, prep, status] = cols;
+      const [subject, ch, unit, topic, prep, memo, doneVal] = cols;
       if (!syllabusData[subject]) syllabusData[subject] = [];
-      syllabusData[subject].push({ch:ch||'', unit:unit||'', topic:topic||'', prep:prep||'', status:status||'todo'});
+      syllabusData[subject].push({ch:ch||'', unit:unit||'', topic:topic||'', prep:prep||'', memo:memo||'', done:doneVal==='완료'||doneVal==='TRUE'||doneVal==='true'});
     });
     await saveUserData();
     buildSyllabus();
@@ -743,7 +765,7 @@ window.deleteSyllabusSubject = async (subject) => {
 
 window.addSyllabusRow = async (subject) => {
   const ch = (syllabusData[subject]?.length || 0) + 1;
-  syllabusData[subject].push({ ch: String(ch), unit: '', topic: '', prep: '', status: 'todo' });
+  syllabusData[subject].push({ ch: String(ch), unit: '', topic: '', prep: '', memo: '', done: false });
   await saveUserData();
   buildSyllabus();
   setTimeout(() => {
