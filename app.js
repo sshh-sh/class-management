@@ -14,7 +14,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
 // GAS API URL
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbzDcQxru6pIQtoplMTYZF0lVZNClH8FPQmydPlCd1y3D6bH1xRFGZyw_D_7uQelSil9/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxAq9_dZ0CtJvGpDKFCtMNO4_e7Vbo0OdXd9SyzSDmmokNNs4nn0yfR5tXcAKiO9deA/exec';
 
 const TIMES = ['09:00~09:40','09:50~10:30','10:40~11:20','11:30~12:10','13:00~13:40'];
 const DAY_NAMES = ['일','월','화','수','목','금','토'];
@@ -626,6 +626,15 @@ function isDone(r) {
   return r.done === true || r.done === 'true' || r.done === 'TRUE';
 }
 
+function sylCell(val, field, r, idx, subjectEsc) {
+  const esc = String(val||'').replace(/"/g,'&quot;');
+  const url = (r._links && r._links[field]) ||
+              (field === 'memo' && String(val||'').startsWith('http') ? String(val) : '');
+  const inp = `<input value="${esc}" style="width:100%;border:none;font-size:inherit;background:transparent;" onchange="updateSylField('${subjectEsc}',${idx},'${field}',this.value)">`;
+  if (!url) return inp;
+  return `<div class="syl-cell-link">${inp}<a href="${url.replace(/"/g,'&quot;')}" target="_blank" rel="noopener" class="syl-link-btn" title="링크 열기">🔗</a></div>`;
+}
+
 function buildSyllabus() {
   const subjects = Object.keys(syllabusData);
   const tabBar = document.getElementById('syllabus-tabs');
@@ -654,18 +663,14 @@ function buildSyllabus() {
         </tr></thead>
         <tbody>${(syllabusData[s]||[]).map((r,idx) => {
           const done = isDone(r);
-          const memo = (r.memo||'').replace(/"/g,'&quot;');
-          const isUrl = (r.memo||'').startsWith('http');
+          const se = s.replace(/'/g,"\\'");
           return `<tr class="${done ? 'syl-done-row' : ''}">
-            <td style="text-align:center;"><input value="${String(r.ch||'')}" style="width:50px;text-align:center;border:none;font-size:inherit;background:transparent;" onchange="updateSylField('${s.replace(/'/g,"\\'")}',${idx},'ch',this.value)"></td>
-            <td><input value="${(r.unit||'').replace(/"/g,'&quot;')}" style="width:100%;border:none;font-size:inherit;background:transparent;" onchange="updateSylField('${s.replace(/'/g,"\\'")}',${idx},'unit',this.value)"></td>
-            <td><input value="${(r.topic||'').replace(/"/g,'&quot;')}" style="width:100%;border:none;font-size:inherit;background:transparent;" onchange="updateSylField('${s.replace(/'/g,"\\'")}',${idx},'topic',this.value)"></td>
-            <td><input value="${(r.prep||'').replace(/"/g,'&quot;')}" style="width:100%;border:none;font-size:inherit;background:transparent;" onchange="updateSylField('${s.replace(/'/g,"\\'")}',${idx},'prep',this.value)"></td>
-            <td class="syl-memo-cell">
-              <input value="${memo}" style="width:100%;border:none;font-size:inherit;background:transparent;" onchange="updateSylField('${s.replace(/'/g,"\\'")}',${idx},'memo',this.value)">
-              ${isUrl ? `<a href="${(r.memo||'').replace(/"/g,'&quot;')}" target="_blank" rel="noopener" class="syl-link-btn" title="링크 열기">🔗</a>` : ''}
-            </td>
-            <td style="text-align:center;"><input type="checkbox" class="syl-done-check" ${done ? 'checked' : ''} onchange="toggleDone('${s.replace(/'/g,"\\'")}',${idx},this.checked)"></td>
+            <td style="text-align:center;">${sylCell(r.ch,'ch',r,idx,se)}</td>
+            <td>${sylCell(r.unit,'unit',r,idx,se)}</td>
+            <td>${sylCell(r.topic,'topic',r,idx,se)}</td>
+            <td>${sylCell(r.prep,'prep',r,idx,se)}</td>
+            <td>${sylCell(r.memo,'memo',r,idx,se)}</td>
+            <td style="text-align:center;"><input type="checkbox" class="syl-done-check" ${done ? 'checked' : ''} onchange="toggleDone('${se}',${idx},this.checked)"></td>
           </tr>`;
         }).join('')}
         </tbody>
