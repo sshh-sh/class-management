@@ -47,6 +47,13 @@ function doPost(e) {
         result = loadSyllabus(userId, data.subject);
       } else if (action === 'saveSyllabus') {
         result = saveSyllabus(userId, data.subject, data.sylData);
+      } else if (action === 'extractImages') {
+        result = extractAndSaveImages();
+      } else if (action === 'setupTimetableSheet') {
+        const ss2 = jm_getSpreadsheet();
+        const ts = ss2.getSheetByName('시간표') || ss2.insertSheet('시간표');
+        setupTimetableTemplate(ts);
+        result = { success: true, message: '시간표 양식이 초기화되었습니다.' };
       } else {
         result = {success: false, message: '알 수 없는 액션'};
       }
@@ -294,16 +301,194 @@ function jm_journalSheet() {
   return s;
 }
 
+// ─── 시간표 탭 고정 행 위치 (절대 변경 금지) ───
+// Row 1: 타이틀 / Row 2: 안내 / Row 3: 빈칸
+// Row 4: ① 기본시간표 섹션 / Row 5: 컬럼헤더
+// Rows 6-11: 내시간표 (1교시~6교시)
+// Row 12: 빈칸
+// Row 13: ② 방학 섹션 / Row 14: 컬럼헤더
+// Rows 15-24: 방학 (10 슬롯)
+// Row 25: 빈칸
+// Row 26: ③ 행사 섹션 / Row 27: 컬럼헤더
+// Rows 28-37: 행사 (10 슬롯)
+// Row 38: 빈칸
+// Row 39: ④ 필요시수 섹션 / Row 40: 컬럼헤더
+// Rows 41-50: 필요시수 (10 슬롯)
+// Row 51: 빈칸
+// Row 52: ⑤ 담당학급 섹션 / Row 53: 컬럼헤더
+// Row 54+: 담당학급 data (가변)
+
 function jm_timetableSheet() {
   const ss = jm_getSpreadsheet();
   let s = ss.getSheetByName('시간표');
   if (!s) {
     s = ss.insertSheet('시간표');
-    s.getRange(1,1,1,7).setValues([['구분','교시/학급','월','화','수','목','금']]);
-    s.getRange(1,1,1,7).setFontWeight('bold').setBackground('#34A853').setFontColor('white');
-    s.setFrozenRows(1);
+    setupTimetableTemplate(s);
+  } else {
+    // A1이 '타이틀'이 아니면 새 템플릿 미적용 → 초기화
+    const a1 = String(s.getRange(1, 1).getValue() || '').trim();
+    if (a1 !== '타이틀') setupTimetableTemplate(s);
   }
   return s;
+}
+
+function setupTimetableTemplate(s) {
+  s.clear();
+
+  // A열=타입마커(숨김), B~G=사용자 표시 영역
+  const rows = [
+    // ① 기본 메타 (rows 1-3)
+    ['타이틀', '📅 일해용! 전담 — 시간표 시스템', '', '', '', '', ''],
+    ['안내', '💡 노란색 칸에 직접 입력 | 시트 수정 후 웹에서 [🔄 시트에서 새로고침] 클릭', '', '', '', '', ''],
+    ['빈칸', '', '', '', '', '', ''],
+    // ① 기본시간표 (rows 4-11)
+    ['섹션', '① 기본시간표 (1주 패턴) — 요일별 교시 칸에 과목/학급 입력 (예: 과학, 3-1)', '', '', '', '', ''],
+    ['컬럼헤더', '교시', '월', '화', '수', '목', '금'],
+    ['내시간표', '1교시', '', '', '', '', ''],
+    ['내시간표', '2교시', '', '', '', '', ''],
+    ['내시간표', '3교시', '', '', '', '', ''],
+    ['내시간표', '4교시', '', '', '', '', ''],
+    ['내시간표', '5교시', '', '', '', '', ''],
+    ['내시간표', '6교시', '', '', '', '', ''],
+    ['빈칸', '', '', '', '', '', ''],
+    // ② 방학 기간 (rows 13-25)
+    ['섹션', '② 방학 기간 — 수업이 없는 기간 입력 (날짜 형식: 2026-07-21)', '', '', '', '', ''],
+    ['컬럼헤더', '시작일', '종료일', '방학명', '', '', ''],
+    ['방학', '2026-07-21', '2026-08-23', '여름방학', '', '', ''],
+    ['방학', '2026-12-26', '2027-01-19', '겨울방학', '', '', ''],
+    ['방학', '', '', '', '', '', ''],
+    ['방학', '', '', '', '', '', ''],
+    ['방학', '', '', '', '', '', ''],
+    ['방학', '', '', '', '', '', ''],
+    ['방학', '', '', '', '', '', ''],
+    ['방학', '', '', '', '', '', ''],
+    ['방학', '', '', '', '', '', ''],
+    ['방학', '', '', '', '', '', ''],
+    ['빈칸', '', '', '', '', '', ''],
+    // ③ 행사일 (rows 26-38)
+    ['섹션', '③ 행사일 (수업 없는 날) — 날짜 형식: 2026-05-05', '', '', '', '', ''],
+    ['컬럼헤더', '날짜', '행사명', '비고', '', '', ''],
+    ['행사', '', '', '', '', '', ''],
+    ['행사', '', '', '', '', '', ''],
+    ['행사', '', '', '', '', '', ''],
+    ['행사', '', '', '', '', '', ''],
+    ['행사', '', '', '', '', '', ''],
+    ['행사', '', '', '', '', '', ''],
+    ['행사', '', '', '', '', '', ''],
+    ['행사', '', '', '', '', '', ''],
+    ['행사', '', '', '', '', '', ''],
+    ['행사', '', '', '', '', '', ''],
+    ['빈칸', '', '', '', '', '', ''],
+    // ④ 과목별 필요시수 (rows 39-51)
+    ['섹션', '④ 과목별 필요시수 — 1학기/2학기 각각 필요한 수업 시수를 숫자로 입력', '', '', '', '', ''],
+    ['컬럼헤더', '학년/과목', '1학기 필요시수', '2학기 필요시수', '', '', ''],
+    ['필요시수', '2학년 즐거운생활', 40, 40, '', '', ''],
+    ['필요시수', '3학년 과학', 40, 40, '', '', ''],
+    ['필요시수', '4학년 과학', 51, 51, '', '', ''],
+    ['필요시수', '5학년 과학', 51, 51, '', '', ''],
+    ['필요시수', '6학년 과학', 51, 51, '', '', ''],
+    ['필요시수', '', '', '', '', '', ''],
+    ['필요시수', '', '', '', '', '', ''],
+    ['필요시수', '', '', '', '', '', ''],
+    ['필요시수', '', '', '', '', '', ''],
+    ['필요시수', '', '', '', '', '', ''],
+    ['빈칸', '', '', '', '', '', ''],
+    // ⑤ 담당학급 시간표 (rows 52-53 고정 헤더, 54+는 가변)
+    ['섹션', '⑤ 담당학급 시간표 (웹사이트에서 자동 저장 — 직접 수정도 가능)', '', '', '', '', ''],
+    ['컬럼헤더', '교시', '월', '화', '수', '목', '금'],
+  ];
+
+  s.getRange(1, 1, rows.length, 7).setValues(rows);
+
+  // ── 스타일 적용 ──
+  const COLORS = { purple: '#534AB7', light: '#E8F0FE', lightPurple: '#F0EFFE',
+                   yellow: '#FFFDE7', green: '#E8F5E9' };
+
+  // Row 1: 타이틀
+  s.getRange(1, 2, 1, 6).merge()
+    .setBackground(COLORS.purple).setFontColor('#fff').setFontSize(13)
+    .setFontWeight('bold').setHorizontalAlignment('center').setVerticalAlignment('middle');
+  s.setRowHeight(1, 38);
+
+  // Row 2: 안내
+  s.getRange(2, 2, 1, 6).merge()
+    .setBackground('#FFF9C4').setFontColor('#666').setFontSize(10)
+    .setHorizontalAlignment('center');
+  s.setRowHeight(2, 22);
+
+  // Row 3: 빈칸
+  s.getRange(3, 1, 1, 7).setBackground('#e8e8e8');
+  s.setRowHeight(3, 8);
+
+  // 섹션 헤더 행들: 4, 13, 26, 39, 52
+  [4, 13, 26, 39, 52].forEach(r => {
+    s.getRange(r, 2, 1, 6).merge()
+      .setBackground(COLORS.light).setFontColor('#1A56BD')
+      .setFontWeight('bold').setFontSize(11);
+    s.setRowHeight(r, 28);
+  });
+
+  // 컬럼헤더 행들: 5, 14, 27, 40, 53
+  [5, 14, 27, 40, 53].forEach(r => {
+    s.getRange(r, 2, 1, 6)
+      .setBackground(COLORS.lightPurple).setFontColor(COLORS.purple)
+      .setFontWeight('bold').setHorizontalAlignment('center');
+    s.setRowHeight(r, 24);
+  });
+
+  // 빈칸 구분선 행들: 12, 25, 38, 51
+  [12, 25, 38, 51].forEach(r => {
+    s.getRange(r, 1, 1, 7).setBackground('#e8e8e8');
+    s.setRowHeight(r, 8);
+  });
+
+  // ① 기본시간표 데이터: rows 6-11 (교시 레이블=B열, 입력칸=C~G열)
+  for (let r = 6; r <= 11; r++) {
+    s.getRange(r, 2).setBackground('#f5f5f5').setFontWeight('bold').setFontColor('#555')
+      .setHorizontalAlignment('center');
+    s.getRange(r, 3, 1, 5).setBackground(COLORS.yellow).setHorizontalAlignment('center');
+    s.setRowHeight(r, 26);
+  }
+
+  // ② 방학: rows 15-24 (B~D열 노란색)
+  s.getRange(15, 2, 10, 3).setBackground(COLORS.yellow);
+  for (let r = 15; r <= 24; r++) s.setRowHeight(r, 22);
+
+  // ③ 행사: rows 28-37 (B~D열 노란색)
+  s.getRange(28, 2, 10, 3).setBackground(COLORS.yellow);
+  for (let r = 28; r <= 37; r++) s.setRowHeight(r, 22);
+
+  // ④ 필요시수: rows 41-50
+  // 5개 기본과목(B열=회색라벨, C~D열=노란색), 5개 빈칸(B~D열=노란색)
+  for (let r = 41; r <= 45; r++) {
+    s.getRange(r, 2).setBackground('#f5f5f5').setFontWeight('bold').setFontColor('#444');
+    s.getRange(r, 3, 1, 2).setBackground(COLORS.yellow).setHorizontalAlignment('center');
+    s.setRowHeight(r, 22);
+  }
+  s.getRange(46, 2, 5, 3).setBackground(COLORS.yellow);
+  for (let r = 46; r <= 50; r++) s.setRowHeight(r, 22);
+
+  // ⑤ 담당학급 섹션 헤더 배경은 초록색으로 구분
+  s.getRange(52, 2, 1, 6).merge()
+    .setBackground(COLORS.green).setFontColor('#2E7D32')
+    .setFontWeight('bold').setFontSize(11);
+  s.getRange(53, 2, 1, 6)
+    .setBackground('#F1F8E9').setFontColor('#2E7D32')
+    .setFontWeight('bold').setHorizontalAlignment('center');
+
+  // 열 너비 설정
+  s.setColumnWidth(1, 20);   // A: 숨김 타입마커
+  s.setColumnWidth(2, 140);  // B: 교시/시작일/학년과목
+  s.setColumnWidth(3, 110);  // C: 월/종료일/1학기
+  s.setColumnWidth(4, 110);  // D: 화/방학명/2학기
+  s.setColumnWidth(5, 110);  // E: 수
+  s.setColumnWidth(6, 110);  // F: 목
+  s.setColumnWidth(7, 110);  // G: 금
+
+  // A열(타입마커) 숨기기
+  s.hideColumns(1);
+  // 타이틀+안내 고정
+  s.setFrozenRows(2);
 }
 
 function jm_syllabusSheet() {
@@ -311,9 +496,18 @@ function jm_syllabusSheet() {
   let s = ss.getSheetByName('진도표');
   if (!s) {
     s = ss.insertSheet('진도표');
-    s.getRange(1,1,1,7).setValues([['과목','기간','단원명','차시','학습주제','준비물','상태']]);
-    s.getRange(1,1,1,7).setFontWeight('bold').setBackground('#FBBC04').setFontColor('white');
+    s.getRange(1,1,1,8).setValues([['과목','기간','단원명','차시','학습주제','준비물','상태','링크']]);
+    s.getRange(1,1,1,8).setFontWeight('bold').setBackground('#FBBC04').setFontColor('white');
     s.setFrozenRows(1);
+    s.setColumnWidth(8, 300);
+    return s;
+  }
+  // 기존 시트에 링크 컬럼 없으면 추가 (하위 호환)
+  const headers = s.getRange(1, 1, 1, s.getLastColumn()).getValues()[0].map(String);
+  if (!headers.includes('링크')) {
+    const nextCol = s.getLastColumn() + 1;
+    s.getRange(1, nextCol).setValue('링크').setFontWeight('bold').setBackground('#FBBC04').setFontColor('white');
+    s.setColumnWidth(nextCol, 300);
   }
   return s;
 }
@@ -323,6 +517,8 @@ function loadAll(userId) {
   const ttResult = loadAllTimetables(userId);
   const sylSheet = jm_syllabusSheet();
   const sylRows = sylSheet.getDataRange().getValues();
+  const headers = sylRows[0] ? sylRows[0].map(String) : [];
+  const linkColIdx = headers.indexOf('링크');
   const syllabusData = {};
   for (let i = 1; i < sylRows.length; i++) {
     const subject = String(sylRows[i][0]||'').trim();
@@ -330,7 +526,9 @@ function loadAll(userId) {
     if (!syllabusData[subject]) syllabusData[subject] = [];
     syllabusData[subject].push({
       period: sylRows[i][1]||'', unit: String(sylRows[i][2]||''), ch: String(sylRows[i][3]||''),
-      topic: String(sylRows[i][4]||''), prep: String(sylRows[i][5]||''), status: String(sylRows[i][6]||'todo')
+      topic: String(sylRows[i][4]||''), prep: String(sylRows[i][5]||''),
+      status: String(sylRows[i][6]||'todo'),
+      links: linkColIdx >= 0 ? String(sylRows[i][linkColIdx]||'') : ''
     });
   }
   const journalResult = loadJournal(userId);
@@ -339,6 +537,8 @@ function loadAll(userId) {
     myTT: ttResult.myTT,
     classTTList: ttResult.classTTList,
     timetableEvents: ttResult.timetableEvents,
+    vacationPeriods: ttResult.vacationPeriods,
+    subjectHoursData: ttResult.subjectHoursData,
     syllabusData,
     journals: journalResult.journals
   };
@@ -388,159 +588,241 @@ function saveJournal(userId, j) {
 
 // ---------- 시간표 ----------
 function loadMyTimetable(userId) {
-  const s = jm_timetableSheet();
-  const data = s.getDataRange().getValues();
-  const myTT = {1:['','','','',''],2:['','','','',''],3:['','','','',''],4:['','','','',''],5:['','','','','']};
-
-  for (let i = 1; i < data.length; i++) {
-    const type = String(data[i][0]).trim();
-    const key  = String(data[i][1]).trim();
-    const row  = [String(data[i][2]||''), String(data[i][3]||''), String(data[i][4]||''), String(data[i][5]||''), String(data[i][6]||'')];
-    // '내시간표' 또는 구분 비어있는 사용자 직접입력 형식 (예: "1교시", "2교시")
-    if (type === '내시간표' || type === '') {
-      const pMatch = key.match(/^(\d+)/);
-      if (pMatch) {
-        const p = parseInt(pMatch[1]);
-        if (p >= 1 && p <= 5) myTT[p] = row;
-      }
-    }
-  }
-  return {success: true, timetable: myTT};
+  return loadAllTimetables(userId);
 }
 
 function saveMyTimetable(userId, ttData) {
-  const s = jm_timetableSheet();
-  const lastRow = s.getLastRow();
-  if (lastRow > 1) {
-    const data = s.getRange(2, 1, lastRow - 1, 7).getValues();
-    for (let i = data.length - 1; i >= 0; i--) {
-      const type = String(data[i][0]).trim();
-      const key  = String(data[i][1]).trim();
-      if (type === '내시간표' || (type === '' && /^\d+/.test(key))) {
-        s.deleteRow(i + 2);
-      }
-    }
-  }
-  for (let p = 1; p <= 5; p++) {
-    const tt = ttData[p] || ttData[String(p)] || ['','','','',''];
-    s.appendRow(['내시간표', p, tt[0]||'', tt[1]||'', tt[2]||'', tt[3]||'', tt[4]||'']);
-  }
-  return {success: true};
+  return saveTimetables(userId, ttData, null, null);
 }
 
 function loadAllTimetables(userId) {
   const s = jm_timetableSheet();
-  const data = s.getDataRange().getValues();
-  const myTT = {1:['','','','',''],2:['','','','',''],3:['','','','',''],4:['','','','',''],5:['','','','','']};
+  const lastRow = s.getLastRow();
+  const readLen = Math.max(lastRow, 53);
+  const allData = s.getRange(1, 1, readLen, 7).getValues();
+
+  const myTT = {};
   const classTTMap = {};
   const timetableEvents = {};
+  const vacationPeriods = [];
+  const subjectHoursData = {};
 
-  for (let i = 1; i < data.length; i++) {
-    const type = String(data[i][0]).trim();
-    const key  = String(data[i][1]).trim();
-    const row  = [String(data[i][2]||''), String(data[i][3]||''), String(data[i][4]||''), String(data[i][5]||''), String(data[i][6]||'')];
+  for (let i = 0; i < allData.length; i++) {
+    const type = String(allData[i][0] || '').trim();
+    if (!type || type === '타이틀' || type === '안내' || type === '빈칸' ||
+        type === '섹션' || type === '컬럼헤더') continue;
+
     if (type === '내시간표') {
-      const p = parseInt(key);
-      if (p >= 1 && p <= 5) myTT[p] = row;
-    } else if (type === '담당학급') {
-      const match = key.match(/^(.+)-(\d+)교시$/);
-      if (match) {
-        const clsName = match[1];
-        const p = parseInt(match[2]) - 1;
-        if (!classTTMap[clsName]) classTTMap[clsName] = [['','','','',''],['','','','',''],['','','','',''],['','','','',''],['','','','','']];
-        if (p >= 0 && p < 5) classTTMap[clsName][p] = row;
+      const label = String(allData[i][1] || '').trim();
+      const m = label.match(/^(\d+)/);
+      if (m) {
+        const p = parseInt(m[1]);
+        myTT[p] = [
+          String(allData[i][2]||''), String(allData[i][3]||''),
+          String(allData[i][4]||''), String(allData[i][5]||''), String(allData[i][6]||'')
+        ];
       }
+
+    } else if (type === '방학') {
+      const rawS = allData[i][1], rawE = allData[i][2];
+      if (!rawS || !rawE) continue;
+      const toStr = v => v instanceof Date
+        ? Utilities.formatDate(v, 'Asia/Seoul', 'yyyy-MM-dd') : String(v).trim();
+      const s1 = toStr(rawS), e1 = toStr(rawE);
+      if (/\d{4}-\d{2}-\d{2}/.test(s1) && /\d{4}-\d{2}-\d{2}/.test(e1)) {
+        vacationPeriods.push({ start: s1, end: e1, label: String(allData[i][3]||'방학').trim() });
+      }
+
     } else if (type === '행사') {
-      const evName = String(data[i][2]||'').trim();
-      if (key && evName && !key.startsWith('(')) timetableEvents[key] = evName;
+      const rawD = allData[i][1], evName = String(allData[i][2]||'').trim();
+      if (!rawD || !evName) continue;
+      const toStr = v => v instanceof Date
+        ? Utilities.formatDate(v, 'Asia/Seoul', 'yyyy-MM-dd') : String(v).trim();
+      const d = toStr(rawD);
+      if (/\d{4}-\d{2}-\d{2}/.test(d)) timetableEvents[d] = evName;
+
+    } else if (type === '필요시수') {
+      const subject = String(allData[i][1]||'').trim();
+      if (!subject) continue;
+      subjectHoursData[subject] = {
+        s1req: parseInt(allData[i][2]) || 0,
+        s2req: parseInt(allData[i][3]) || 0
+      };
+
+    } else if (type === '담당학급') {
+      const key = String(allData[i][1]||'').trim();
+      const m = key.match(/^(.+)-(\d+)교시$/);
+      if (!m) continue;
+      const cls = m[1], p = parseInt(m[2]) - 1;
+      if (!classTTMap[cls]) classTTMap[cls] = Array.from({length:6}, () => ['','','','','']);
+      if (p >= 0 && p < 6) {
+        classTTMap[cls][p] = [
+          String(allData[i][2]||''), String(allData[i][3]||''),
+          String(allData[i][4]||''), String(allData[i][5]||''), String(allData[i][6]||'')
+        ];
+      }
     }
   }
+
   const classTTList = Object.keys(classTTMap).sort().map(name => ({ name, tt: classTTMap[name] }));
-  return {success:true, myTT, classTTList, timetableEvents};
+  return { success:true, myTT, classTTList, timetableEvents, vacationPeriods, subjectHoursData };
 }
 
 function saveTimetables(userId, myTT, classTTList, events) {
   const s = jm_timetableSheet();
-  const lastRow = Math.max(s.getLastRow(), 2);
-  s.getRange(2, 1, lastRow - 1, 7).clear();
 
-  const rows = [];
-  const styles = []; // 'section' | 'data' | 'blank' | 'placeholder'
-
-  // ── 내 시간표 ──
-  rows.push(['■ 내 시간표', '', '월', '화', '수', '목', '금']); styles.push('section');
-  for (let p = 1; p <= 5; p++) {
-    const tt = myTT[p] || myTT[String(p)] || ['','','','',''];
-    rows.push(['내시간표', p, tt[0]||'', tt[1]||'', tt[2]||'', tt[3]||'', tt[4]||'']); styles.push('data');
+  // ① 기본시간표: rows 6-11의 C~G열만 업데이트 (A=타입마커, B=교시레이블 보존)
+  if (myTT) {
+    for (let p = 1; p <= 6; p++) {
+      const tt = myTT[p] || myTT[String(p)];
+      if (!tt) continue;
+      s.getRange(5 + p, 3, 1, 5)
+        .setValues([[tt[0]||'', tt[1]||'', tt[2]||'', tt[3]||'', tt[4]||'']]);
+    }
   }
 
-  // ── 담당 학급 시간표 ──
-  rows.push(['', '', '', '', '', '', '']); styles.push('blank');
-  rows.push(['■ 담당 학급 시간표', '학급-교시', '월', '화', '수', '목', '금']); styles.push('section');
+  // ⑤ 담당학급: row 54부터 기존 행 모두 삭제 후 재삽입
+  const currLast = s.getLastRow();
+  if (currLast >= 54) s.getRange(54, 1, currLast - 53, 7).clearContent().clearFormat();
+
   if (classTTList && classTTList.length) {
+    const rows = [], styles = [];
     for (const cls of classTTList) {
-      for (let p = 0; p < 5; p++) {
+      rows.push(['담당학급헤더', '[ ' + cls.name + ' ]', '월', '화', '수', '목', '금']);
+      styles.push('h');
+      for (let p = 0; p < 6; p++) {
         const tt = Array.isArray(cls.tt) ? (cls.tt[p] || ['','','','','']) : ['','','','',''];
-        rows.push(['담당학급', `${cls.name}-${p+1}교시`, tt[0]||'', tt[1]||'', tt[2]||'', tt[3]||'', tt[4]||'']); styles.push('data');
+        rows.push(['담당학급', `${cls.name}-${p+1}교시`, tt[0]||'', tt[1]||'', tt[2]||'', tt[3]||'', tt[4]||'']);
+        styles.push('d');
       }
+      rows.push(['', '', '', '', '', '', '']); styles.push('b');
     }
-  } else {
-    rows.push(['담당학급', '(예: 4-2-1교시)', '과목명', '', '', '', '']); styles.push('placeholder');
-  }
-
-  // ── 전체 시간표 행사 ──
-  rows.push(['', '', '', '', '', '', '']); styles.push('blank');
-  rows.push(['■ 전체 시간표 행사', '학년도-학기-주차', '행사명', '비고', '', '', '']); styles.push('section');
-  let hasEvents = false;
-  if (events) {
-    for (const key of Object.keys(events).sort()) {
-      if (events[key]) { rows.push(['행사', key, events[key], '', '', '', '']); styles.push('data'); hasEvents = true; }
+    s.getRange(54, 1, rows.length, 7).setValues(rows);
+    for (let i = 0; i < styles.length; i++) {
+      const r = s.getRange(54 + i, 1, 1, 7);
+      if (styles[i] === 'h') r.setBackground('#F0EFFE').setFontWeight('bold').setFontColor('#534AB7');
+      else if (styles[i] === 'd') {
+        r.setBackground('#fff').setFontColor('#222').setFontStyle('normal').setFontWeight('normal');
+        s.getRange(54 + i, 2).setFontWeight('bold').setFontColor('#666');
+      } else r.setBackground('#f0f0f0');
     }
   }
-  if (!hasEvents) {
-    rows.push(['행사', '(예: 2026-1-1)', '(행사명)', '(비고)', '', '', '']); styles.push('placeholder');
-  }
 
-  s.getRange(2, 1, rows.length, 7).setValues(rows);
-
-  // 스타일 적용
-  for (let i = 0; i < styles.length; i++) {
-    const r = s.getRange(i + 2, 1, 1, 7);
-    if (styles[i] === 'section') {
-      r.setBackground('#E8F0FE').setFontWeight('bold').setFontColor('#1A56BD').setFontStyle('normal');
-    } else if (styles[i] === 'placeholder') {
-      r.setBackground('#ffffff').setFontColor('#aaaaaa').setFontStyle('italic').setFontWeight('normal');
-    } else if (styles[i] === 'data') {
-      r.setBackground('#ffffff').setFontColor('#222222').setFontStyle('normal').setFontWeight('normal');
-    } else {
-      r.setBackground('#ffffff').setFontColor('#222222');
-    }
-  }
-  return {success:true};
+  s.hideColumns(1);
+  return { success: true };
 }
 
 // ---------- 진도표 ----------
 function loadSyllabus(userId, subject) {
   const s = jm_syllabusSheet();
   const data = s.getDataRange().getValues();
+  const headers = data[0] ? data[0].map(String) : [];
+  const linkColIdx = headers.indexOf('링크');
   const items = [];
   for (let i = 1; i < data.length; i++) {
     if (data[i][0] !== subject) continue;
-    items.push({ period:data[i][1], unit:data[i][2], ch:data[i][3], topic:data[i][4], prep:data[i][5], status:data[i][6]||'todo' });
+    items.push({
+      period:data[i][1], unit:data[i][2], ch:data[i][3], topic:data[i][4], prep:data[i][5],
+      status:data[i][6]||'todo',
+      links: linkColIdx >= 0 ? String(data[i][linkColIdx]||'') : ''
+    });
   }
   return {success:true, items};
 }
 
 function saveSyllabus(userId, subject, sylData) {
   const s = jm_syllabusSheet();
-  // 해당 과목 행만 삭제
   const data = s.getDataRange().getValues();
+  const headers = data[0] ? data[0].map(String) : [];
+  const linkColIdx = headers.indexOf('링크');
   for (let i = data.length - 1; i >= 1; i--) {
     if (data[i][0] === subject) s.deleteRow(i + 1);
   }
-  // 새로 추가
   sylData.forEach(item => {
-    s.appendRow([subject, item.period||'', item.unit||'', item.ch||'', item.topic||'', item.prep||'', item.status||'todo']);
+    const row = [subject, item.period||'', item.unit||'', item.ch||'', item.topic||'', item.prep||'', item.status||'todo', item.links||''];
+    // 컬럼 수가 부족하면 링크까지 포함해서 저장
+    if (linkColIdx < 0) {
+      // 헤더에 링크 컬럼 없을 경우 8컬럼으로 저장
+      s.appendRow(row);
+    } else {
+      // 링크 위치가 7번째가 아닌 경우 맞춤 저장
+      const rowData = [subject, item.period||'', item.unit||'', item.ch||'', item.topic||'', item.prep||'', item.status||'todo'];
+      while (rowData.length < linkColIdx) rowData.push('');
+      rowData[linkColIdx] = item.links||'';
+      s.appendRow(rowData);
+    }
   });
   return {success:true};
+}
+
+// ==================== 2번: 이미지 자동 추출 ====================
+function extractAndSaveImages() {
+  const ss = jm_getSpreadsheet();
+  const parentFolder = DriveApp.getFileById(ss.getId()).getParents().next();
+  let imageCount = 0;
+  const log = [];
+
+  const sheets = ss.getSheets();
+  for (const sheet of sheets) {
+    const sheetName = sheet.getName();
+
+    // 방법 1: =IMAGE() 수식에서 URL 추출
+    const lastRow = sheet.getLastRow();
+    const lastCol = sheet.getLastColumn();
+    if (lastRow > 0 && lastCol > 0) {
+      try {
+        const formulas = sheet.getRange(1, 1, lastRow, lastCol).getFormulas();
+        for (let r = 0; r < formulas.length; r++) {
+          for (let c = 0; c < formulas[r].length; c++) {
+            const f = formulas[r][c];
+            if (!f || !f.toUpperCase().includes('IMAGE')) continue;
+            const match = f.match(/IMAGE\(["']([^"']+)["']/i);
+            if (!match) continue;
+            const url = match[1];
+            imageCount++;
+            const fileName = 'image_' + String(imageCount).padStart(3, '0') + '.jpg';
+            try {
+              const response = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+              if (response.getResponseCode() === 200) {
+                parentFolder.createFile(response.getBlob().setName(fileName));
+                sheet.getRange(r + 1, c + 2).setValue(fileName);
+                log.push('✅ [' + sheetName + '] ' + (r+1) + '행 ' + (c+1) + '열 → ' + fileName);
+              }
+            } catch(e) {
+              log.push('❌ [' + sheetName + '] URL 다운로드 실패: ' + e.message);
+            }
+          }
+        }
+      } catch(e) {
+        log.push('⚠ [' + sheetName + '] 수식 읽기 오류: ' + e.message);
+      }
+    }
+
+    // 방법 2: 시트에 직접 삽입된 이미지 (OverGridImage)
+    try {
+      const images = sheet.getImages();
+      for (const img of images) {
+        imageCount++;
+        const cell = img.getAnchorCell();
+        const fileName = 'image_' + String(imageCount).padStart(3, '0') + '.png';
+        try {
+          const blob = img.getImageObject().getAs('image/png').setName(fileName);
+          parentFolder.createFile(blob);
+          sheet.getRange(cell.getRow(), cell.getColumn() + 1).setValue(fileName);
+          log.push('✅ [' + sheetName + '] 삽입 이미지 → ' + fileName + ' (' + cell.getA1Notation() + ' 옆에 저장)');
+        } catch(e) {
+          log.push('⚠ [' + sheetName + '] 삽입 이미지 추출 실패: ' + e.message);
+        }
+      }
+    } catch(e) {
+      log.push('⚠ [' + sheetName + '] getImages 오류: ' + e.message);
+    }
+  }
+
+  return {
+    success: true,
+    count: imageCount,
+    message: imageCount + '개 이미지 처리 완료',
+    log: log
+  };
 }

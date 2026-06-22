@@ -6,6 +6,10 @@
   <title>일해용! 전담</title>
   <link rel="stylesheet" href="style.css">
   <link rel="icon" href="images/ilhaeyong.jpg" type="image/jpeg">
+  <!-- 【6번】외부 도메인 preconnect: 첫 연결 레이턴시 단축 -->
+  <link rel="preconnect" href="https://www.gstatic.com">
+  <link rel="preconnect" href="https://firebaseapp.com">
+  <link rel="preconnect" href="https://script.google.com">
 </head>
 <body>
 
@@ -63,7 +67,7 @@
     <div class="header-left">
       <img src="images/ilhaeyong.jpg" class="header-icon-main" alt="일해용" onclick="location.reload()" title="새로고침" style="cursor:pointer;">
       <div>
-        <div class="app-title">일해용! 전담</div>
+        <div class="app-title" onclick="location.reload()" title="클릭하면 새로고침" style="cursor:pointer;">일해용! 전담</div>
         <select class="sem-select" id="sem-select" onchange="changeSemYear()"></select>
       </div>
     </div>
@@ -146,7 +150,12 @@
       <!-- 시간표 탭 안내 배너 -->
       <div class="tt-guide-banner">
         <span class="tt-guide-icon">☁</span>
-        <span>아래 내용은 모두 <b>구글 시트 &gt; 시간표</b> 탭에 자동 저장됩니다. 수정 후 <b>저장</b> 버튼을 누르세요.</span>
+        <span>아래 내용은 모두 <b>구글 시트 &gt; 시간표</b> 탭에 자동 저장됩니다. 수정 후 <b>저장</b> 버튼을 누르세요.
+          &nbsp;|&nbsp; 구글 시트에서 직접 수정한 경우 →
+          <button id="tt-refresh-btn" class="btn-xs" style="margin-left:4px;" onclick="refreshFromSheets()">🔄 시트에서 새로고침</button>
+          &nbsp;|&nbsp;
+          <button class="btn-xs" style="margin-left:4px;color:#888;" onclick="resetTimetableSheet()">📋 시트 양식 초기화</button>
+        </span>
       </div>
       <!-- 내 시간표 + 담당학급 (1:3 레이아웃) -->
       <div class="tt-bottom-grid">
@@ -181,6 +190,31 @@
           <div id="cls-tt-list"></div>
         </div>
       </div>
+      <!-- 방학·휴일 설정 -->
+      <div class="section-block vacation-block">
+        <div class="section-header">
+          <div>
+            <span class="section-title">방학·휴일 기간 설정</span>
+            <div class="section-desc">방학 기간 입력 시 연간 시간표에서 자동 제외됩니다</div>
+          </div>
+          <button class="btn-xs" onclick="addVacation()">+ 방학 추가</button>
+        </div>
+        <div id="vacation-list"><div class="vacation-empty">방학 기간이 없습니다. + 방학 추가 버튼으로 입력하세요.</div></div>
+      </div>
+      <!-- 과목별 시수 관리 -->
+      <div class="section-block">
+        <div class="section-header">
+          <div>
+            <span class="section-title">과목별 시수 관리</span>
+            <div class="section-desc">1·2학기 필요시수 입력 → 연간 시간표 자동 생성 시 활용</div>
+          </div>
+          <div class="btn-group">
+            <button class="btn-xs primary" onclick="generateAnnualTT()">📅 연간시간표 생성</button>
+            <button class="btn-xs" onclick="saveSubjectHoursData()">☁ 저장</button>
+          </div>
+        </div>
+        <div id="subject-hours-wrap"></div>
+      </div>
       <!-- 전체 시간표 -->
       <div class="section-block tt-full-section">
         <div class="section-header">
@@ -190,6 +224,17 @@
           </div>
         </div>
         <div id="full-timetable"></div>
+      </div>
+      <!-- 연간 시간표 결과 -->
+      <div class="section-block" id="annual-tt-section" style="display:none;">
+        <div class="section-header">
+          <div>
+            <span class="section-title">연간 시간표 (자동 생성)</span>
+            <div class="section-desc">기본시간표 + 방학 제외 + 과목별 시수 적용</div>
+          </div>
+          <button class="btn-xs" onclick="document.getElementById('annual-tt-section').style.display='none'">닫기</button>
+        </div>
+        <div id="annual-tt-result"></div>
       </div>
     </div>
 
@@ -201,7 +246,14 @@
           <button class="btn-xs" onclick="downloadSylTemplate()">&#8595; 양식</button>
           <button class="btn-xs primary" onclick="document.getElementById('syl-global-upload').click()">&#8593; 업로드</button>
           <input type="file" id="syl-global-upload" accept=".csv" style="display:none" onchange="handleSylGlobalUpload(this)">
-          <button class="btn-xs" onclick="saveSyllabus()">저장</button>
+          <button class="btn-xs" onclick="saveSyllabus()">☁ 저장</button>
+        </div>
+      </div>
+      <!-- 4번: 링크 고정 영역 -->
+      <div class="link-area" id="link-area">
+        <div class="link-area-inner">
+          <span class="link-area-hint" id="link-area-hint">행을 클릭하면 링크가 표시됩니다 (링크 칸: "주제,URL|주제,URL" 형식)</span>
+          <div class="link-buttons" id="link-buttons"></div>
         </div>
       </div>
       <div class="sub-tab-bar" id="syllabus-tabs"></div>
@@ -211,7 +263,8 @@
   </main>
 
   <footer class="app-footer">
-    © 2026 일해용!전담 · 개발 최송희. 무단 복제 및 배포를 금지합니다. v2
+    © 2026 일해용!전담 · 개발 최송희. 무단 복제 및 배포를 금지합니다.
+    <span class="version-badge" id="app-version">v2.0</span>
   </footer>
 </div>
 

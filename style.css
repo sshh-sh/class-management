@@ -107,12 +107,12 @@ body{font-family:'Noto Sans KR',sans-serif;font-size:17px;background:#f5f5f5;col
 .data-table th{background:#f8f8f8;padding:10px 14px;font-weight:500;color:#888;border:0.5px solid #eee;text-align:left;white-space:nowrap;overflow:hidden;}
 .data-table td{padding:10px 14px;border:0.5px solid #eee;color:#222;vertical-align:middle;overflow:hidden;text-overflow:ellipsis;}
 .data-table tr:hover td{background:#fafafa;}
-#journal-table th:nth-child(1),#journal-table td:nth-child(1){width:3%;text-align:center;}
+#journal-table th:nth-child(1),#journal-table td:nth-child(1){width:46px;text-align:center;overflow:visible;}
 #journal-table th:nth-child(2),#journal-table td:nth-child(2){width:8%;white-space:nowrap;}
 #journal-table th:nth-child(3),#journal-table td:nth-child(3){width:6%;white-space:nowrap;}
 #journal-table th:nth-child(4),#journal-table td:nth-child(4){width:6%;white-space:nowrap;}
 #journal-table th:nth-child(5),#journal-table td:nth-child(5){width:10%;white-space:nowrap;}
-#journal-table th:nth-child(6),#journal-table td:nth-child(6){width:67%;white-space:normal;}
+#journal-table th:nth-child(6),#journal-table td:nth-child(6){white-space:normal;}
 .check-cell{width:18px;height:18px;border-radius:3px;border:0.5px solid #ddd;display:inline-block;vertical-align:middle;cursor:pointer;}
 .check-cell.done{background:#639922;border-color:#639922;}
 
@@ -230,11 +230,138 @@ body{font-family:'Noto Sans KR',sans-serif;font-size:17px;background:#f5f5f5;col
 .full-tt .has-class{background:#EEEDFE;color:#3C3489;font-weight:500;}
 .full-tt .empty-cell{color:#ddd;}
 
+/* ==================== 링크 인라인 아이콘 (순서 셀) ==================== */
+.syl-seq-cell{position:relative;padding:2px!important;}
+.syl-seq{display:block;font-size:12px;color:#aaa;line-height:1.2;}
+.syl-link-icon{background:none;border:none;cursor:pointer;font-size:12px;padding:0;line-height:1;display:block;margin:0 auto;opacity:0.8;}
+.syl-link-icon:hover{opacity:1;transform:scale(1.2);}
+.syl-link-empty{color:#ddd;font-size:14px;font-weight:300;}
+.syl-link-empty:hover{color:#534AB7;}
+
+/* ==================== 4번: 링크 고정 영역 ==================== */
+.link-area{flex-shrink:0;background:#F8F7FF;border:0.5px solid #C7C2F0;border-radius:8px;padding:8px 14px;margin-bottom:10px;min-height:44px;display:flex;align-items:center;}
+.link-area-inner{display:flex;align-items:center;gap:8px;flex-wrap:wrap;width:100%;}
+.link-area-hint{font-size:12px;color:#aaa;white-space:nowrap;}
+.link-buttons{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
+.link-btn{background:#EEEDFE;color:#3C3489;border:0.5px solid #AFA9EC;border-radius:16px;padding:5px 14px;font-size:13px;cursor:pointer;white-space:nowrap;transition:background 0.15s;}
+.link-btn:hover{background:#534AB7;color:#fff;border-color:#534AB7;}
+.syl-row-selected td{background:#F0EFFE!important;}
+
+/* ==================== 3번: 방학·시수 ==================== */
+.vacation-block{border:0.5px solid #e0e0e0;border-radius:10px;padding:12px 16px;background:#fff;}
+.vacation-empty{font-size:13px;color:#aaa;padding:4px 0;}
+.vacation-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;}
+.vacation-input-label{font-size:13px;padding:5px 8px;border:0.5px solid #ddd;border-radius:5px;width:110px;}
+.vacation-input-date{font-size:13px;padding:5px 8px;border:0.5px solid #ddd;border-radius:5px;width:130px;}
+.subject-hours-table{width:100%;border-collapse:collapse;font-size:14px;margin-top:6px;}
+.subject-hours-table th{background:#f8f8f8;padding:7px 10px;font-weight:500;color:#888;border:0.5px solid #eee;text-align:left;}
+.subject-hours-table td{padding:6px 10px;border:0.5px solid #eee;color:#222;vertical-align:middle;}
+.subject-hours-table input[type=number]{width:70px;font-size:13px;padding:4px 6px;border:0.5px solid #ddd;border-radius:4px;text-align:center;}
+.sh-cur{font-weight:600;color:#534AB7;}
+.sh-done{color:#639922;}
+.annual-month-wrap{margin-bottom:18px;}
+.annual-month-title{font-size:15px;font-weight:500;color:#3C3489;margin-bottom:6px;}
+.annual-week-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;}
+.annual-week-card{background:#fff;border:0.5px solid #e0e0e0;border-radius:8px;padding:8px 12px;font-size:12px;}
+.annual-week-num{font-weight:600;color:#3C3489;margin-bottom:4px;}
+.annual-week-vacation{color:#aaa;font-style:italic;}
+.annual-week-day{display:flex;gap:4px;margin-top:2px;flex-wrap:wrap;}
+.annual-period-tag{background:#EEEDFE;color:#3C3489;border-radius:3px;padding:1px 5px;font-size:11px;}
+.annual-period-done{background:#f0f0f0;color:#bbb;border-radius:3px;padding:1px 5px;font-size:11px;text-decoration:line-through;}
+
+/* ==================== 7번: 버전 배지 ==================== */
+.version-badge{display:inline-block;background:#EEEDFE;color:#534AB7;border-radius:10px;padding:2px 10px;font-size:11px;font-weight:500;margin-left:8px;vertical-align:middle;}
+.app-footer{text-align:center;font-size:11px;color:#bbb;padding:10px;border-top:0.5px solid #eee;background:#fff;flex-shrink:0;}
+
+/* ==================== 5번: 반응형 디자인 완전판 ==================== */
+/* PC 기준 (1024px 이상) - 기본값 이미 적용됨 */
+body{font-size:17px;}
+
+/* 태블릿 (768px ~ 1024px) */
+@media(max-width:1024px){
+  body{font-size:15px;}
+  .app-title{font-size:28px;}
+  .tab{font-size:18px;padding:7px 16px;}
+  .cal-title{font-size:22px;}
+  .day-cell{font-size:22px;}
+  .day-cell.today span,.day-cell.selected span{width:40px;height:40px;font-size:22px;}
+  .mo-grid th{font-size:16px;}
+  .week-title{font-size:22px;}
+  .lesson-class{font-size:20px;}
+  .lesson-detail{font-size:15px;}
+  .prog-name{font-size:16px;width:130px;}
+  .prog-num{font-size:15px;}
+  .syl-table{font-size:16px;}
+  .data-table{font-size:15px;}
+  .data-table th,.data-table td{padding:8px 10px;}
+  .tt-table{font-size:15px;}
+  .full-tt{font-size:12px;}
+  .header-icon-main{width:50px;height:50px;}
+  .btn-xs{font-size:13px;}
+  .btn-sm{font-size:15px;}
+}
+
+/* 모바일 (768px 이하) */
 @media(max-width:768px){
+  body{font-size:13px;}
   .main-grid{grid-template-columns:1fr;}
   .grade-row{grid-template-columns:1fr;}
-  .header-right{gap:4px;}
-  .app-content{padding:14px 16px;}
-  .tab-bar{padding:8px 16px 0;}
-  .app-header{padding:10px 16px;}
+  .tt-bottom-grid{grid-template-columns:1fr;}
+  .full-tt-split{grid-template-columns:1fr;}
+  .header-right{gap:4px;flex-wrap:wrap;}
+  .app-content{padding:8px 10px;}
+  .tab-bar{padding:6px 10px 0;gap:2px;}
+  .app-header{padding:8px 12px;}
+  .app-title{font-size:22px;}
+  .header-icon-main{width:40px;height:40px;}
+  .tab{font-size:14px;padding:6px 12px;}
+  .cal-title{font-size:18px;}
+  .day-cell{font-size:17px;}
+  .day-cell.today span,.day-cell.selected span{width:32px;height:32px;font-size:17px;}
+  .mo-grid th{font-size:13px;padding:8px 0;}
+  .week-title{font-size:17px;}
+  .lesson-period{font-size:16px;}
+  .lesson-class{font-size:17px;}
+  .lesson-detail{font-size:13px;}
+  .lesson-time{font-size:11px;}
+  .prog-name{font-size:13px;width:90px;}
+  .prog-num{font-size:13px;}
+  .prog-track{height:20px;}
+  .sec-label{font-size:13px;}
+  .section-title{font-size:16px;}
+  .syl-table{font-size:13px;}
+  .syl-table th,.syl-table td{padding:6px 6px;}
+  .data-table{font-size:13px;}
+  .data-table th,.data-table td{padding:6px 8px;}
+  .tt-table{font-size:13px;}
+  .jl-toolbar{flex-wrap:wrap;gap:5px;}
+  .jl-toolbar select,.jl-toolbar input{font-size:14px;height:38px;}
+  .btn-sm{font-size:14px;height:38px;padding:5px 12px;min-width:44px;}
+  .btn-xs{font-size:12px;height:30px;min-width:44px;}
+  .btn-primary{font-size:14px;padding:12px;}
+  .popup-box{padding:1rem;}
+  .vacation-row{flex-wrap:wrap;}
+  .vacation-input-label,.vacation-input-date{width:100%;}
+}
+
+/* 소형 모바일 (480px 이하) */
+@media(max-width:480px){
+  body{font-size:12px;}
+  .app-title{font-size:18px;}
+  .header-icon-main{width:34px;height:34px;}
+  .tab{font-size:12px;padding:5px 8px;}
+  .app-header{flex-wrap:wrap;gap:6px;}
+  .header-left{gap:8px;}
+  .cal-title{font-size:16px;}
+  .day-cell{font-size:14px;}
+  .day-cell.today span,.day-cell.selected span{width:26px;height:26px;font-size:14px;}
+  .mo-grid th{font-size:12px;}
+  .week-title{font-size:15px;}
+  .lesson-class{font-size:14px;}
+  .prog-name{font-size:12px;width:80px;}
+  .data-table th,.data-table td{padding:4px 6px;}
+  .syl-table th,.syl-table td{padding:4px 4px;}
+  .full-tt-split{grid-template-columns:1fr;}
+  .annual-week-grid{grid-template-columns:1fr;}
+  .link-btn{font-size:12px;padding:4px 10px;}
 }

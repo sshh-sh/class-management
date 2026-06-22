@@ -32,6 +32,14 @@ let progressData = [];
 let sheetsUrl = '';
 let semYear = 2026;
 let timetableEvents = {};
+// 3번: 방학·시수
+let vacationPeriods = [];
+let subjectHoursData = {};
+// 6번: API 응답 캐시
+const apiCache = new Map();
+const API_CACHE_TTL = 5 * 60 * 1000; // 5분
+// 4번: 링크 자동저장 디바운서
+let sylAutoSaveTimer = null;
 
 function getSemDates(year, half) {
   if (half === 1) {
@@ -112,6 +120,8 @@ async function initApp() {
   buildSyllabus();
   filterJournal();
   updateJournalFilter();
+  renderVacations();
+  buildSubjectHours();
 
   const today = new Date();
   selectedDate = today.getDate();
@@ -150,33 +160,44 @@ function applyUserData(d) {
   if (d.syllabusData && Object.keys(d.syllabusData).length) syllabusData = d.syllabusData;
   if (d.journals) journalData = d.journals.sort((a, b) => new Date(a.date) - new Date(b.date));
   if (d.timetableEvents) timetableEvents = d.timetableEvents;
+  if (d.vacationPeriods) vacationPeriods = d.vacationPeriods;
+  if (d.subjectHoursData) subjectHoursData = d.subjectHoursData;
 }
 
 async function loadUserData() {
   const userId = currentUser.email;
   const cacheKey = `userdata_${userId}`;
+  const tsKey = `${cacheKey}_ts`;
+  const now = Date.now();
 
-  // 캐시된 데이터 즉시 적용 (GAS 응답 전에 화면 표시)
+  // 캐시된 데이터 즉시 화면에 표시 (GAS 응답 전)
   try {
     const cached = localStorage.getItem(cacheKey);
     if (cached) applyUserData(JSON.parse(cached));
   } catch(e) {}
 
-  // GAS에서 최신 데이터 한 번에 로드
-  try {
-    const res = await fetch(GAS_URL, {
-      method: 'POST',
-      body: JSON.stringify({ app: 'journal-management', action: 'loadAll', userId })
-    });
-    const d = await res.json();
-    if (d.success) {
-      applyUserData(d);
-      localStorage.setItem(cacheKey, JSON.stringify({
-        myTT, classTTList, syllabusData, journals: journalData, timetableEvents
-      }));
+  // 【6번】localStorage 타임스탬프 기반 TTL — 새로고침 후에도 5분 내면 GAS 스킵
+  const lastTs = parseInt(localStorage.getItem(tsKey) || '0');
+  const isFresh = (now - lastTs) < API_CACHE_TTL;
+  if (!isFresh) {
+    try {
+      const res = await fetch(GAS_URL, {
+        method: 'POST',
+        body: JSON.stringify({ app: 'journal-management', action: 'loadAll', userId })
+      });
+      const d = await res.json();
+      if (d.success) {
+        applyUserData(d);
+        localStorage.setItem(tsKey, String(now));
+        apiCache.set('loadAll_' + userId, { ts: now });
+        localStorage.setItem(cacheKey, JSON.stringify({
+          myTT, classTTList, syllabusData, journals: journalData, timetableEvents,
+          vacationPeriods, subjectHoursData
+        }));
+      }
+    } catch(e) {
+      console.log('데이터 로드 실패:', e);
     }
-  } catch(e) {
-    console.log('데이터 로드 실패:', e);
   }
 
   if (!progressData.length) {
@@ -192,23 +213,51 @@ async function loadUserData() {
 
 async function saveUserData() {
   const userId = currentUser.email;
+  const cacheKey = `userdata_${userId}`;
+  const tsKey = `${cacheKey}_ts`;
+  // 로컬 캐시 즉시 갱신 + 타임스탬프 초기화 (저장 직후엔 GAS 재요청 불필요)
   try {
-    // 내 시간표 저장
+    localStorage.setItem(cacheKey, JSON.stringify({
+      myTT, classTTList, syllabusData, journals: journalData, timetableEvents,
+      vacationPeriods, subjectHoursData
+    }));
+    localStorage.setItem(tsKey, String(Date.now()));
+  } catch(e) {}
+  try {
     await fetch(GAS_URL, {
       method: 'POST',
       body: JSON.stringify({ app: 'journal-management', action: 'saveMyTimetable', userId, ttData: myTT })
     });
-
-    // 진도표 저장
     for (const subject in syllabusData) {
       await fetch(GAS_URL, {
         method: 'POST',
         body: JSON.stringify({ app: 'journal-management', action: 'saveSyllabus', userId, subject, sylData: syllabusData[subject] })
       });
     }
+    apiCache.delete('loadAll_' + userId);
   } catch(e) {
     console.log('데이터 저장 실패:', e);
   }
+}
+
+// 4번: 진도표 필드 변경 시 자동저장 (디바운스 2초)
+function scheduleSylAutoSave() {
+  clearTimeout(sylAutoSaveTimer);
+  sylAutoSaveTimer = setTimeout(async () => {
+    const userId = currentUser?.email;
+    if (!userId) return;
+    try {
+      for (const subject in syllabusData) {
+        await fetch(GAS_URL, {
+          method: 'POST',
+          body: JSON.stringify({ app: 'journal-management', action: 'saveSyllabus', userId, subject, sylData: syllabusData[subject] })
+        });
+      }
+      apiCache.delete('loadAll_' + userId);
+      const badge = document.getElementById('sync-badge');
+      if (badge) { badge.textContent = '자동저장 완료 ✓'; setTimeout(() => { badge.textContent = '동기화 완료 ✓'; }, 2000); }
+    } catch(e) { console.log('자동저장 실패:', e); }
+  }, 2000);
 }
 
 // ==================== 달력 ====================
@@ -471,11 +520,14 @@ window.exportJournalExcel = () => {
 };
 
 // ==================== 시간표 ====================
+// 시간표 셀 변경 - ES모듈 전역변수 문제 해결용 window 함수
+window.updateMyTT = (p, d, val) => { myTT[p][d] = val; };
+
 function buildMyTT() {
   const body = document.getElementById('my-tt-body');
   body.innerHTML = [1,2,3,4,5].map(p => `<tr>
     <td class="period-cell">${p}교시<br><span style="font-size:9px;">${TIMES[p-1].split('~')[0]}</span></td>
-    ${[0,1,2,3,4].map(d => `<td><input value="${myTT[p][d]||''}" placeholder="—" onchange="myTT[${p}][${d}]=this.value"></td>`).join('')}
+    ${[0,1,2,3,4].map(d => `<td><input value="${myTT[p][d]||''}" placeholder="—" onchange="updateMyTT(${p},${d},this.value)"></td>`).join('')}
   </tr>`).join('');
 }
 
@@ -670,33 +722,94 @@ function buildSyllabus() {
       <div style="display:flex;justify-content:flex-end;gap:6px;margin-bottom:8px;">
         <button class="btn-xs" onclick="deleteSyllabusSubject('${s.replace(/'/g,"\\'")}')">🗑 과목 삭제</button>
       </div>
+      <div class="table-wrap">
       <table class="syl-table">
         <thead><tr>
-          <th style="width:60px;">차시</th>
-          <th style="width:22%;">단원</th>
-          <th style="width:18%;">학습주제</th>
-          <th style="width:12%;">준비물</th>
-          <th style="width:20%;">메모</th>
-          <th style="width:44px;">완료</th>
+          <th style="width:44px;text-align:center;">완료</th>
+          <th style="width:44px;text-align:center;">순서</th>
+          <th style="width:80px;">기간</th>
+          <th style="width:22%;">단원명</th>
+          <th style="width:52px;text-align:center;">차시</th>
+          <th style="width:20%;">학습주제</th>
+          <th style="width:10%;">준비물</th>
+          <th>메모</th>
         </tr></thead>
         <tbody>${(syllabusData[s]||[]).map((r,idx) => {
           const done = isDone(r);
           const se = s.replace(/'/g,"\\'");
-          return `<tr class="${done ? 'syl-done-row' : ''}">
-            <td style="text-align:center;">${sylCell(r.ch,'ch',r,idx,se)}</td>
+          const hasLinks = !!(r.links && r.links.trim());
+          const linksEsc = (r.links||'').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+          return `<tr class="${done ? 'syl-done-row' : ''}" onclick="selectSylRow('${se}',${idx},'${linksEsc}')" style="cursor:pointer;">
+            <td style="text-align:center;"><input type="checkbox" class="syl-done-check" ${done ? 'checked' : ''} onchange="toggleDone('${se}',${idx},this.checked)" onclick="event.stopPropagation()"></td>
+            <td style="text-align:center;" class="syl-seq-cell">
+              <span class="syl-seq">${idx+1}</span>
+              ${hasLinks ? `<button class="syl-link-icon" onclick="event.stopPropagation();openSylLinkEditor('${se}',${idx})" title="링크 편집">🔗</button>` : `<button class="syl-link-icon syl-link-empty" onclick="event.stopPropagation();openSylLinkEditor('${se}',${idx})" title="링크 추가">+</button>`}
+            </td>
+            <td>${sylCell(r.period,'period',r,idx,se)}</td>
             <td>${sylCell(r.unit,'unit',r,idx,se)}</td>
+            <td style="text-align:center;">${sylCell(r.ch,'ch',r,idx,se)}</td>
             <td>${sylCell(r.topic,'topic',r,idx,se)}</td>
             <td>${sylCell(r.prep,'prep',r,idx,se)}</td>
             <td>${sylCell(r.memo,'memo',r,idx,se)}</td>
-            <td style="text-align:center;"><input type="checkbox" class="syl-done-check" ${done ? 'checked' : ''} onchange="toggleDone('${se}',${idx},this.checked)"></td>
           </tr>`;
         }).join('')}
         </tbody>
       </table>
+      </div>
       <button class="btn-xs" style="margin-top:8px;" onclick="addSyllabusRow('${s.replace(/'/g,"\\'")}')">+ 행 추가</button>
     </div>`;
   }).join('');
 }
+
+// 4번: 링크 영역
+window.selectSylRow = (subject, idx, linksRaw) => {
+  document.querySelectorAll('.syl-table tbody tr').forEach(tr => tr.classList.remove('syl-row-selected'));
+  const rows = document.querySelectorAll(`#syl-${subject.replace(/ /g,'_')} tbody tr`);
+  if (rows[idx]) rows[idx].classList.add('syl-row-selected');
+  const links = syllabusData[subject]?.[idx]?.links || linksRaw.replace(/&#39;/g,"'").replace(/&quot;/g,'"');
+  showLinks(links);
+};
+
+// 링크 편집 팝업
+window.openSylLinkEditor = (subject, idx) => {
+  const current = syllabusData[subject]?.[idx]?.links || '';
+  const val = prompt(
+    `링크 입력 (형식: 주제,URL|주제,URL)\n예) 물의상태변화,https://....|상태변화,https://...`,
+    current
+  );
+  if (val === null) return;
+  updateSylField(subject, idx, 'links', val);
+  buildSyllabus();
+  showLinks(val);
+};
+
+function showLinks(linksStr) {
+  const hint = document.getElementById('link-area-hint');
+  const buttons = document.getElementById('link-buttons');
+  if (!hint || !buttons) return;
+  if (!linksStr || !linksStr.trim()) {
+    buttons.innerHTML = '';
+    hint.style.display = 'inline';
+    return;
+  }
+  hint.style.display = 'none';
+  const pairs = linksStr.split('|');
+  buttons.innerHTML = pairs.map(pair => {
+    const commaIdx = pair.indexOf(',');
+    if (commaIdx < 0) return '';
+    const text = pair.slice(0, commaIdx).trim();
+    const url = pair.slice(commaIdx + 1).trim();
+    if (!url) return '';
+    const safeText = text.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const safeUrl = url.replace(/"/g,'&quot;');
+    return `<button class="link-btn" onclick="window.open('${safeUrl}','_blank','width=1000,height=700')" title="${safeUrl}">${safeText || url}</button>`;
+  }).filter(Boolean).join('');
+}
+
+window.updateLinkArea = (subject, idx) => {
+  const links = syllabusData[subject]?.[idx]?.links || '';
+  showLinks(links);
+};
 
 window.switchSyllabus = (name, el) => {
   document.querySelectorAll('.sub-tab').forEach(t => t.classList.remove('active'));
@@ -799,7 +912,10 @@ window.addSyllabusRow = async (subject) => {
 };
 
 window.updateSylField = (subject, idx, field, val) => {
-  if (syllabusData[subject]?.[idx]) syllabusData[subject][idx][field] = val;
+  if (syllabusData[subject]?.[idx]) {
+    syllabusData[subject][idx][field] = val;
+    scheduleSylAutoSave(); // 4번: 변경 즉시 자동저장 예약
+  }
 };
 window.connectSheets = async () => {
   const url = document.getElementById('sheets-url').value.trim();
@@ -974,3 +1090,261 @@ window.switchTab = (name, el) => {
   tc.classList.remove('hidden');
   tc.classList.add('active');
 };
+
+// ==================== 3번: 방학 기간 ====================
+window.addVacation = () => {
+  vacationPeriods.push({ label: '방학', start: '', end: '' });
+  renderVacations();
+};
+
+window.removeVacation = (idx) => {
+  vacationPeriods.splice(idx, 1);
+  renderVacations();
+  buildFullTimetable();
+  saveVacationAndHours();
+};
+
+// 방학 필드 업데이트 - ES모듈 전역변수 문제 해결
+window.setVacField = (idx, field, val) => {
+  if (vacationPeriods[idx]) vacationPeriods[idx][field] = val;
+  if (field === 'start' || field === 'end') buildFullTimetable();
+  saveVacationAndHours();
+};
+
+function renderVacations() {
+  const el = document.getElementById('vacation-list');
+  if (!el) return;
+  if (!vacationPeriods.length) {
+    el.innerHTML = '<div class="vacation-empty">방학 기간이 없습니다. + 방학 추가 버튼으로 입력하세요.</div>';
+    return;
+  }
+  el.innerHTML = vacationPeriods.map((v, i) => `
+    <div class="vacation-row">
+      <input type="text" class="vacation-input-label" value="${v.label||''}" placeholder="방학 이름 (예: 여름방학)"
+        onchange="setVacField(${i},'label',this.value)">
+      <input type="date" class="vacation-input-date" value="${v.start||''}"
+        onchange="setVacField(${i},'start',this.value)">
+      <span style="font-size:13px;color:#aaa;">~</span>
+      <input type="date" class="vacation-input-date" value="${v.end||''}"
+        onchange="setVacField(${i},'end',this.value)">
+      <button class="btn-xs" onclick="removeVacation(${i})" style="color:#E24B4A;border-color:#E24B4A;">삭제</button>
+    </div>`).join('');
+}
+
+function isVacationDate(dateStr) {
+  return vacationPeriods.some(v => v.start && v.end && dateStr >= v.start && dateStr <= v.end);
+}
+
+// ==================== 3번: 과목별 시수 ====================
+function buildSubjectHours() {
+  const el = document.getElementById('subject-hours-wrap');
+  if (!el) return;
+  const subjects = Object.keys(syllabusData);
+  if (!subjects.length) {
+    el.innerHTML = '<div style="font-size:13px;color:#aaa;">진도표 탭에서 과목을 먼저 추가하세요.</div>';
+    return;
+  }
+  el.innerHTML = `<table class="subject-hours-table">
+    <thead><tr>
+      <th>과목명</th>
+      <th>1학기 필요시수</th><th>1학기 현재시수</th>
+      <th>2학기 필요시수</th><th>2학기 현재시수</th>
+    </tr></thead>
+    <tbody>${subjects.map(s => {
+      const h = subjectHoursData[s] || { s1req: 0, s2req: 0 };
+      const items = syllabusData[s] || [];
+      const doneCount = items.filter(r => isDone(r)).length;
+      const total = items.length;
+      const s1done = Math.min(doneCount, h.s1req || total);
+      const s2done = Math.max(0, doneCount - (h.s1req || 0));
+      const s1pct = h.s1req ? Math.min(100, Math.round(s1done/h.s1req*100)) : 0;
+      const s2pct = h.s2req ? Math.min(100, Math.round(s2done/h.s2req*100)) : 0;
+      return `<tr>
+        <td><b>${s}</b></td>
+        <td><input type="number" min="0" value="${h.s1req||0}" onchange="setSubjectHours('${s.replace(/'/g,"\\'")}','s1req',this.value)" style="width:70px;padding:4px 6px;border:0.5px solid #ddd;border-radius:4px;text-align:center;"></td>
+        <td class="sh-cur ${s1pct>=100?'sh-done':''}">${s1done}/${h.s1req||'?'} <small>(${s1pct}%)</small></td>
+        <td><input type="number" min="0" value="${h.s2req||0}" onchange="setSubjectHours('${s.replace(/'/g,"\\'")}','s2req',this.value)" style="width:70px;padding:4px 6px;border:0.5px solid #ddd;border-radius:4px;text-align:center;"></td>
+        <td class="sh-cur ${s2pct>=100?'sh-done':''}">${s2done}/${h.s2req||'?'} <small>(${s2pct}%)</small></td>
+      </tr>`;
+    }).join('')}
+    </tbody>
+  </table>`;
+}
+
+window.setSubjectHours = (subject, key, val) => {
+  if (!subjectHoursData[subject]) subjectHoursData[subject] = {};
+  subjectHoursData[subject][key] = parseInt(val) || 0;
+};
+
+window.saveSubjectHoursData = async () => {
+  await saveVacationAndHours();
+  buildSubjectHours();
+  alert('저장되었습니다!');
+};
+
+async function saveVacationAndHours() {
+  const cacheKey = `userdata_${currentUser?.email}`;
+  try {
+    const cached = localStorage.getItem(cacheKey);
+    const prev = cached ? JSON.parse(cached) : {};
+    localStorage.setItem(cacheKey, JSON.stringify({ ...prev, vacationPeriods, subjectHoursData }));
+  } catch(e) {}
+}
+
+// ==================== 3번: 연간 시간표 생성 ====================
+window.generateAnnualTT = () => {
+  const section = document.getElementById('annual-tt-section');
+  const resultEl = document.getElementById('annual-tt-result');
+  if (!section || !resultEl) return;
+  section.style.display = 'block';
+
+  const subjects = Object.keys(syllabusData);
+  // 과목별 남은 시수 카운터
+  const hoursLeft = {};
+  subjects.forEach(s => {
+    const h = subjectHoursData[s] || {};
+    hoursLeft[s] = { s1: h.s1req || 999, s2: h.s2req || 999 };
+  });
+
+  const DAYS = ['월','화','수','목','금'];
+  const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const fmtDisp = d => `${d.getMonth()+1}.${d.getDate()}`;
+
+  let html = '';
+  for (const half of [1, 2]) {
+    const sem = getSemDates(semYear, half);
+    let cur = new Date(sem.start);
+    const byMonth = {};
+    while (cur <= sem.end) {
+      if (cur.getDay() >= 1 && cur.getDay() <= 5) {
+        const dateStr = fmt(cur);
+        const mKey = `${cur.getFullYear()}년 ${cur.getMonth()+1}월`;
+        const dow = cur.getDay() - 1;
+        const daySchedule = [];
+        if (!isVacationDate(dateStr)) {
+          for (let p = 1; p <= 5; p++) {
+            const cls = myTT[p]?.[dow] || '';
+            if (cls) {
+              // 해당 학급과 연결된 과목 찾기
+              const grade = cls.split('-')[0];
+              const matchSub = subjects.find(s => s.includes(grade + '학년'));
+              const tag = matchSub ? `${cls}<small style="color:#aaa;">(${matchSub.split(' ')[1]||''})</small>` : cls;
+              daySchedule.push(tag);
+            }
+          }
+        }
+        if (!byMonth[mKey]) byMonth[mKey] = [];
+        const last = byMonth[mKey][byMonth[mKey].length - 1];
+        if (!last || last.fri) {
+          byMonth[mKey].push({ mon: fmtDisp(cur), days: [{ dow, dateStr, schedule: daySchedule, vacation: isVacationDate(dateStr) }] });
+        } else {
+          last.days.push({ dow, dateStr, schedule: daySchedule, vacation: isVacationDate(dateStr) });
+          if (dow === 4) last.fri = fmtDisp(cur);
+        }
+      }
+      cur.setDate(cur.getDate() + 1);
+    }
+    html += `<div class="annual-month-wrap"><div class="full-tt-section-title">${sem.label}</div>`;
+    for (const [month, weeks] of Object.entries(byMonth)) {
+      html += `<div class="annual-month-title">${month}</div><div class="annual-week-grid">`;
+      weeks.forEach((w, wi) => {
+        const hasVac = w.days.some(d => d.vacation);
+        html += `<div class="annual-week-card">
+          <div class="annual-week-num">Week ${wi+1} &nbsp;<span style="font-size:11px;font-weight:400;color:#aaa;">${w.mon}~${w.fri||''}</span></div>`;
+        if (hasVac) html += `<div class="annual-week-vacation">🏖 방학 포함</div>`;
+        w.days.forEach(d => {
+          if (d.vacation) return;
+          html += `<div class="annual-week-day"><b style="font-size:11px;color:#aaa;">${DAYS[d.dow]}</b> `;
+          if (d.schedule.length) {
+            html += d.schedule.map(t => `<span class="annual-period-tag">${t}</span>`).join('');
+          } else {
+            html += '<span style="font-size:11px;color:#ddd;">수업없음</span>';
+          }
+          html += '</div>';
+        });
+        html += '</div>';
+      });
+      html += '</div>';
+    }
+    html += '</div>';
+  }
+  resultEl.innerHTML = html || '<div style="color:#aaa;padding:12px;">시간표 데이터를 먼저 입력하세요.</div>';
+  section.scrollIntoView({ behavior: 'smooth' });
+};
+
+// ==================== 시간표 구글시트 새로고침 ====================
+window.refreshFromSheets = async () => {
+  const btn = document.getElementById('tt-refresh-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '불러오는 중...'; }
+  try {
+    const userId = currentUser.email;
+    // 캐시 무효화 후 강제 재로드
+    apiCache.delete('loadAll_' + userId);
+    localStorage.removeItem(`userdata_${userId}_ts`);
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      body: JSON.stringify({ app: 'journal-management', action: 'loadAll', userId })
+    });
+    const d = await res.json();
+    if (d.success) {
+      applyUserData(d);
+      localStorage.setItem(`userdata_${userId}_ts`, String(Date.now()));
+      localStorage.setItem(`userdata_${userId}`, JSON.stringify({
+        myTT, classTTList, syllabusData, journals: journalData, timetableEvents,
+        vacationPeriods, subjectHoursData
+      }));
+      buildMyTT();
+      renderClassTTs();
+      buildFullTimetable();
+      buildSubjectHours();
+      buildSyllabus();
+      filterJournal();
+      alert('구글 시트에서 최신 데이터를 불러왔습니다!');
+    } else {
+      alert('불러오기 실패: ' + (d.message || '오류'));
+    }
+  } catch(e) {
+    alert('불러오기 오류: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🔄 시트에서 새로고침'; }
+  }
+};
+
+// ==================== 시간표 시트 양식 초기화 ====================
+window.resetTimetableSheet = async () => {
+  if (!confirm('구글 시트의 시간표 탭을 새 양식으로 초기화합니다.\n기존에 입력한 방학/행사/필요시수 데이터가 초기화됩니다.\n계속하시겠습니까?')) return;
+  try {
+    const userId = currentUser?.email;
+    if (!userId) { alert('로그인이 필요합니다.'); return; }
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      body: JSON.stringify({ app: 'journal-management', action: 'setupTimetableSheet', userId })
+    });
+    const d = await res.json();
+    if (d.success) {
+      alert('시간표 양식이 초기화되었습니다!\n구글 시트 > 시간표 탭을 열어 확인하세요.');
+    } else {
+      alert('초기화 실패: ' + (d.message || '오류'));
+    }
+  } catch(e) {
+    alert('오류: ' + e.message);
+  }
+};
+
+// ==================== 7번: 버전 관리 ====================
+const APP_VERSION = 'v3.1';
+window.addEventListener('DOMContentLoaded', () => {
+  // 버전 표시
+  const vEl = document.getElementById('app-version');
+  if (vEl) vEl.textContent = APP_VERSION;
+
+  // 【1번】타이틀 클릭 → 새로고침 (JS 이벤트로 확실히 연결)
+  const headerLeft = document.querySelector('.header-left');
+  if (headerLeft) {
+    headerLeft.style.cursor = 'pointer';
+    headerLeft.addEventListener('click', e => {
+      if (e.target.tagName === 'SELECT') return; // 학년도 드롭다운은 제외
+      location.reload();
+    });
+  }
+});
