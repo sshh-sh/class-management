@@ -14,7 +14,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
 // GAS API URL
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbxAq9_dZ0CtJvGpDKFCtMNO4_e7Vbo0OdXd9SyzSDmmokNNs4nn0yfR5tXcAKiO9deA/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxFI432fVnkPrTxrvv7p3yzhPRIL82wwoyhmgNnXbHl-qXGtmhmRDhy8H7hyj7jcmdv/exec';
 
 const TIMES = ['09:00~09:40','09:50~10:30','10:40~11:20','11:30~12:10','13:00~13:40'];
 const DAY_NAMES = ['일','월','화','수','목','금','토'];
@@ -427,6 +427,8 @@ window.filterJournal = () => {
     const endDate = `${semYear + 1}-03-01`;
     filtered = filtered.filter(j => j.date && j.date >= startDate && j.date < endDate);
   }
+  // 이름·내용 모두 빈 행 제외
+  filtered = filtered.filter(j => (j.name && j.name.trim()) || (j.content && j.content.trim()));
   if (cls) filtered = filtered.filter(j => fmtClass(j.class) === cls);
   if (name) filtered = filtered.filter(j => j.name && j.name.includes(name));
   if (month) filtered = filtered.filter(j => j.date && j.date.startsWith(month));
@@ -627,9 +629,25 @@ function isDone(r) {
 }
 
 function sylCell(val, field, r, idx, subjectEsc) {
-  const esc = String(val||'').replace(/"/g,'&quot;');
-  const url = (r._links && r._links[field]) ||
-              (field === 'memo' && String(val||'').startsWith('http') ? String(val) : '');
+  const strVal = String(val||'');
+  const runs = r._links && r._links[field]; // [{text,url}] 배열 또는 null
+
+  // 줄바꿈 분리 (Google Sheets 셀 내 Alt+Enter)
+  const lines = strVal.split('\n').map(l => l.trim()).filter(l => l);
+
+  if (lines.length > 1 || (runs && runs.length > 1)) {
+    const items = lines.length > 1 ? lines : runs.map(rn => rn.text);
+    return `<div class="syl-multiline">${items.map((line, li) => {
+      const run = runs && runs[li];
+      const url = (run && run.url) || (line.startsWith('http') ? line : '');
+      const linkBtn = url ? `<a href="${url.replace(/"/g,'&quot;')}" target="_blank" rel="noopener" class="syl-link-btn" title="링크 열기">🔗</a>` : '';
+      return `<div class="syl-cell-line"><span class="syl-line-text">${line.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span>${linkBtn}</div>`;
+    }).join('')}</div>`;
+  }
+
+  const esc = strVal.replace(/"/g,'&quot;');
+  const url = (runs && runs[0] && runs[0].url) ||
+              (field === 'memo' && strVal.startsWith('http') ? strVal : '');
   const inp = `<input value="${esc}" style="width:100%;border:none;font-size:inherit;background:transparent;" onchange="updateSylField('${subjectEsc}',${idx},'${field}',this.value)">`;
   if (!url) return inp;
   return `<div class="syl-cell-link">${inp}<a href="${url.replace(/"/g,'&quot;')}" target="_blank" rel="noopener" class="syl-link-btn" title="링크 열기">🔗</a></div>`;
@@ -654,11 +672,11 @@ function buildSyllabus() {
       </div>
       <table class="syl-table">
         <thead><tr>
-          <th style="width:54px;">차시</th>
-          <th>단원</th>
-          <th>학습주제</th>
-          <th>준비물</th>
-          <th>메모</th>
+          <th style="width:60px;">차시</th>
+          <th style="width:22%;">단원</th>
+          <th style="width:18%;">학습주제</th>
+          <th style="width:12%;">준비물</th>
+          <th style="width:20%;">메모</th>
           <th style="width:44px;">완료</th>
         </tr></thead>
         <tbody>${(syllabusData[s]||[]).map((r,idx) => {
