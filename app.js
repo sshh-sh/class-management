@@ -14,7 +14,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
 // GAS API URL
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbxp2bp-x0n3jzrF9gw2vPLSY44Eetaqa4OzPoz5N8kbPfWVYD0riQ43N_iS3QluMe2_/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxBwJtc2n0EjDgAhNtLbWcjmTvT64opVW-tvXvmC2mxDK3wZDeiSkCEToyHASXIeu3B/exec';
 
 const TIMES = ['09:00~09:40','09:50~10:30','10:40~11:20','11:30~12:10','13:00~13:40'];
 const DAY_NAMES = ['일','월','화','수','목','금','토'];
@@ -149,6 +149,7 @@ function applyUserData(d) {
   if (d.classTTList && d.classTTList.length) classTTList = d.classTTList;
   if (d.syllabusData && Object.keys(d.syllabusData).length) syllabusData = d.syllabusData;
   if (d.journals) journalData = d.journals.sort((a, b) => new Date(a.date) - new Date(b.date));
+  if (d.timetableEvents) timetableEvents = d.timetableEvents;
 }
 
 async function loadUserData() {
@@ -171,7 +172,7 @@ async function loadUserData() {
     if (d.success) {
       applyUserData(d);
       localStorage.setItem(cacheKey, JSON.stringify({
-        myTT, classTTList, syllabusData, journals: journalData
+        myTT, classTTList, syllabusData, journals: journalData, timetableEvents
       }));
     }
   } catch(e) {
@@ -482,7 +483,8 @@ window.saveMyTT = async () => {
         action: 'saveTimetables',
         userId: currentUser.email,
         myTT,
-        classTTList
+        classTTList,
+        events: timetableEvents
       })
     });
     const result = await res.json();

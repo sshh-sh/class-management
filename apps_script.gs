@@ -42,7 +42,7 @@ function doPost(e) {
       } else if (action === 'loadAllTimetables') {
         result = loadAllTimetables(userId);
       } else if (action === 'saveTimetables') {
-        result = saveTimetables(userId, data.myTT, data.classTTList);
+        result = saveTimetables(userId, data.myTT, data.classTTList, data.events);
       } else if (action === 'loadSyllabus') {
         result = loadSyllabus(userId, data.subject);
       } else if (action === 'saveSyllabus') {
@@ -338,6 +338,7 @@ function loadAll(userId) {
     success: true,
     myTT: ttResult.myTT,
     classTTList: ttResult.classTTList,
+    timetableEvents: ttResult.timetableEvents,
     syllabusData,
     journals: journalResult.journals
   };
@@ -432,6 +433,7 @@ function loadAllTimetables(userId) {
   const data = s.getDataRange().getValues();
   const myTT = {1:['','','','',''],2:['','','','',''],3:['','','','',''],4:['','','','',''],5:['','','','','']};
   const classTTMap = {};
+  const timetableEvents = {};
 
   for (let i = 1; i < data.length; i++) {
     const type = String(data[i][0]).trim();
@@ -441,37 +443,79 @@ function loadAllTimetables(userId) {
       const p = parseInt(key);
       if (p >= 1 && p <= 5) myTT[p] = row;
     } else if (type === '담당학급') {
-      // key 형태: '4-2-3교시'
       const match = key.match(/^(.+)-(\d+)교시$/);
       if (match) {
         const clsName = match[1];
-        const p = parseInt(match[2]) - 1; // 0-indexed
+        const p = parseInt(match[2]) - 1;
         if (!classTTMap[clsName]) classTTMap[clsName] = [['','','','',''],['','','','',''],['','','','',''],['','','','',''],['','','','','']];
         if (p >= 0 && p < 5) classTTMap[clsName][p] = row;
       }
+    } else if (type === '행사') {
+      const evName = String(data[i][2]||'').trim();
+      if (key && evName && !key.startsWith('(')) timetableEvents[key] = evName;
     }
   }
   const classTTList = Object.keys(classTTMap).sort().map(name => ({ name, tt: classTTMap[name] }));
-  return {success:true, myTT, classTTList};
+  return {success:true, myTT, classTTList, timetableEvents};
 }
 
-function saveTimetables(userId, myTT, classTTList) {
+function saveTimetables(userId, myTT, classTTList, events) {
   const s = jm_timetableSheet();
-  const lastRow = s.getLastRow();
-  if (lastRow > 1) s.getRange(2, 1, lastRow - 1, 7).clearContent();
+  const lastRow = Math.max(s.getLastRow(), 2);
+  s.getRange(2, 1, lastRow - 1, 7).clear();
 
   const rows = [];
+  const styles = []; // 'section' | 'data' | 'blank' | 'placeholder'
+
+  // ── 내 시간표 ──
+  rows.push(['■ 내 시간표', '', '월', '화', '수', '목', '금']); styles.push('section');
   for (let p = 1; p <= 5; p++) {
     const tt = myTT[p] || myTT[String(p)] || ['','','','',''];
-    rows.push(['내시간표', p, tt[0]||'', tt[1]||'', tt[2]||'', tt[3]||'', tt[4]||'']);
+    rows.push(['내시간표', p, tt[0]||'', tt[1]||'', tt[2]||'', tt[3]||'', tt[4]||'']); styles.push('data');
   }
-  for (const cls of (classTTList||[])) {
-    for (let p = 0; p < 5; p++) {
-      const tt = Array.isArray(cls.tt) ? (cls.tt[p] || ['','','','','']) : ['','','','',''];
-      rows.push(['담당학급', `${cls.name}-${p+1}교시`, tt[0]||'', tt[1]||'', tt[2]||'', tt[3]||'', tt[4]||'']);
+
+  // ── 담당 학급 시간표 ──
+  rows.push(['', '', '', '', '', '', '']); styles.push('blank');
+  rows.push(['■ 담당 학급 시간표', '학급-교시', '월', '화', '수', '목', '금']); styles.push('section');
+  if (classTTList && classTTList.length) {
+    for (const cls of classTTList) {
+      for (let p = 0; p < 5; p++) {
+        const tt = Array.isArray(cls.tt) ? (cls.tt[p] || ['','','','','']) : ['','','','',''];
+        rows.push(['담당학급', `${cls.name}-${p+1}교시`, tt[0]||'', tt[1]||'', tt[2]||'', tt[3]||'', tt[4]||'']); styles.push('data');
+      }
+    }
+  } else {
+    rows.push(['담당학급', '(예: 4-2-1교시)', '과목명', '', '', '', '']); styles.push('placeholder');
+  }
+
+  // ── 전체 시간표 행사 ──
+  rows.push(['', '', '', '', '', '', '']); styles.push('blank');
+  rows.push(['■ 전체 시간표 행사', '학년도-학기-주차', '행사명', '비고', '', '', '']); styles.push('section');
+  let hasEvents = false;
+  if (events) {
+    for (const key of Object.keys(events).sort()) {
+      if (events[key]) { rows.push(['행사', key, events[key], '', '', '', '']); styles.push('data'); hasEvents = true; }
     }
   }
-  if (rows.length) s.getRange(2, 1, rows.length, 7).setValues(rows);
+  if (!hasEvents) {
+    rows.push(['행사', '(예: 2026-1-1)', '(행사명)', '(비고)', '', '', '']); styles.push('placeholder');
+  }
+
+  s.getRange(2, 1, rows.length, 7).setValues(rows);
+
+  // 스타일 적용
+  for (let i = 0; i < styles.length; i++) {
+    const r = s.getRange(i + 2, 1, 1, 7);
+    if (styles[i] === 'section') {
+      r.setBackground('#E8F0FE').setFontWeight('bold').setFontColor('#1A56BD').setFontStyle('normal');
+    } else if (styles[i] === 'placeholder') {
+      r.setBackground('#ffffff').setFontColor('#aaaaaa').setFontStyle('italic').setFontWeight('normal');
+    } else if (styles[i] === 'data') {
+      r.setBackground('#ffffff').setFontColor('#222222').setFontStyle('normal').setFontWeight('normal');
+    } else {
+      r.setBackground('#ffffff').setFontColor('#222222');
+    }
+  }
   return {success:true};
 }
 
