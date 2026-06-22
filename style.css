@@ -149,6 +149,14 @@ body{font-family:'Noto Sans KR',sans-serif;font-size:17px;background:#f5f5f5;col
 .cls-table td input{font-size:14px;padding:3px 2px;width:100%;border:none;background:transparent;color:#222;text-align:center;}
 .cls-table td input:focus{background:#f0f0f0;outline:none;border-radius:3px;}
 .cls-table td.mine input{color:#3C3489;font-weight:500;}
+.cls-table td.mine{color:#3C3489;font-weight:500;background:#EEEDFE;}
+.tt-header-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px;}
+.tt-read-cell{padding:5px 3px;text-align:center;color:#333;font-size:16px;}
+.tt-read-cell.empty{color:#ddd;}
+.tt-hours-table{width:100%;border-collapse:collapse;font-size:15px;margin-top:6px;}
+.tt-hours-table th{background:#f8f8f8;padding:8px 12px;font-weight:500;color:#888;border:0.5px solid #eee;text-align:center;}
+.tt-hours-table td{padding:7px 12px;border:0.5px solid #eee;color:#222;text-align:center;}
+.tt-hours-table .row-subject{text-align:left;font-weight:500;color:#3C3489;}
 .mine{background:#EEEDFE!important;color:#3C3489!important;font-weight:500;}
 
 .sub-tab-bar{display:flex;gap:5px;margin-bottom:12px;flex-wrap:wrap;}
@@ -218,7 +226,7 @@ body{font-family:'Noto Sans KR',sans-serif;font-size:17px;background:#f5f5f5;col
 
 .sem-select{font-size:15px;color:#534AB7;border:none;border-bottom:1px solid #AFA9EC;background:transparent;cursor:text;padding:2px 4px;font-family:inherit;outline:none;width:110px;}
 .sem-select:focus{border-bottom-color:#534AB7;}
-#tab-journal,#tab-timetable,#tab-syllabus{overflow-y:auto;}
+#tab-main,#tab-journal,#tab-timetable,#tab-syllabus{overflow-y:auto;}
 .full-tt-wrap{overflow-x:auto;}
 .full-tt{border-collapse:collapse;font-size:12px;white-space:nowrap;}
 .full-tt th{background:#f0f0f0;padding:5px 7px;border:0.5px solid #ddd;text-align:center;font-weight:500;color:#666;}

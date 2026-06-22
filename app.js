@@ -120,8 +120,6 @@ async function initApp() {
   buildSyllabus();
   filterJournal();
   updateJournalFilter();
-  renderVacations();
-  buildSubjectHours();
 
   const today = new Date();
   selectedDate = today.getDate();
@@ -525,9 +523,13 @@ window.updateMyTT = (p, d, val) => { myTT[p][d] = val; };
 
 function buildMyTT() {
   const body = document.getElementById('my-tt-body');
+  if (!body) return;
   body.innerHTML = [1,2,3,4,5].map(p => `<tr>
     <td class="period-cell">${p}교시<br><span style="font-size:9px;">${TIMES[p-1].split('~')[0]}</span></td>
-    ${[0,1,2,3,4].map(d => `<td><input value="${myTT[p][d]||''}" placeholder="—" onchange="updateMyTT(${p},${d},this.value)"></td>`).join('')}
+    ${[0,1,2,3,4].map(d => {
+      const v = myTT[p]?.[d] || '';
+      return `<td class="tt-read-cell${v ? '' : ' empty'}">${v || '—'}</td>`;
+    }).join('')}
   </tr>`).join('');
 }
 
@@ -627,7 +629,8 @@ window.removeClassTT = async (name) => {
 
 function renderClassTTs() {
   const el = document.getElementById('cls-tt-list');
-  if (!classTTList.length) { el.innerHTML = '<div style="font-size:12px;color:#aaa;padding:8px 0;">학급 추가 버튼으로 등록하세요</div>'; return; }
+  if (!el) return;
+  if (!classTTList.length) { el.innerHTML = '<div style="font-size:13px;color:#aaa;padding:8px 0;">구글시트에서 학급 시간표를 입력하고 연동하세요.</div>'; return; }
   const grades = {};
   classTTList.forEach(c => { const g = c.name.split('-')[0]; if (!grades[g]) grades[g] = []; grades[g].push(c); });
   el.innerHTML = Object.keys(grades).sort().map(g => `
@@ -636,7 +639,6 @@ function renderClassTTs() {
         <div class="cls-wrap">
           <div class="cls-head">
             <div class="cls-name">${cls.name}</div>
-            <button class="cls-del" onclick="removeClassTT('${cls.name}')">✕</button>
           </div>
           <table class="cls-table">
             <thead><tr><th style="width:18px;"></th><th>월</th><th>화</th><th>수</th><th>목</th><th>금</th></tr></thead>
@@ -645,7 +647,7 @@ function renderClassTTs() {
               ${[0,1,2,3,4].map(d => {
                 const v = cls.tt && cls.tt[p] && cls.tt[p][d] ? cls.tt[p][d] : '';
                 const isMine = v && (myTT[p+1] && myTT[p+1][d] === v);
-                return `<td class="${isMine?'mine':''}"><input value="${v||''}" placeholder="—" onchange="updateClsTT('${cls.name.replace(/'/g,"\\'")}',${p},${d},this.value)"></td>`;
+                return `<td class="${isMine?'mine':''}">${v || '—'}</td>`;
               }).join('')}
             </tr>`).join('')}</tbody>
           </table>
@@ -658,6 +660,100 @@ window.updateClsTT = (name, p, d, val) => {
   if (!cls) return;
   if (!Array.isArray(cls.tt[p])) cls.tt[p] = ['','','','',''];
   cls.tt[p][d] = val;
+};
+
+window.syncFromGAS = async () => {
+  try {
+    const userId = currentUser.email;
+    apiCache.delete('loadAll_' + userId);
+    localStorage.removeItem(`userdata_${userId}_ts`);
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      body: JSON.stringify({ app: 'journal-management', action: 'loadAll', userId })
+    });
+    const d = await res.json();
+    if (d.success) {
+      applyUserData(d);
+      localStorage.setItem(`userdata_${userId}_ts`, String(Date.now()));
+      localStorage.setItem(`userdata_${userId}`, JSON.stringify({
+        myTT, classTTList, syllabusData, journals: journalData, timetableEvents,
+        vacationPeriods, subjectHoursData
+      }));
+      buildMyTT(); renderClassTTs(); buildFullTimetable(); buildSyllabus(); filterJournal();
+      alert('구글 시트에서 최신 데이터를 불러왔습니다!');
+    } else {
+      alert('불러오기 실패: ' + (d.message || '오류'));
+    }
+  } catch(e) {
+    alert('연동 오류: ' + e.message);
+  }
+};
+
+window.downloadTTExcel = () => {
+  const rows = [['교시', '월', '화', '수', '목', '금']];
+  for (let p = 1; p <= 6; p++) rows.push([`${p}교시`, '', '', '', '', '']);
+  const csv = '﻿' + rows.map(r => r.join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = '시간표_양식.csv'; a.click();
+};
+
+window.handleTTUpload = (input) => {
+  if (input.files[0]) alert(`"${input.files[0].name}" 업로드 기능은 준비 중입니다.`);
+  input.value = '';
+};
+
+window.calcSubjectHours = async () => {
+  const el = document.getElementById('subject-hours-result');
+  if (!el) return;
+  const weekly = {};
+  for (let p = 1; p <= 5; p++) {
+    for (let d = 0; d < 5; d++) {
+      const cls = (myTT[p]?.[d] || '').trim();
+      if (cls) weekly[cls] = (weekly[cls] || 0) + 1;
+    }
+  }
+  if (!Object.keys(weekly).length) {
+    el.innerHTML = '<div style="font-size:13px;color:#aaa;padding:8px 0;">내 시간표에 학급 정보가 없습니다. 구글시트에서 시간표를 입력하고 연동하세요.</div>';
+    return;
+  }
+  const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  function countWeeks(year, half) {
+    const sem = getSemDates(year, half);
+    let count = 0;
+    const cur = new Date(sem.start);
+    const dow = cur.getDay();
+    if (dow !== 1) cur.setDate(cur.getDate() + (dow === 0 ? 1 : 8 - dow));
+    while (fmt(cur) <= fmt(sem.end)) {
+      let active = false;
+      for (let i = 0; i < 5; i++) {
+        const day = new Date(cur); day.setDate(day.getDate() + i);
+        const ds = fmt(day);
+        if (ds >= fmt(sem.start) && ds <= fmt(sem.end) && !isVacationDate(ds)) { active = true; break; }
+      }
+      if (active) count++;
+      cur.setDate(cur.getDate() + 7);
+    }
+    return count;
+  }
+  const w1 = countWeeks(semYear, 1);
+  const w2 = countWeeks(semYear, 2);
+  const rows = Object.entries(weekly).sort(([a],[b]) => a.localeCompare(b));
+  let html = `<table class="tt-hours-table"><thead><tr>
+    <th style="text-align:left;">학급</th><th>주당</th>
+    <th>1학기 예상 (${w1}주)</th><th>2학기 예상 (${w2}주)</th><th>연간</th>
+  </tr></thead><tbody>`;
+  rows.forEach(([cls, pw]) => {
+    const s1 = pw * w1, s2 = pw * w2;
+    html += `<tr><td class="row-subject">${cls}</td><td>${pw}</td><td>${s1}</td><td>${s2}</td><td>${s1+s2}</td></tr>`;
+  });
+  html += '</tbody></table>';
+  el.innerHTML = html;
+  try {
+    await fetch(GAS_URL, {
+      method: 'POST',
+      body: JSON.stringify({ app: 'journal-management', action: 'calcTimetable', userId: currentUser.email, semYear })
+    });
+  } catch(e) {}
 };
 
 window.downloadMyTTTemplate = () => {
@@ -1296,7 +1392,6 @@ window.refreshFromSheets = async () => {
       buildMyTT();
       renderClassTTs();
       buildFullTimetable();
-      buildSubjectHours();
       buildSyllabus();
       filterJournal();
       alert('구글 시트에서 최신 데이터를 불러왔습니다!');
@@ -1332,7 +1427,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v3.1';
+const APP_VERSION = 'v4.0';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');
