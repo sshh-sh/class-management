@@ -472,7 +472,8 @@ function setupTimetableTemplate(s) {
   for (let r = 6; r <= 11; r++) {
     s.getRange(r, 2).setBackground('#f5f5f5').setFontWeight('bold').setFontColor('#555')
       .setHorizontalAlignment('center');
-    s.getRange(r, 3, 1, 5).setBackground(COLORS.yellow).setHorizontalAlignment('center');
+    s.getRange(r, 3, 1, 5).setBackground(COLORS.yellow).setHorizontalAlignment('center')
+      .setNumberFormat('@');
     s.setRowHeight(r, 26);
   }
 
@@ -511,7 +512,8 @@ function setupTimetableTemplate(s) {
       const r = base + 1 + p;
       s.getRange(r, 2).setBackground('#f5f5f5').setFontWeight('bold').setFontColor('#666')
         .setHorizontalAlignment('center');
-      s.getRange(r, 3, 1, 5).setBackground(COLORS.yellow).setHorizontalAlignment('center');
+      s.getRange(r, 3, 1, 5).setBackground(COLORS.yellow).setHorizontalAlignment('center')
+        .setNumberFormat('@');
       s.setRowHeight(r, 24);
     }
     // 구분 빈칸행
@@ -806,7 +808,7 @@ function saveTimetables(userId, myTT, classTTList, events) {
     for (let p = 1; p <= 6; p++) {
       const tt = myTT[p] || myTT[String(p)];
       if (!tt) continue;
-      s.getRange(5 + p, 3, 1, 5)
+      s.getRange(5 + p, 3, 1, 5).setNumberFormat('@')
         .setValues([[tt[0]||'', tt[1]||'', tt[2]||'', tt[3]||'', tt[4]||'']]);
     }
   }
@@ -834,8 +836,24 @@ function saveTimetables(userId, myTT, classTTList, events) {
       else if (styles[i] === 'd') {
         r.setBackground('#fff').setFontColor('#222').setFontStyle('normal').setFontWeight('normal');
         s.getRange(54 + i, 2).setFontWeight('bold').setFontColor('#666');
+        s.getRange(54 + i, 3, 1, 5).setNumberFormat('@');
       } else r.setBackground('#f0f0f0');
     }
+  }
+
+  // ③ 행사: rows 28-37 — 사이트 입력 행사를 시트에 반영
+  if (events && Object.keys(events).length) {
+    const evEntries = Object.entries(events)
+      .filter(([k, v]) => v && /^\d{4}-\d{2}-\d{2}$/.test(k))
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .slice(0, 10);
+    const evData = [];
+    for (let i = 0; i < 10; i++) {
+      evData.push(i < evEntries.length ? [evEntries[i][0], evEntries[i][1], ''] : ['', '', '']);
+    }
+    s.getRange(28, 2, 10, 3).setValues(evData);
+    s.getRange(28, 2, 10, 3).setBackground('#FFFDE7');
+    for (let r = 28; r <= 37; r++) s.setRowHeight(r, 22);
   }
 
   s.hideColumns(1);
