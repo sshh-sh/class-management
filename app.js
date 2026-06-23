@@ -14,7 +14,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
 // GAS API URL
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbzCOCQ5i0nHmSB88Ub4F3xUKiPjOOHrWBrGOUCAlySx849JC-9cY6mZGCbKX1daEoE/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbwocHhdP5mOWRr1P79C07sFcOBiY5JS4aJaKGaPR30ZV8y6AYodkvnZeXc99hd2sPqg/exec';
 
 const TIMES = ['09:00~09:40','09:50~10:30','10:40~11:20','11:30~12:10','13:00~13:40'];
 const DAY_NAMES = ['일','월','화','수','목','금','토'];
@@ -850,7 +850,7 @@ function buildSyllabus() {
   const content = document.getElementById('syllabus-content');
   tabBar.innerHTML = subjects.map((s, i) =>
     `<button class="sub-tab${i===0?' active':''}" onclick="switchSyllabus('${s.replace(/'/g,"\\'")}',this)">${s}</button>`
-  ).join('') + `<button class="sub-tab" onclick="addSyllabusSubject()" style="color:#534AB7;border-color:#AFA9EC;">+ 과목 추가</button>`;
+  ).join('');
   if (!subjects.length) {
     content.innerHTML = '<div style="font-size:15px;color:#aaa;padding:20px 0;">위의 <b>+ 과목 추가</b> 버튼으로 과목을 등록하거나, CSV 업로드 또는 구글 시트 연동을 이용하세요.</div>';
     return;
@@ -867,8 +867,8 @@ function buildSyllabus() {
           <th style="width:44px;text-align:center;">완료</th>
           <th style="width:44px;text-align:center;">순서</th>
           <th style="width:80px;">기간</th>
-          <th style="width:22%;">단원명</th>
           <th style="width:52px;text-align:center;">차시</th>
+          <th style="width:22%;">단원</th>
           <th style="width:20%;">학습주제</th>
           <th style="width:10%;">준비물</th>
           <th>메모</th>
@@ -885,8 +885,8 @@ function buildSyllabus() {
               ${hasLinks ? `<button class="syl-link-icon" onclick="event.stopPropagation();openSylLinkEditor('${se}',${idx})" title="링크 편집">🔗</button>` : `<button class="syl-link-icon syl-link-empty" onclick="event.stopPropagation();openSylLinkEditor('${se}',${idx})" title="링크 추가">+</button>`}
             </td>
             <td>${sylCell(r.period,'period',r,idx,se)}</td>
-            <td>${sylCell(r.unit,'unit',r,idx,se)}</td>
             <td style="text-align:center;">${sylCell(r.ch,'ch',r,idx,se)}</td>
+            <td>${sylCell(r.unit,'unit',r,idx,se)}</td>
             <td>${sylCell(r.topic,'topic',r,idx,se)}</td>
             <td>${sylCell(r.prep,'prep',r,idx,se)}</td>
             <td>${sylCell(r.memo,'memo',r,idx,se)}</td>

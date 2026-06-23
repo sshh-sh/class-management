@@ -251,12 +251,15 @@ body{font-family:'Noto Sans KR',sans-serif;font-size:17px;background:#f5f5f5;col
 .link-btn:hover{background:#534AB7;color:#fff;border-color:#534AB7;}
 
 /* ==================== 개념 아이콘 바 ==================== */
-.concept-icons-bar{display:flex;align-items:flex-start;gap:6px;flex-wrap:wrap;}
-.concept-icon-btn{display:flex;flex-direction:column;align-items:center;gap:3px;cursor:default;position:relative;}
-.concept-icon-circle{width:34px;height:34px;border-radius:50%;border:1px solid transparent;display:flex;align-items:center;justify-content:center;transition:border-color 0.15s,background 0.15s;}
+.syl-row1{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 0 6px;flex-wrap:wrap;}
+.syl-row1 .sub-tab-bar{display:flex;gap:6px;flex-wrap:wrap;border:none;margin:0;padding:0;}
+.concept-icons-bar{display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap;padding:4px 0 10px;}
+.concept-icon-btn{display:flex;flex-direction:column;align-items:center;gap:4px;cursor:default;position:relative;}
+.concept-icon-circle{width:42px;height:42px;border-radius:50%;border:1px solid transparent;display:flex;align-items:center;justify-content:center;transition:filter 0.15s;}
 .concept-icon-btn:hover .concept-icon-circle{filter:brightness(0.93);}
-.concept-icon-label{font-size:10px;color:#888;white-space:nowrap;}
-.concept-popup{display:none;position:absolute;top:54px;left:50%;transform:translateX(-50%);background:#fff;border:0.5px solid #ddd;border-radius:10px;padding:6px 0;z-index:200;min-width:240px;max-height:280px;overflow-y:auto;box-shadow:0 4px 16px rgba(0,0,0,0.10);}
+.concept-icon-circle i{font-size:22px;}
+.concept-icon-label{font-size:11px;color:#888;white-space:nowrap;}
+.concept-popup{display:none;position:absolute;top:66px;left:50%;transform:translateX(-50%);background:#fff;border:0.5px solid #ddd;border-radius:10px;padding:6px 0;z-index:200;min-width:240px;max-height:280px;overflow-y:auto;box-shadow:0 4px 16px rgba(0,0,0,0.10);}
 .concept-icon-btn:hover .concept-popup{display:block;}
 .concept-popup-row{display:flex;align-items:center;gap:8px;padding:7px 14px;cursor:pointer;transition:background 0.1s;}
 .concept-popup-row:hover{background:#F8F7FF;}

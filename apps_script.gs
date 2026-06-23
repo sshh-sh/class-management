@@ -577,15 +577,15 @@ function loadAll(userId) {
   const sylRows = sylSheet.getDataRange().getValues();
   const syllabusData = {};
   for (let i = 1; i < sylRows.length; i++) {
-    const subject = String(sylRows[i][0]||'').trim();
+    const subject = String(sylRows[i][1]||'').trim();
     if (!subject) continue;
     if (!syllabusData[subject]) syllabusData[subject] = [];
-    // 신형 컬럼: [과목(0), 수업완료(1), 순서(2), 기간(3), 단원명(4), 차시(5), 학습주제(6), 준비물(7), 메모(8)]
+    // 신형 컬럼: [완료체크(0), 과목(1), 순서(2), 기간(3), 차시(4), 단원(5), 학습주제(6), 준비물(7), 메모(8)]
     syllabusData[subject].push({
-      done: String(sylRows[i][1]||'').trim() === '완료',
+      done: String(sylRows[i][0]||'').trim() === '완료',
       period: String(sylRows[i][3]||''),
-      unit: String(sylRows[i][4]||''),
-      ch: String(sylRows[i][5]||''),
+      ch: String(sylRows[i][4]||''),
+      unit: String(sylRows[i][5]||''),
       topic: String(sylRows[i][6]||''),
       prep: String(sylRows[i][7]||''),
       memo: String(sylRows[i][8]||'')
@@ -607,18 +607,20 @@ function loadAll(userId) {
 }
 
 // ---------- 개념링크 ----------
-// 시트명: 개념링크 / 컬럼: 카테고리(A), 소카테고리(B), 주제(C), URL(D)
+// 진도표 시트 J~M열(9~12): 카테고리(J), 소카테고리(K), 주제(L), URL(M)
+// 병합 셀로 인한 빈칸은 위 행 값 상속
 function loadConceptLinks() {
-  const ss = jm_getSpreadsheet();
-  const sheet = ss.getSheetByName('개념링크');
-  if (!sheet) return { data: {} };
+  const sheet = jm_syllabusSheet();
   const rows = sheet.getDataRange().getValues();
   const data = {};
+  let lastCat = '', lastSubcat = '';
   for (let i = 1; i < rows.length; i++) {
-    const cat    = String(rows[i][0]||'').trim();
-    const subcat = String(rows[i][1]||'').trim();
-    const topic  = String(rows[i][2]||'').trim();
-    const url    = String(rows[i][3]||'').trim();
+    const cat    = String(rows[i][9]||'').trim()  || lastCat;
+    const subcat = String(rows[i][10]||'').trim() || lastSubcat;
+    const topic  = String(rows[i][11]||'').trim();
+    const url    = String(rows[i][12]||'').trim();
+    if (cat) lastCat = cat;
+    if (subcat) lastSubcat = subcat;
     if (!cat || !url) continue;
     if (!data[cat]) data[cat] = [];
     data[cat].push({ subcat, topic, url });
@@ -895,13 +897,13 @@ function loadSyllabus(userId, subject) {
   const data = s.getDataRange().getValues();
   const items = [];
   for (let i = 1; i < data.length; i++) {
-    if (String(data[i][0]||'').trim() !== subject) continue;
-    // 신형: [과목(0), 수업완료(1), 순서(2), 기간(3), 단원명(4), 차시(5), 학습주제(6), 준비물(7), 메모(8)]
+    if (String(data[i][1]||'').trim() !== subject) continue;
+    // 신형: [완료체크(0), 과목(1), 순서(2), 기간(3), 차시(4), 단원(5), 학습주제(6), 준비물(7), 메모(8)]
     items.push({
-      done: String(data[i][1]||'').trim() === '완료',
+      done: String(data[i][0]||'').trim() === '완료',
       period: String(data[i][3]||''),
-      unit: String(data[i][4]||''),
-      ch: String(data[i][5]||''),
+      ch: String(data[i][4]||''),
+      unit: String(data[i][5]||''),
       topic: String(data[i][6]||''),
       prep: String(data[i][7]||''),
       memo: String(data[i][8]||'')
@@ -914,16 +916,16 @@ function saveSyllabus(userId, subject, sylData) {
   const s = jm_syllabusSheet();
   const data = s.getDataRange().getValues();
   for (let i = data.length - 1; i >= 1; i--) {
-    if (String(data[i][0]||'').trim() === subject) s.deleteRow(i + 1);
+    if (String(data[i][1]||'').trim() === subject) s.deleteRow(i + 1);
   }
   sylData.forEach((item, idx) => {
     s.appendRow([
-      subject,
       item.done ? '완료' : '할일',
+      subject,
       idx + 1,
       item.period || '',
-      item.unit || '',
       item.ch || '',
+      item.unit || '',
       item.topic || '',
       item.prep || '',
       item.memo || ''
