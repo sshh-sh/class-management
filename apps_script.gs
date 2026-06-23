@@ -567,6 +567,16 @@ function jm_syllabusSheet() {
     s.setColumnWidths(2, 8, 110);
     s.setColumnWidth(9, 250);
   }
+
+  // 개념링크 헤더 (K~N, 11~14열): 없으면 추가 — 기존 데이터 행 건드리지 않음
+  if (!String(s.getRange(1, 11).getValue()).trim()) {
+    s.getRange(1, 11, 1, 4).setValues([['카테고리', '소카테고리', '주제', 'URL']]);
+    s.getRange(1, 11, 1, 4).setFontWeight('bold').setBackground('#34A853').setFontColor('white');
+    s.setColumnWidth(11, 90);   // K: 카테고리
+    s.setColumnWidth(12, 90);   // L: 소카테고리
+    s.setColumnWidth(13, 160);  // M: 주제
+    s.setColumnWidth(14, 320);  // N: URL
+  }
   return s;
 }
 
@@ -607,7 +617,7 @@ function loadAll(userId) {
 }
 
 // ---------- 개념링크 ----------
-// 진도표 시트 J~M열(9~12): 카테고리(J), 소카테고리(K), 주제(L), URL(M)
+// 진도표 시트 K~N열(10~13): 카테고리(K), 소카테고리(L), 주제(M), URL(N)
 // 병합 셀로 인한 빈칸은 위 행 값 상속
 function loadConceptLinks() {
   const sheet = jm_syllabusSheet();
@@ -615,10 +625,10 @@ function loadConceptLinks() {
   const data = {};
   let lastCat = '', lastSubcat = '';
   for (let i = 1; i < rows.length; i++) {
-    const cat    = String(rows[i][9]||'').trim()  || lastCat;
-    const subcat = String(rows[i][10]||'').trim() || lastSubcat;
-    const topic  = String(rows[i][11]||'').trim();
-    const url    = String(rows[i][12]||'').trim();
+    const cat    = String(rows[i][10]||'').trim() || lastCat;
+    const subcat = String(rows[i][11]||'').trim() || lastSubcat;
+    const topic  = String(rows[i][12]||'').trim();
+    const url    = String(rows[i][13]||'').trim();
     if (cat) lastCat = cat;
     if (subcat) lastSubcat = subcat;
     if (!cat || !url) continue;
