@@ -592,6 +592,7 @@ function loadAll(userId) {
     });
   }
   const journalResult = loadJournal(userId);
+  const conceptResult = loadConceptLinks();
   return {
     success: true,
     myTT: ttResult.myTT,
@@ -600,8 +601,29 @@ function loadAll(userId) {
     vacationPeriods: ttResult.vacationPeriods,
     subjectHoursData: ttResult.subjectHoursData,
     syllabusData,
-    journals: journalResult.journals
+    journals: journalResult.journals,
+    conceptLinks: conceptResult.data
   };
+}
+
+// ---------- 개념링크 ----------
+// 시트명: 개념링크 / 컬럼: 카테고리(A), 소카테고리(B), 주제(C), URL(D)
+function loadConceptLinks() {
+  const ss = jm_getSpreadsheet();
+  const sheet = ss.getSheetByName('개념링크');
+  if (!sheet) return { data: {} };
+  const rows = sheet.getDataRange().getValues();
+  const data = {};
+  for (let i = 1; i < rows.length; i++) {
+    const cat    = String(rows[i][0]||'').trim();
+    const subcat = String(rows[i][1]||'').trim();
+    const topic  = String(rows[i][2]||'').trim();
+    const url    = String(rows[i][3]||'').trim();
+    if (!cat || !url) continue;
+    if (!data[cat]) data[cat] = [];
+    data[cat].push({ subcat, topic, url });
+  }
+  return { data };
 }
 
 // ---------- 수업일지 ----------

@@ -27,6 +27,7 @@ let selectedDow = 0;
 let myTT = {1:['','','','',''],2:['','','','',''],3:['','','','',''],4:['','','','',''],5:['','','','','']};
 let classTTList = [];
 let syllabusData = {};
+let conceptLinksData = {};
 let journalData = [];
 let progressData = [];
 let sheetsUrl = '';
@@ -75,6 +76,7 @@ window.changeSemYear = async () => {
   buildProgress();
   buildFullTimetable();
   buildSyllabus();
+  buildConceptIcons();
   renderWeek(1, 1);
 }
 
@@ -160,6 +162,7 @@ function applyUserData(d) {
   if (d.timetableEvents) timetableEvents = d.timetableEvents;
   if (d.vacationPeriods) vacationPeriods = d.vacationPeriods;
   if (d.subjectHoursData) subjectHoursData = d.subjectHoursData;
+  if (d.conceptLinks) { conceptLinksData = d.conceptLinks; buildConceptIcons(); }
 }
 
 async function loadUserData() {
@@ -190,7 +193,7 @@ async function loadUserData() {
         apiCache.set('loadAll_' + userId, { ts: now });
         localStorage.setItem(cacheKey, JSON.stringify({
           myTT, classTTList, syllabusData, journals: journalData, timetableEvents,
-          vacationPeriods, subjectHoursData
+          vacationPeriods, subjectHoursData, conceptLinks: conceptLinksData
         }));
       }
     } catch(e) {
@@ -784,9 +787,11 @@ function sylCell(val, field, r, idx, subjectEsc) {
   const lines = strVal.split('\n').map(l => l.trim()).filter(l => l);
 
   if (lines.length > 1 || (runs && runs.length > 1)) {
-    const items = lines.length > 1 ? lines : runs.map(rn => rn.text);
+    // runs가 여러 개면 runs 기준, 아니면 lines 기준
+    const useRuns = runs && runs.length > 1;
+    const items = useRuns ? runs.map(rn => rn.text) : lines;
     return `<div class="syl-multiline">${items.map((line, li) => {
-      const run = runs && runs[li];
+      const run = useRuns ? runs[li] : (runs && runs[li]);
       const url = (run && run.url) || (line.startsWith('http') ? line : '');
       const linkBtn = url ? `<a href="${url.replace(/"/g,'&quot;')}" target="_blank" rel="noopener" class="syl-link-btn" title="링크 열기">🔗</a>` : '';
       return `<div class="syl-cell-line"><span class="syl-line-text">${line.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span>${linkBtn}</div>`;
@@ -799,6 +804,44 @@ function sylCell(val, field, r, idx, subjectEsc) {
   const inp = `<input value="${esc}" style="width:100%;border:none;font-size:inherit;background:transparent;" onchange="updateSylField('${subjectEsc}',${idx},'${field}',this.value)">`;
   if (!url) return inp;
   return `<div class="syl-cell-link">${inp}<a href="${url.replace(/"/g,'&quot;')}" target="_blank" rel="noopener" class="syl-link-btn" title="링크 열기">🔗</a></div>`;
+}
+
+const CONCEPT_ICONS = [
+  { key: '공통',     icon: 'ti-books',   color: '#5F5E5A', bg: '#F1EFE8' },
+  { key: '우주',     icon: 'ti-planet',  color: '#534AB7', bg: '#EEEDFE' },
+  { key: '몸',       icon: 'ti-man',     color: '#993556', bg: '#FBEAF0' },
+  { key: '물질',     icon: 'ti-flask',   color: '#185FA5', bg: '#E6F1FB' },
+  { key: '동물',     icon: 'ti-paw',     color: '#3B6D11', bg: '#EAF3DE' },
+  { key: '식물',     icon: 'ti-leaf',    color: '#0F6E56', bg: '#E1F5EE' },
+  { key: '소리',     icon: 'ti-volume',  color: '#854F0B', bg: '#FAEEDA' },
+  { key: '기타생물', icon: 'ti-virus',   color: '#085041', bg: '#E1F5EE' },
+  { key: '빛과렌즈', icon: 'ti-bulb',    color: '#BA7517', bg: '#FAEEDA' },
+  { key: '에너지효율', icon: 'ti-bolt',  color: '#993C1D', bg: '#FAECE7' },
+];
+
+function buildConceptIcons() {
+  const bar = document.getElementById('concept-icons-bar');
+  if (!bar) return;
+  bar.innerHTML = CONCEPT_ICONS.map(c => {
+    const links = conceptLinksData[c.key] || [];
+    const popupRows = links.map(lk => {
+      const safeUrl = lk.url.replace(/"/g,'&quot;');
+      const safeTopic = (lk.topic||lk.url).replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      const safeSubcat = (lk.subcat||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      return `<div class="concept-popup-row" onclick="window.open('${safeUrl}','_blank')">
+        ${safeSubcat ? `<span class="concept-popup-tag">${safeSubcat}</span>` : ''}
+        <span class="concept-popup-topic">${safeTopic}</span>
+      </div>`;
+    }).join('');
+    const hasLinks = links.length > 0;
+    return `<div class="concept-icon-btn">
+      <div class="concept-icon-circle" style="background:${c.bg};border-color:${c.color}40;">
+        <i class="ti ${c.icon}" style="color:${c.color};font-size:18px;" aria-hidden="true"></i>
+      </div>
+      <span class="concept-icon-label">${c.key}</span>
+      ${hasLinks ? `<div class="concept-popup">${popupRows}</div>` : ''}
+    </div>`;
+  }).join('');
 }
 
 function buildSyllabus() {
@@ -857,13 +900,10 @@ function buildSyllabus() {
   }).join('');
 }
 
-// 4번: 링크 영역
 window.selectSylRow = (subject, idx, linksRaw) => {
   document.querySelectorAll('.syl-table tbody tr').forEach(tr => tr.classList.remove('syl-row-selected'));
   const rows = document.querySelectorAll(`#syl-${subject.replace(/ /g,'_')} tbody tr`);
   if (rows[idx]) rows[idx].classList.add('syl-row-selected');
-  const links = syllabusData[subject]?.[idx]?.links || linksRaw.replace(/&#39;/g,"'").replace(/&quot;/g,'"');
-  showLinks(links);
 };
 
 // 링크 편집 팝업

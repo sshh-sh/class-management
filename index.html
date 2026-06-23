@@ -10,6 +10,7 @@
   <link rel="preconnect" href="https://www.gstatic.com">
   <link rel="preconnect" href="https://firebaseapp.com">
   <link rel="preconnect" href="https://script.google.com">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
 </head>
 <body>
 
@@ -200,19 +201,15 @@
     <!-- 진도표 탭 -->
     <div id="tab-syllabus" class="tab-content hidden">
       <div class="section-header" style="margin-bottom:10px;">
-        <span class="section-title">진도표</span>
+        <div style="display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;">
+          <span class="section-title" style="margin-top:6px;">진도표</span>
+          <div id="concept-icons-bar" class="concept-icons-bar"></div>
+        </div>
         <div class="btn-group">
           <button class="btn-xs" onclick="downloadSylTemplate()">&#8595; 양식</button>
           <button class="btn-xs primary" onclick="document.getElementById('syl-global-upload').click()">&#8593; 업로드</button>
           <input type="file" id="syl-global-upload" accept=".csv" style="display:none" onchange="handleSylGlobalUpload(this)">
           <button class="btn-xs" onclick="saveSyllabus()">☁ 저장</button>
-        </div>
-      </div>
-      <!-- 4번: 링크 고정 영역 -->
-      <div class="link-area" id="link-area">
-        <div class="link-area-inner">
-          <span class="link-area-hint" id="link-area-hint">행을 클릭하면 링크가 표시됩니다 (링크 칸: "주제,URL|주제,URL" 형식)</span>
-          <div class="link-buttons" id="link-buttons"></div>
         </div>
       </div>
       <div class="sub-tab-bar" id="syllabus-tabs"></div>

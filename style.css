@@ -246,13 +246,22 @@ body{font-family:'Noto Sans KR',sans-serif;font-size:17px;background:#f5f5f5;col
 .syl-link-empty{color:#ddd;font-size:14px;font-weight:300;}
 .syl-link-empty:hover{color:#534AB7;}
 
-/* ==================== 4번: 링크 고정 영역 ==================== */
-.link-area{flex-shrink:0;background:#F8F7FF;border:0.5px solid #C7C2F0;border-radius:8px;padding:8px 14px;margin-bottom:10px;min-height:44px;display:flex;align-items:center;}
-.link-area-inner{display:flex;align-items:center;gap:8px;flex-wrap:wrap;width:100%;}
-.link-area-hint{font-size:12px;color:#aaa;white-space:nowrap;}
-.link-buttons{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
+/* ==================== 링크 버튼 (기존) ==================== */
 .link-btn{background:#EEEDFE;color:#3C3489;border:0.5px solid #AFA9EC;border-radius:16px;padding:5px 14px;font-size:13px;cursor:pointer;white-space:nowrap;transition:background 0.15s;}
 .link-btn:hover{background:#534AB7;color:#fff;border-color:#534AB7;}
+
+/* ==================== 개념 아이콘 바 ==================== */
+.concept-icons-bar{display:flex;align-items:flex-start;gap:6px;flex-wrap:wrap;}
+.concept-icon-btn{display:flex;flex-direction:column;align-items:center;gap:3px;cursor:default;position:relative;}
+.concept-icon-circle{width:34px;height:34px;border-radius:50%;border:1px solid transparent;display:flex;align-items:center;justify-content:center;transition:border-color 0.15s,background 0.15s;}
+.concept-icon-btn:hover .concept-icon-circle{filter:brightness(0.93);}
+.concept-icon-label{font-size:10px;color:#888;white-space:nowrap;}
+.concept-popup{display:none;position:absolute;top:54px;left:50%;transform:translateX(-50%);background:#fff;border:0.5px solid #ddd;border-radius:10px;padding:6px 0;z-index:200;min-width:240px;max-height:280px;overflow-y:auto;box-shadow:0 4px 16px rgba(0,0,0,0.10);}
+.concept-icon-btn:hover .concept-popup{display:block;}
+.concept-popup-row{display:flex;align-items:center;gap:8px;padding:7px 14px;cursor:pointer;transition:background 0.1s;}
+.concept-popup-row:hover{background:#F8F7FF;}
+.concept-popup-tag{font-size:11px;color:#888;min-width:52px;flex-shrink:0;}
+.concept-popup-topic{font-size:13px;color:#3C3489;flex:1;}
 .syl-row-selected td{background:#F0EFFE!important;}
 
 /* ==================== 3번: 방학·시수 ==================== */
