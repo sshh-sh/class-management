@@ -138,6 +138,14 @@ async function getDeployments(token) {
   return res.body.deployments || [];
 }
 
+async function deleteDeployment(token, deploymentId) {
+  const res = await httpsRequest(
+    `https://script.googleapis.com/v1/projects/${SCRIPT_ID}/deployments/${deploymentId}`,
+    { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } }
+  );
+  if (res.status !== 200) console.log(`⚠️  배포 삭제 실패 (${deploymentId}): ${res.status}`);
+}
+
 async function createDeployment(token, versionNumber) {
   const res = await httpsRequest(
     `https://script.googleapis.com/v1/projects/${SCRIPT_ID}/deployments`,
@@ -154,8 +162,22 @@ async function deploy(token) {
   const source = fs.readFileSync(GAS_FILE, 'utf8');
   await updateGasContent(token, source);
   const versionNumber = await createVersion(token);
-  const deployments = await getDeployments(token);
+  let deployments = await getDeployments(token);
   console.log(`📋 배포 목록: ${deployments.length}개`);
+
+  // 배포 한도(20개) 초과 시 오래된 배포 삭제
+  const MAX_DEPLOYMENTS = 19;
+  const deletable = deployments
+    .filter(d => d.deploymentId !== '@HEAD' && d.deploymentConfig?.versionNumber)
+    .sort((a, b) => (a.deploymentConfig.versionNumber || 0) - (b.deploymentConfig.versionNumber || 0));
+  if (deletable.length > MAX_DEPLOYMENTS) {
+    const toDelete = deletable.slice(0, deletable.length - MAX_DEPLOYMENTS);
+    for (const dep of toDelete) {
+      await deleteDeployment(token, dep.deploymentId);
+      console.log(`🗑  구버전 배포 삭제: v${dep.deploymentConfig.versionNumber}`);
+    }
+  }
+
   const newDeploy = await createDeployment(token, versionNumber);
   const newUrl = newDeploy.entryPoints?.find(e => e.entryPointType === 'WEB_APP')?.webApp?.url;
   if (newUrl) {

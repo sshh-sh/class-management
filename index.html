@@ -156,6 +156,7 @@
           <button class="btn-xs" onclick="document.getElementById('tt-upload-input').click()">&#8593; 업로드</button>
           <input type="file" id="tt-upload-input" accept=".csv" style="display:none" onchange="handleTTUpload(this)">
           <button class="btn-xs" onclick="resetTimetableSheet()">📋 시트 양식 만들기</button>
+          <button class="btn-xs" onclick="generateFullTT()">📅 전체시간표 생성</button>
           <button class="btn-xs primary" onclick="syncFromGAS()">☁ 구글시트 연동</button>
         </div>
       </div>

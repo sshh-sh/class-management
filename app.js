@@ -14,7 +14,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
 // GAS API URL
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbytYfRUr48pkHuDZ_aa7wLWvR1-I8gjO6L6WSZw8aSF9tqdFDkYgRc8IWIIZkZwaIQ/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxT4QZ6hlVqxK8kglFfeL79ZsR8s253-M_JCLZRNcQQ28ueAq7LXk8U32YzK6-6nnDc/exec';
 
 const TIMES = ['09:00~09:40','09:50~10:30','10:40~11:20','11:30~12:10','13:00~13:40'];
 const DAY_NAMES = ['일','월','화','수','목','금','토'];
@@ -1446,6 +1446,21 @@ window.refreshFromSheets = async () => {
 };
 
 // ==================== 시간표 시트 양식 초기화 ====================
+window.generateFullTT = async () => {
+  if (!confirm(`구글 시트 시간표 탭 J열부터 ${semYear}학년도 전체시간표를 생성합니다.\nJ열 이후 기존 내용은 덮어씁니다. 계속하시겠습니까?`)) return;
+  try {
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      body: JSON.stringify({ app: 'journal-management', action: 'generateFullTimetable', semYear })
+    });
+    const d = await res.json();
+    if (d.success) alert('✅ 전체시간표 생성 완료!\n구글 시트 > 시간표 탭 J열을 확인하세요.');
+    else alert('오류: ' + (d.error || d.message || '알 수 없는 오류'));
+  } catch(e) {
+    alert('오류: ' + e.message);
+  }
+};
+
 window.resetTimetableSheet = async () => {
   if (!confirm('구글 시트의 시간표 탭을 새 양식으로 초기화합니다.\n기존에 입력한 방학/행사/필요시수 데이터가 초기화됩니다.\n계속하시겠습니까?')) return;
   try {

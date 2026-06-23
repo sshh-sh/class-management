@@ -56,6 +56,8 @@ function doPost(e) {
         result = { success: true, message: '시간표 양식이 초기화되었습니다.' };
       } else if (action === 'calcTimetable') {
         result = calcTimetable(userId, data.semYear);
+      } else if (action === 'generateFullTimetable') {
+        result = generateFullTimetable(data.semYear);
       } else {
         result = {success: false, message: '알 수 없는 액션'};
       }
@@ -824,6 +826,150 @@ function saveTimetables(userId, myTT, classTTList, events) {
   }
 
   s.hideColumns(1);
+  return { success: true };
+}
+
+// ---------- 전체시간표 생성 (J열~) ----------
+function generateFullTimetable(semYear) {
+  const s = jm_timetableSheet();
+  const allData = s.getDataRange().getValues();
+
+  function nd(v) {
+    if (!v) return '';
+    if (v instanceof Date) return Utilities.formatDate(v, 'Asia/Seoul', 'yyyy-MM-dd');
+    const str = String(v).trim();
+    return /^\d{4}-\d{2}-\d{2}$/.test(str) ? str : '';
+  }
+  function fd(d) { return Utilities.formatDate(d, 'Asia/Seoul', 'yyyy-MM-dd'); }
+
+  // 기본시간표: rows 6-11 (idx 5-10), cols C-G (idx 2-6)
+  // myTT[교시0based][요일0based] : 0=월..4=금
+  const myTT = [];
+  for (let r = 5; r <= 10; r++) myTT.push([2,3,4,5,6].map(c => String(allData[r][c]||'').trim()));
+
+  // 방학: rows 15-24 (idx 14-23)  B=시작, C=종료, D=방학명
+  const vacs = [];
+  for (let r = 14; r <= 23; r++) {
+    const st = nd(allData[r][1]), en = nd(allData[r][2]), nm = String(allData[r][3]||'').trim();
+    if (st && en) vacs.push({ st, en, nm });
+  }
+
+  // 행사: rows 28-37 (idx 27-36)  B=날짜, C=행사명
+  const evts = {};
+  for (let r = 27; r <= 36; r++) {
+    const dt = nd(allData[r][1]), nm = String(allData[r][2]||'').trim();
+    if (dt && nm) evts[dt] = nm;
+  }
+
+  function isVac(d) { return vacs.some(v => d >= v.st && d <= v.en); }
+  function vacNm(d) { const v = vacs.find(v => d >= v.st && d <= v.en); return v ? v.nm : ''; }
+
+  const yr = semYear || (function(){ const n = new Date(); return n.getMonth() >= 2 ? n.getFullYear() : n.getFullYear()-1; })();
+  const sems = [
+    { label: yr+'학년도 1학기', st: new Date(yr,2,1),   en: new Date(yr,7,31) },
+    { label: yr+'학년도 2학기', st: new Date(yr,8,1),   en: new Date(yr+1,1,28) }
+  ];
+
+  const SC = 10, NC = 33; // J열(10) ~ AP열(42)
+  const DAYS = ['월','화','수','목','금'];
+
+  // 기존 전체시간표 영역 초기화
+  const lr = Math.max(s.getLastRow(), 3);
+  s.getRange(1, SC, lr, NC).clearContent().clearFormat().breakApart();
+
+  // 헤더 1행: 주 | 기간 | 월(병합6) | 화(병합6) | 수(병합6) | 목(병합6) | 금(병합6) | 비고
+  const h1 = ['주', '기간'];
+  DAYS.forEach(d => { h1.push(d); for (let i=0;i<5;i++) h1.push(''); });
+  h1.push('비고');
+  s.getRange(1, SC, 1, NC).setValues([h1]);
+  for (let d=0; d<5; d++) s.getRange(1, SC+2+d*6, 1, 6).merge();
+
+  // 헤더 2행: '' | '' | 1~6 반복 5번 | ''
+  const h2 = ['', ''];
+  for (let d=0;d<5;d++) for (let p=1;p<=6;p++) h2.push(p);
+  h2.push('');
+  s.getRange(2, SC, 1, NC).setValues([h2]);
+
+  // 헤더 스타일
+  const HP = '#534AB7', HL = '#EEEDFE';
+  s.getRange(1,SC,1,NC).setBackground(HP).setFontColor('#fff').setFontWeight('bold')
+    .setHorizontalAlignment('center').setVerticalAlignment('middle');
+  s.setRowHeight(1, 28);
+  s.getRange(2,SC,1,NC).setBackground(HL).setFontColor(HP).setFontWeight('bold')
+    .setHorizontalAlignment('center');
+  s.setRowHeight(2, 22);
+
+  // 열 너비
+  s.setColumnWidth(SC, 32);
+  s.setColumnWidth(SC+1, 75);
+  for (let i=0;i<30;i++) s.setColumnWidth(SC+2+i, 52);
+  s.setColumnWidth(SC+32, 200);
+
+  let curRow = 3;
+
+  for (const sem of sems) {
+    // 학기 구분 행
+    s.getRange(curRow, SC, 1, NC).merge()
+      .setValue(sem.label)
+      .setBackground('#E8F0FE').setFontColor('#1A56BD').setFontWeight('bold')
+      .setHorizontalAlignment('left');
+    s.setRowHeight(curRow, 24);
+    curRow++;
+
+    // 학기 시작일의 그 주 월요일 구하기
+    let cur = new Date(sem.st.getTime());
+    const dow = cur.getDay();
+    if (dow === 0) cur.setDate(cur.getDate() + 1);
+    else if (dow !== 1) cur.setDate(cur.getDate() - (dow - 1));
+
+    let wk = 0;
+    const batchData = [];
+    const batchStart = curRow;
+
+    while (cur <= sem.en) {
+      wk++;
+      const wd = [0,1,2,3,4].map(i => { const d = new Date(cur.getTime()); d.setDate(cur.getDate()+i); return d; });
+
+      // 기간 표시: 학기 범위로 클립
+      const first = wd.find(d => d >= sem.st) || wd[0];
+      const last  = [...wd].reverse().find(d => d <= sem.en) || wd[4];
+      const rng = (first.getMonth()+1)+'.'+first.getDate()+'~'+(last.getMonth()+1)+'.'+last.getDate();
+
+      const row = [wk, rng];
+      const rem = [];
+      const usedVac = new Set();
+
+      for (let d=0; d<5; d++) {
+        const day = wd[d];
+        if (day < sem.st || day > sem.en) { for(let p=0;p<6;p++) row.push(''); continue; }
+        const ds = fd(day);
+        if (isVac(ds)) {
+          for(let p=0;p<6;p++) row.push('');
+          const vn = vacNm(ds);
+          if (vn && !usedVac.has(vn)) { usedVac.add(vn); rem.push(vn); }
+        } else if (evts[ds]) {
+          for(let p=0;p<6;p++) row.push('');
+          rem.push((day.getMonth()+1)+'.'+day.getDate()+'('+DAYS[d]+') '+evts[ds]);
+        } else {
+          for(let p=0;p<6;p++) row.push(myTT[p][d] || '');
+        }
+      }
+      row.push(rem.join('\n'));
+      batchData.push(row);
+      curRow++;
+      cur.setDate(cur.getDate() + 7);
+    }
+
+    if (batchData.length) {
+      s.getRange(batchStart, SC, batchData.length, NC).setValues(batchData);
+      s.getRange(batchStart, SC, batchData.length, NC).setVerticalAlignment('middle').setHorizontalAlignment('center');
+      s.getRange(batchStart, SC, batchData.length, 1).setFontWeight('bold');
+      s.getRange(batchStart, SC+32, batchData.length, 1).setHorizontalAlignment('left').setWrap(true);
+      for (let r=batchStart; r<batchStart+batchData.length; r++) s.setRowHeight(r, 24);
+    }
+    curRow++;
+  }
+
   return { success: true };
 }
 
