@@ -798,8 +798,12 @@ function sylCell(val, field, r, idx, subjectEsc) {
     return `<div class="syl-multiline">${items.map((line, li) => {
       const run = useRuns ? runs[li] : (runs && runs[li]);
       const url = (run && run.url) || (line.startsWith('http') ? line : '');
-      const linkBtn = url ? `<a href="${url.replace(/"/g,'&quot;')}" target="_blank" rel="noopener" class="syl-link-btn" title="링크 열기">🔗</a>` : '';
-      return `<div class="syl-cell-line"><span class="syl-line-text">${line.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span>${linkBtn}</div>`;
+      const safeUrl = url ? url.replace(/"/g,'&quot;') : '';
+      const safeText = line.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      if (url) {
+        return `<div class="syl-cell-line"><a href="${safeUrl}" target="_blank" rel="noopener" class="syl-text-link" onclick="event.stopPropagation()">${safeText}<i class="ti ti-external-link" style="font-size:11px;margin-left:3px;vertical-align:1px;" aria-hidden="true"></i></a></div>`;
+      }
+      return `<div class="syl-cell-line"><span class="syl-line-text">${safeText}</span></div>`;
     }).join('')}</div>`;
   }
 
@@ -808,7 +812,7 @@ function sylCell(val, field, r, idx, subjectEsc) {
               (field === 'memo' && strVal.startsWith('http') ? strVal : '');
   const inp = `<input value="${esc}" style="width:100%;border:none;font-size:inherit;background:transparent;" onchange="updateSylField('${subjectEsc}',${idx},'${field}',this.value)">`;
   if (!url) return inp;
-  return `<div class="syl-cell-link">${inp}<a href="${url.replace(/"/g,'&quot;')}" target="_blank" rel="noopener" class="syl-link-btn" title="링크 열기">🔗</a></div>`;
+  return `<div class="syl-cell-link">${inp}<a href="${url.replace(/"/g,'&quot;')}" target="_blank" rel="noopener" class="syl-ext-link" onclick="event.stopPropagation()" title="링크 열기"><i class="ti ti-external-link" aria-hidden="true"></i></a></div>`;
 }
 
 const CONCEPT_ICONS = [
@@ -1522,7 +1526,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v4.5';
+const APP_VERSION = 'v4.6';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');
