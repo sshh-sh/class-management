@@ -171,8 +171,11 @@ body{font-family:'Noto Sans KR',sans-serif;font-size:17px;background:#f5f5f5;col
 .sub-tab.active{background:#EEEDFE;color:#3C3489;border-color:#AFA9EC;}
 .sub-content{display:none;}
 .sub-content.active{display:block;}
-.syl-table{width:100%;border-collapse:collapse;font-size:19px;}
-.syl-table th{background:#f8f8f8;padding:10px 14px;font-weight:500;color:#888;border:0.5px solid #eee;text-align:left;}
+.syl-table{width:100%;border-collapse:collapse;font-size:19px;table-layout:fixed;}
+.syl-table th{background:#f8f8f8;padding:10px 14px;font-weight:500;color:#888;border:0.5px solid #eee;text-align:left;overflow:hidden;}
+.syl-col-resizer{position:absolute;top:0;right:-4px;width:8px;height:100%;cursor:col-resize;z-index:6;}
+.syl-col-resizer:hover{background:#AFA9EC;}
+.syl-table td{word-break:break-word;}
 .syl-table td{padding:8px 10px;border:0.5px solid #eee;color:#222;vertical-align:top;}
 .syl-table tr:hover td{background:#fafafa;}
 .syl-done-row td{color:#bbb;}

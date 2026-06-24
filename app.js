@@ -14,7 +14,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
 // GAS API URL
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbzLe-8UgP4F4fL6zu2S653CyAA1Rb9bjWD-kvc52fdj4WUc7PscxnBMKzIjSVRXTIIw/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbwcBvhVytMDZwEX1qeblieQQn34kAAIe9dETrWm8kZC6JWUUzNPzmDZQR6MaocViSKv/exec';
 
 const TIMES = ['09:00~09:40','09:50~10:30','10:40~11:20','11:30~12:10','13:00~13:40'];
 const DAY_NAMES = ['일','월','화','수','목','금','토'];
@@ -42,7 +42,14 @@ const API_CACHE_TTL = 5 * 60 * 1000; // 5분
 // 4번: 링크 자동저장 디바운서
 let sylAutoSaveTimer = null;
 
+let semDatesData = null; // GAS 시간표 시트 '설정'에서 읽은 학기 일정 {1:{start,end},2:{start,end}}
+
 function getSemDates(year, half) {
+  // 구글시트 설정값이 있으면 우선 사용
+  const sd = semDatesData && semDatesData[half];
+  if (sd && sd.start && sd.end) {
+    return { label: `${year}학년도 ${half}학기`, start: new Date(sd.start + 'T00:00:00'), end: new Date(sd.end + 'T00:00:00') };
+  }
   if (half === 1) {
     return { label: `${year}학년도 1학기`, start: new Date(year, 2, 2), end: new Date(year, 6, 18) };
   } else {
@@ -169,7 +176,8 @@ function applyUserData(d) {
   if (d.syllabusData && Object.keys(d.syllabusData).length) syllabusData = d.syllabusData;
   if (d.journals) journalData = d.journals.sort((a, b) => new Date(a.date) - new Date(b.date));
   if (d.timetableEvents) timetableEvents = d.timetableEvents;
-  if (d.vacationPeriods) vacationPeriods = d.vacationPeriods;
+  if (d.vacationPeriods && d.vacationPeriods.length) vacationPeriods = d.vacationPeriods;
+  if (d.semDatesData) semDatesData = d.semDatesData;
   if (d.subjectHoursData) subjectHoursData = d.subjectHoursData;
   if (d.conceptLinks) { conceptLinksData = d.conceptLinks; buildConceptIcons(); }
 }
@@ -202,7 +210,7 @@ async function loadUserData() {
         apiCache.set('loadAll_' + userId, { ts: now });
         localStorage.setItem(cacheKey, JSON.stringify({
           myTT, classTTList, syllabusData, journals: journalData, timetableEvents,
-          vacationPeriods, subjectHoursData, conceptLinks: conceptLinksData
+          vacationPeriods, subjectHoursData, conceptLinks: conceptLinksData, semDatesData
         }));
       }
     } catch(e) {
@@ -685,9 +693,9 @@ window.syncFromGAS = async () => {
       localStorage.setItem(`userdata_${userId}_ts`, String(Date.now()));
       localStorage.setItem(`userdata_${userId}`, JSON.stringify({
         myTT, classTTList, syllabusData, journals: journalData, timetableEvents,
-        vacationPeriods, subjectHoursData
+        vacationPeriods, subjectHoursData, conceptLinks: conceptLinksData, semDatesData
       }));
-      buildMyTT(); renderClassTTs(); buildFullTimetable(); buildSyllabus(); filterJournal();
+      renderVacations(); buildMyTT(); renderClassTTs(); buildFullTimetable(); buildSyllabus(); filterJournal();
       alert('구글 시트에서 최신 데이터를 불러왔습니다!');
     } else {
       alert('불러오기 실패: ' + (d.message || '오류'));
@@ -921,19 +929,16 @@ function buildSyllabus() {
   }
   content.innerHTML = subjects.map((s, i) => {
     const sId = s.replace(/ /g,'_').replace(/'/g,'');
+    const sAttr = s.replace(/"/g,'&quot;');
+    const sEsc = s.replace(/'/g,"\\'");
+    const ths = SYL_COLS.map((c, ci) =>
+      `<th style="${c.style}position:relative;">${c.label}${ci < SYL_COLS.length-1
+        ? `<span class="syl-col-resizer" onmousedown="startSylColResize(event,this,'${sEsc}',${ci})" onclick="event.stopPropagation()"></span>` : ''}</th>`
+    ).join('');
     return `<div class="sub-content${i===0?' active':''}" id="syl-${sId}">
       <div class="table-wrap">
-      <table class="syl-table">
-        <thead><tr>
-          <th style="width:44px;text-align:center;">완료</th>
-          <th style="width:44px;text-align:center;">순서</th>
-          <th style="width:80px;">기간</th>
-          <th style="width:52px;text-align:center;">차시</th>
-          <th style="width:22%;">단원</th>
-          <th style="width:20%;">학습주제</th>
-          <th style="width:10%;">준비물</th>
-          <th>메모</th>
-        </tr></thead>
+      <table class="syl-table" data-subject="${sAttr}">
+        <thead><tr>${ths}</tr></thead>
         <tbody>${(syllabusData[s]||[]).map((r,idx) => {
           const done = isDone(r);
           const se = s.replace(/'/g,"\\'");
@@ -958,7 +963,57 @@ function buildSyllabus() {
       <button class="btn-xs" style="margin-top:8px;" onclick="addSyllabusRow('${s.replace(/'/g,"\\'")}')">+ 행 추가</button>
     </div>`;
   }).join('');
+  applyAllSylColWidths();
 }
+
+// 진도표 컬럼 너비 — 과목별 localStorage 저장
+const SYL_COLS = [
+  { label:'완료',   style:'width:44px;text-align:center;' },
+  { label:'순서',   style:'width:44px;text-align:center;' },
+  { label:'기간',   style:'width:80px;' },
+  { label:'차시',   style:'width:52px;text-align:center;' },
+  { label:'단원',   style:'width:22%;' },
+  { label:'학습주제', style:'width:20%;' },
+  { label:'준비물',  style:'width:10%;' },
+  { label:'메모',   style:'' },
+];
+
+function sylColKey(subject){ return 'sylColW_' + subject; }
+
+function applyAllSylColWidths() {
+  document.querySelectorAll('.syl-table[data-subject]').forEach(table => {
+    const subject = table.dataset.subject;
+    let widths = {};
+    try { widths = JSON.parse(localStorage.getItem(sylColKey(subject)) || '{}'); } catch(e) {}
+    const ths = table.querySelectorAll('thead th');
+    ths.forEach((th, i) => { if (widths[i]) th.style.width = widths[i] + 'px'; });
+  });
+}
+
+window.startSylColResize = (e, handle, subject, colIdx) => {
+  e.preventDefault();
+  e.stopPropagation();
+  const th = handle.parentElement;
+  const startX = e.pageX;
+  const startW = th.offsetWidth;
+  document.body.style.cursor = 'col-resize';
+  const onMove = ev => {
+    const w = Math.max(36, startW + (ev.pageX - startX));
+    th.style.width = w + 'px';
+  };
+  const onUp = ev => {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    document.body.style.cursor = '';
+    const w = Math.max(36, startW + (ev.pageX - startX));
+    let widths = {};
+    try { widths = JSON.parse(localStorage.getItem(sylColKey(subject)) || '{}'); } catch(e) {}
+    widths[colIdx] = w;
+    try { localStorage.setItem(sylColKey(subject), JSON.stringify(widths)); } catch(e) {}
+  };
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+};
 
 window.selectSylRow = (subject, idx, linksRaw) => {
   document.querySelectorAll('.syl-table tbody tr').forEach(tr => tr.classList.remove('syl-row-selected'));
@@ -1498,8 +1553,9 @@ window.refreshFromSheets = async () => {
       localStorage.setItem(`userdata_${userId}_ts`, String(Date.now()));
       localStorage.setItem(`userdata_${userId}`, JSON.stringify({
         myTT, classTTList, syllabusData, journals: journalData, timetableEvents,
-        vacationPeriods, subjectHoursData
+        vacationPeriods, subjectHoursData, conceptLinks: conceptLinksData, semDatesData
       }));
+      renderVacations();
       buildMyTT();
       renderClassTTs();
       buildFullTimetable();
@@ -1553,7 +1609,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v5.0';
+const APP_VERSION = 'v5.1';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');
