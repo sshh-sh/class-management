@@ -850,7 +850,7 @@ function buildConceptIcons() {
   bar.innerHTML = CONCEPT_ICONS.map(c => {
     const hasLinks = (conceptLinksData[c.key] || []).length > 0;
     const key = c.key.replace(/'/g,"\\'");
-    return `<div class="concept-icon-btn"${hasLinks ? ` onmouseenter="showConceptOverlay('${key}')" onmouseleave="scheduleHideConceptOverlay()"` : ''}>
+    return `<div class="concept-icon-btn"${hasLinks ? ` onmouseenter="showConceptOverlay('${key}',event)" onmouseleave="scheduleHideConceptOverlay()"` : ''}>
       <div class="concept-icon-circle" style="background:${c.bg};border-color:${c.color}40;">
         <i class="ti ${c.icon}" style="color:${c.color};font-size:18px;" aria-hidden="true"></i>
       </div>
@@ -861,7 +861,7 @@ function buildConceptIcons() {
 
 let _conceptHideTimer = null;
 
-window.showConceptOverlay = (key) => {
+window.showConceptOverlay = (key, ev) => {
   clearTimeout(_conceptHideTimer);
   const links = conceptLinksData[key] || [];
   if (!links.length) return;
@@ -878,6 +878,19 @@ window.showConceptOverlay = (key) => {
     </div>`;
   }).join('');
   overlay.style.display = 'flex';
+
+  // 호버한 아이콘 바로 아래에 팝업 위치 (화면 밖으로 넘치지 않게 보정)
+  const iconEl = ev && (ev.currentTarget || ev.target);
+  if (iconEl && iconEl.getBoundingClientRect) {
+    const r = iconEl.getBoundingClientRect();
+    const ow = overlay.offsetWidth || 320;
+    let left = r.left;
+    if (left + ow > window.innerWidth - 8) left = window.innerWidth - ow - 8;
+    if (left < 8) left = 8;
+    overlay.style.left = left + 'px';
+    overlay.style.top = (r.bottom + 4) + 'px';
+    overlay.style.transform = 'none';
+  }
 };
 
 window.scheduleHideConceptOverlay = () => {
@@ -1540,7 +1553,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v4.9';
+const APP_VERSION = 'v5.0';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');
