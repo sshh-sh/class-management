@@ -14,7 +14,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
 // GAS API URL
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbyDnzHtR5fnj1FHvOKtxA0wF59BNzLNsD6jeZnBWNnj8lenwr0OqniWXqZ4e8s7MY03/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxs-8L2u0mkY9dS9vsFksvFomPd92NTd1nrSEma5JHG7tFbvbBESEmn-gOBcHuVnOzN/exec';
 
 const TIMES = ['09:00~09:40','09:50~10:30','10:40~11:20','11:30~12:10','13:00~13:40'];
 const DAY_NAMES = ['일','월','화','수','목','금','토'];
@@ -1010,7 +1010,7 @@ window.toggleDone = async (subject, idx, checked) => {
 window.handleSylUpload = (input, subject) => { if (input.files[0]) alert(`"${input.files[0].name}" 업로드 기능은 준비 중입니다.`); };
 
 window.downloadSylTemplate = () => {
-  const csv = '﻿과목,차시,단원,학습주제,준비물,메모,완료\n3학년 과학,1,1. 생물과 환경,먹이 사슬과 먹이 그물,교과서,,\n3학년 과학,2,1. 생물과 환경,생태계 평형,교과서,,\n';
+  const csv = '﻿과목,기간,차시,단원,학습주제,준비물,메모,완료\n3학년 과학,3/2~3/8,1,1. 생물과 환경,먹이 사슬과 먹이 그물,교과서,,\n3학년 과학,3/9~3/15,2,1. 생물과 환경,생태계 평형,교과서,,\n';
   const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = '진도표_양식.csv'; a.click();
 };
@@ -1025,9 +1025,9 @@ window.handleSylGlobalUpload = (input) => {
     lines.forEach(row => {
       const cols = row.split(',').map(c => c.trim().replace(/^"|"$/g,''));
       if (cols.length < 4 || !cols[0]) return;
-      const [subject, ch, unit, topic, prep, memo, doneVal] = cols;
+      const [subject, period, ch, unit, topic, prep, memo, doneVal] = cols;
       if (!syllabusData[subject]) syllabusData[subject] = [];
-      syllabusData[subject].push({ch:ch||'', unit:unit||'', topic:topic||'', prep:prep||'', memo:memo||'', done:doneVal==='완료'||doneVal==='TRUE'||doneVal==='true'});
+      syllabusData[subject].push({period:period||'', ch:ch||'', unit:unit||'', topic:topic||'', prep:prep||'', memo:memo||'', done:doneVal==='완료'||doneVal==='TRUE'||doneVal==='true'});
     });
     await saveUserData();
     buildSyllabus();
@@ -1081,7 +1081,7 @@ window.deleteSyllabusSubject = async (subject) => {
 
 window.addSyllabusRow = async (subject) => {
   const ch = (syllabusData[subject]?.length || 0) + 1;
-  syllabusData[subject].push({ ch: String(ch), unit: '', topic: '', prep: '', memo: '', done: false });
+  syllabusData[subject].push({ period: '', ch: String(ch), unit: '', topic: '', prep: '', memo: '', done: false });
   await saveUserData();
   buildSyllabus();
   setTimeout(() => {
@@ -1526,7 +1526,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v4.6';
+const APP_VERSION = 'v4.7';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');
