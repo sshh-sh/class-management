@@ -743,7 +743,7 @@ window.calcSubjectHours = async () => {
   const rows = Object.entries(weekly).sort(([a],[b]) => a.localeCompare(b));
   let html = `<table class="tt-hours-table"><thead><tr>
     <th style="text-align:left;">학급</th><th>주당</th>
-    <th>1학기 예상 (${w1}주)</th><th>2학기 예상 (${w2}주)</th><th>연간</th>
+    <th>1학기(${w1}주)</th><th>2학기(${w2}주)</th><th>연간</th>
   </tr></thead><tbody>`;
   rows.forEach(([cls, pw]) => {
     const s1 = pw * w1, s2 = pw * w2;
@@ -823,33 +823,59 @@ function buildConceptIcons() {
   const bar = document.getElementById('concept-icons-bar');
   if (!bar) return;
   bar.innerHTML = CONCEPT_ICONS.map(c => {
-    const links = conceptLinksData[c.key] || [];
-    const popupRows = links.map(lk => {
-      const safeUrl = lk.url.replace(/"/g,'&quot;');
-      const safeTopic = (lk.topic||lk.url).replace(/</g,'&lt;').replace(/>/g,'&gt;');
-      const safeSubcat = (lk.subcat||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-      return `<div class="concept-popup-row" onclick="window.open('${safeUrl}','_blank')">
-        ${safeSubcat ? `<span class="concept-popup-tag">${safeSubcat}</span>` : ''}
-        <span class="concept-popup-topic">${safeTopic}</span>
-      </div>`;
-    }).join('');
-    const hasLinks = links.length > 0;
-    return `<div class="concept-icon-btn">
+    const hasLinks = (conceptLinksData[c.key] || []).length > 0;
+    const key = c.key.replace(/'/g,"\\'");
+    return `<div class="concept-icon-btn"${hasLinks ? ` onmouseenter="showConceptOverlay('${key}')" onmouseleave="scheduleHideConceptOverlay()"` : ''}>
       <div class="concept-icon-circle" style="background:${c.bg};border-color:${c.color}40;">
         <i class="ti ${c.icon}" style="color:${c.color};font-size:18px;" aria-hidden="true"></i>
       </div>
       <span class="concept-icon-label">${c.key}</span>
-      ${hasLinks ? `<div class="concept-popup">${popupRows}</div>` : ''}
     </div>`;
   }).join('');
 }
+
+let _conceptHideTimer = null;
+
+window.showConceptOverlay = (key) => {
+  clearTimeout(_conceptHideTimer);
+  const links = conceptLinksData[key] || [];
+  if (!links.length) return;
+  const overlay = document.getElementById('concept-overlay');
+  const body = document.getElementById('concept-overlay-body');
+  document.getElementById('concept-overlay-title').textContent = key;
+  body.innerHTML = links.map(lk => {
+    const safeUrl = lk.url.replace(/"/g,'&quot;');
+    const safeTopic = (lk.topic||lk.url).replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const safeSubcat = (lk.subcat||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return `<div class="concept-popup-row" onclick="window.open('${safeUrl}','_blank')">
+      ${safeSubcat ? `<span class="concept-popup-tag">${safeSubcat}</span>` : ''}
+      <span class="concept-popup-topic">${safeTopic}</span>
+    </div>`;
+  }).join('');
+  overlay.style.display = 'flex';
+};
+
+window.scheduleHideConceptOverlay = () => {
+  _conceptHideTimer = setTimeout(() => {
+    const overlay = document.getElementById('concept-overlay');
+    if (overlay) overlay.style.display = 'none';
+  }, 200);
+};
+
+window.cancelHideConceptOverlay = () => { clearTimeout(_conceptHideTimer); };
+
+window.hideConceptOverlay = () => {
+  clearTimeout(_conceptHideTimer);
+  const overlay = document.getElementById('concept-overlay');
+  if (overlay) overlay.style.display = 'none';
+};
 
 function buildSyllabus() {
   const subjects = Object.keys(syllabusData);
   const tabBar = document.getElementById('syllabus-tabs');
   const content = document.getElementById('syllabus-content');
   tabBar.innerHTML = subjects.map((s, i) =>
-    `<button class="sub-tab${i===0?' active':''}" onclick="switchSyllabus('${s.replace(/'/g,"\\'")}',this)">${s}</button>`
+    `<button class="sub-tab${i===0?' active':''}" onclick="switchSyllabus('${s.replace(/'/g,"\\'")}',this)">${s}<span class="sub-tab-x" onclick="event.stopPropagation();deleteSyllabusSubject('${s.replace(/'/g,"\\'")}')">×</span></button>`
   ).join('');
   if (!subjects.length) {
     content.innerHTML = '<div style="font-size:15px;color:#aaa;padding:20px 0;">위의 <b>+ 과목 추가</b> 버튼으로 과목을 등록하거나, CSV 업로드 또는 구글 시트 연동을 이용하세요.</div>';
@@ -858,9 +884,6 @@ function buildSyllabus() {
   content.innerHTML = subjects.map((s, i) => {
     const sId = s.replace(/ /g,'_').replace(/'/g,'');
     return `<div class="sub-content${i===0?' active':''}" id="syl-${sId}">
-      <div style="display:flex;justify-content:flex-end;gap:6px;margin-bottom:8px;">
-        <button class="btn-xs" onclick="deleteSyllabusSubject('${s.replace(/'/g,"\\'")}')">🗑 과목 삭제</button>
-      </div>
       <div class="table-wrap">
       <table class="syl-table">
         <thead><tr>

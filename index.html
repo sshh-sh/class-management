@@ -148,9 +148,8 @@
 
     <!-- 시간표 탭 -->
     <div id="tab-timetable" class="tab-content hidden">
-      <!-- 상단 바: 제목 + 버튼 3개 -->
+      <!-- 상단 바: 버튼 -->
       <div class="tt-header-bar">
-        <span class="section-title">시간표</span>
         <div class="btn-group">
           <button class="btn-xs" onclick="downloadTTExcel()">&#8595; 엑셀 양식</button>
           <button class="btn-xs" onclick="document.getElementById('tt-upload-input').click()">&#8593; 업로드</button>
@@ -208,6 +207,7 @@
           <button class="btn-xs primary" onclick="document.getElementById('syl-global-upload').click()">&#8593; 업로드</button>
           <input type="file" id="syl-global-upload" accept=".csv" style="display:none" onchange="handleSylGlobalUpload(this)">
           <button class="btn-xs" onclick="saveSyllabus()">☁ 저장</button>
+          <button class="btn-xs primary" onclick="syncFromGAS()">☁ 구글시트 연동</button>
         </div>
       </div>
       <!-- 2줄: 개념아이콘 -->
@@ -219,8 +219,17 @@
 
   <footer class="app-footer">
     © 2026 일해용!전담 · 개발 최송희. 무단 복제 및 배포를 금지합니다.
-    <span class="version-badge" id="app-version">v4.1</span>
+    <span class="version-badge" id="app-version">v4.2</span>
   </footer>
+</div>
+
+<!-- 개념 팝업 오버레이 -->
+<div id="concept-overlay" class="concept-overlay-global" style="display:none;" onmouseenter="cancelHideConceptOverlay()" onmouseleave="hideConceptOverlay()">
+  <div class="concept-overlay-header">
+    <span id="concept-overlay-title"></span>
+    <button class="concept-overlay-close" onclick="hideConceptOverlay()">×</button>
+  </div>
+  <div id="concept-overlay-body" class="concept-overlay-body"></div>
 </div>
 
 <!-- 수업일지 팝업 -->
