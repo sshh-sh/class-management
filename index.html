@@ -202,7 +202,8 @@
       <!-- 1줄: 과목탭 + 버튼 -->
       <div class="syl-row1">
         <div class="sub-tab-bar" id="syllabus-tabs"></div>
-        <div class="btn-group">
+        <div id="concept-icons-bar" class="concept-icons-bar"></div>
+        <div class="btn-group" style="flex-shrink:0;">
           <button class="btn-xs" style="color:#534AB7;border-color:#AFA9EC;" onclick="addSyllabusSubject()">+ 과목 추가</button>
           <button class="btn-xs" onclick="downloadSylTemplate()">&#8595; 양식</button>
           <button class="btn-xs primary" onclick="document.getElementById('syl-global-upload').click()">&#8593; 업로드</button>
@@ -211,8 +212,6 @@
           <button class="btn-xs primary" onclick="syncFromGAS()">☁ 구글시트 연동</button>
         </div>
       </div>
-      <!-- 2줄: 개념아이콘 -->
-      <div id="concept-icons-bar" class="concept-icons-bar"></div>
       <div id="syllabus-content"></div>
     </div>
 
@@ -220,7 +219,7 @@
 
   <footer class="app-footer">
     © 2026 일해용!전담 · 개발 최송희. 무단 복제 및 배포를 금지합니다.
-    <span class="version-badge" id="app-version">v4.3</span>
+    <span class="version-badge" id="app-version">v4.4</span>
   </footer>
 </div>
 
