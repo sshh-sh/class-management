@@ -534,90 +534,208 @@ function setupTimetableTemplate(s) {
   s.setFrozenRows(2);
 }
 
+// 진도표 14열 구조: 수업완료(A)|과목(B)|순서(C)|기간(D)|차시(E)|단원(F)|학습주제(G)|준비물(H)|메모(I)|(빈J)|카테고리(K)|소카테고리(L)|주제(M)|URL(N)
 function jm_syllabusSheet() {
   const ss = jm_getSpreadsheet();
   let s = ss.getSheetByName('진도표');
-  const NEW_HEADERS = ['과목','수업완료','순서','기간','단원명','차시','학습주제','준비물','메모'];
-
   if (!s) {
     s = ss.insertSheet('진도표');
-    s.getRange(1,1,1,9).setValues([NEW_HEADERS]);
+    s.getRange(1,1,1,14).setValues([['수업완료','과목','순서','기간','차시','단원','학습주제','준비물','메모','','카테고리','소카테고리','주제','URL']]);
     s.getRange(1,1,1,9).setFontWeight('bold').setBackground('#FBBC04').setFontColor('white');
+    s.getRange(1,11,1,4).setFontWeight('bold').setBackground('#34A853').setFontColor('white');
     s.setFrozenRows(1);
-    s.hideColumns(1);
-    s.setColumnWidths(2, 8, 110);
-    s.setColumnWidth(9, 250);
+    s.getRange('B:B').setNumberFormat('@');
+    s.getRange('C:C').setNumberFormat('@');
+    s.getRange('D:D').setNumberFormat('@');
+    s.getRange('E:E').setNumberFormat('@');
     return s;
   }
-
-  // 헤더 확인 — 구형(기간이 2번째 컬럼)이면 마이그레이션
-  const lastCol = Math.max(s.getLastColumn(), 8);
-  const headers = s.getRange(1, 1, 1, lastCol).getValues()[0].map(String);
-  if (headers[1] !== '수업완료') {
-    // 구형: [과목, 기간, 단원명, 차시, 학습주제, 준비물, 상태, 링크]
-    const lastRow = s.getLastRow();
-    const oldData = lastRow > 1 ? s.getRange(2, 1, lastRow - 1, lastCol).getValues() : [];
-    const subjectSeq = {};
-    const newData = oldData.filter(r => r[0]).map(r => {
-      const subj = String(r[0]);
-      subjectSeq[subj] = (subjectSeq[subj] || 0) + 1;
-      const isDone = String(r[6]).toLowerCase() === 'done' || String(r[6]) === '완료';
-      const linkIdx = headers.indexOf('링크');
-      return [
-        subj,
-        isDone ? '완료' : '할일',
-        subjectSeq[subj],
-        String(r[1]||''),
-        String(r[2]||''),
-        String(r[3]||''),
-        String(r[4]||''),
-        String(r[5]||''),
-        linkIdx >= 0 ? String(r[linkIdx]||'') : ''
-      ];
-    });
-    s.clearContents();
-    s.getRange(1,1,1,9).setValues([NEW_HEADERS]);
-    if (newData.length) s.getRange(2,1,newData.length,9).setValues(newData);
-    s.getRange(1,1,1,9).setFontWeight('bold').setBackground('#FBBC04').setFontColor('white');
-    s.setFrozenRows(1);
-    s.hideColumns(1);
-    s.setColumnWidths(2, 8, 110);
-    s.setColumnWidth(9, 250);
-  }
-
-  // 개념링크 헤더 (K~N, 11~14열): 없으면 추가 — 기존 데이터 행 건드리지 않음
+  // 개념링크 헤더(K~N) 없으면 추가 — 기존 데이터 행은 절대 건드리지 않음(파괴적 마이그레이션 제거)
   if (!String(s.getRange(1, 11).getValue()).trim()) {
     s.getRange(1, 11, 1, 4).setValues([['카테고리', '소카테고리', '주제', 'URL']]);
     s.getRange(1, 11, 1, 4).setFontWeight('bold').setBackground('#34A853').setFontColor('white');
-    s.setColumnWidth(11, 90);   // K: 카테고리
-    s.setColumnWidth(12, 90);   // L: 소카테고리
-    s.setColumnWidth(13, 160);  // M: 주제
-    s.setColumnWidth(14, 320);  // N: URL
+    s.setColumnWidth(11, 90); s.setColumnWidth(12, 90); s.setColumnWidth(13, 160); s.setColumnWidth(14, 320);
   }
   return s;
+}
+
+// done 값 판별: 체크박스(boolean) / 'TRUE' / '완료' 모두 인식
+function jm_sylDone(dv) {
+  return dv === true || String(dv).toUpperCase() === 'TRUE' || String(dv).trim() === '완료';
+}
+
+// 형식 감지. new14: 수업완료(A)|과목(B)|순서(C)|기간(D)...
+function jm_getSylFormatType(header) {
+  if (String(header[0]||'').trim().includes('완료') && String(header[1]||'').trim().includes('과목')) return 'new14';
+  if (String(header[1]||'').includes('기간') && String(header[2]||'').includes('차시')) return 'new8';
+  if (String(header[6]||'').includes('상태')) return 'old';
+  return 'trans';
+}
+
+function jm_isOldSylFormat(header) {
+  return jm_getSylFormatType(header) !== 'new14';
+}
+
+// 셀의 링크를 [{text, url}] 배열로 반환 (멀티링크 지원)
+function jm_getCellRuns(value, formula, richText) {
+  if (formula) {
+    const m = String(formula).match(/HYPERLINK\s*\(\s*"([^"]+)"\s*,\s*"([^"]*)"/i);
+    if (m) return [{text: m[2] || String(value||''), url: m[1]}];
+    const m2 = String(formula).match(/HYPERLINK\s*\(\s*"([^"]+)"/i);
+    if (m2) return [{text: String(value||''), url: m2[1]}];
+  }
+  if (!richText) return null;
+  try {
+    const runs = richText.getRuns();
+    if (runs && runs.length > 0) {
+      const result = [];
+      let hasUrl = false;
+      for (let i = 0; i < runs.length; i++) {
+        const text = (runs[i].getText ? runs[i].getText() : '').replace(/[\n\r]/g,'').trim();
+        if (!text) continue;
+        const url = runs[i].getLinkUrl() || '';
+        if (url) hasUrl = true;
+        result.push({text, url});
+      }
+      if (result.length > 0 && hasUrl) return result;
+    }
+  } catch(e) {}
+  try {
+    const url = richText.getLinkUrl();
+    if (url) return [{text: String(value||'').replace(/[\n\r]/g,' ').trim(), url}];
+  } catch(e) {}
+  return null;
+}
+
+// Google Sheets Date 자동변환 대응: Date면 "월-일" 복원
+function jm_parseSheetVal(v) {
+  if (!v && v !== 0) return '';
+  if (v instanceof Date) return (v.getMonth()+1) + '-' + v.getDate();
+  return String(v);
+}
+
+function jm_parseSylRow(row, isOld, headerArr) {
+  const fmt = headerArr ? jm_getSylFormatType(headerArr) : (isOld ? 'old' : 'new14');
+  if (fmt === 'new14') {
+    return { done: jm_sylDone(row[0]), period: jm_parseSheetVal(row[3]), ch: jm_parseSheetVal(row[4]), unit: jm_parseSheetVal(row[5]), topic: jm_parseSheetVal(row[6]), prep: jm_parseSheetVal(row[7]), memo: jm_parseSheetVal(row[8]) };
+  } else if (fmt === 'new8') {
+    return { period: jm_parseSheetVal(row[1]), ch: jm_parseSheetVal(row[2]), unit: jm_parseSheetVal(row[3]), topic: jm_parseSheetVal(row[4]), prep: jm_parseSheetVal(row[5]), memo: jm_parseSheetVal(row[6]), done: jm_sylDone(row[7]) };
+  } else if (fmt === 'old') {
+    return { period: jm_parseSheetVal(row[1]), ch: jm_parseSheetVal(row[3]), unit: jm_parseSheetVal(row[2]), topic: jm_parseSheetVal(row[4]), prep: jm_parseSheetVal(row[5]), memo: '', done: String(row[6]||'')==='done' };
+  } else {
+    return { period: '', ch: jm_parseSheetVal(row[1]), unit: jm_parseSheetVal(row[2]), topic: jm_parseSheetVal(row[3]), prep: jm_parseSheetVal(row[4]), memo: jm_parseSheetVal(row[5]), done: jm_sylDone(row[6]) };
+  }
+}
+
+// 구형식(old/trans/new8) → new14 전면 변환
+function jm_migrateSylToNewFormat(s) {
+  const lr = s.getLastRow();
+  const header = s.getRange(1, 1, 1, Math.max(s.getLastColumn(), 7)).getValues()[0];
+  const fmt = jm_getSylFormatType(header);
+  if (fmt === 'new14') return;
+  const NH = ['수업완료','과목','순서','기간','차시','단원','학습주제','준비물','메모','','카테고리','소카테고리','주제','URL'];
+  if (lr < 2) {
+    s.getRange(1,1,1,14).setValues([NH]);
+    s.getRange(1,1,1,9).setFontWeight('bold').setBackground('#FBBC04').setFontColor('white');
+    s.getRange(1,11,1,4).setFontWeight('bold').setBackground('#34A853').setFontColor('white');
+    return;
+  }
+  const numCols = s.getLastColumn();
+  const data = s.getRange(2, 1, lr-1, numCols).getValues();
+  const newData = [];
+  const subjectCounters = {};
+  for (let i = 0; i < data.length; i++) {
+    const subject = String(data[i][0]||'').trim();
+    if (!subject) continue;
+    if (!subjectCounters[subject]) subjectCounters[subject] = 0;
+    subjectCounters[subject]++;
+    let done, period, ch, unit, topic, prep, memo;
+    if (fmt === 'old') {
+      done = String(data[i][6]||'')==='done'; period = jm_parseSheetVal(data[i][1]); ch = jm_parseSheetVal(data[i][3]); unit = jm_parseSheetVal(data[i][2]); topic = jm_parseSheetVal(data[i][4]); prep = jm_parseSheetVal(data[i][5]); memo = '';
+    } else if (fmt === 'trans') {
+      done = jm_sylDone(data[i][6]); period = ''; ch = jm_parseSheetVal(data[i][1]); unit = jm_parseSheetVal(data[i][2]); topic = jm_parseSheetVal(data[i][3]); prep = jm_parseSheetVal(data[i][4]); memo = jm_parseSheetVal(data[i][5]);
+    } else { // new8
+      done = jm_sylDone(data[i][7]); period = jm_parseSheetVal(data[i][1]); ch = jm_parseSheetVal(data[i][2]); unit = jm_parseSheetVal(data[i][3]); topic = jm_parseSheetVal(data[i][4]); prep = jm_parseSheetVal(data[i][5]); memo = jm_parseSheetVal(data[i][6]);
+    }
+    newData.push([done, subject, subjectCounters[subject], period, ch, unit, topic, prep, memo, '', '', '', '', '']);
+  }
+  s.getRange(2, 1, lr-1, Math.max(numCols, 14)).clearContent();
+  if (newData.length) s.getRange(2, 1, newData.length, 14).setValues(newData);
+  s.getRange(1,1,1,14).setValues([NH]);
+  s.getRange(1,1,1,9).setFontWeight('bold').setBackground('#FBBC04').setFontColor('white');
+  s.getRange(1,11,1,4).setFontWeight('bold').setBackground('#34A853').setFontColor('white');
 }
 
 // ---------- 전체 데이터 한번에 ----------
 function loadAll(userId) {
   const ttResult = loadAllTimetables(userId);
   const sylSheet = jm_syllabusSheet();
-  const sylRows = sylSheet.getDataRange().getValues();
+  const sylRange = sylSheet.getDataRange();
+  const sylRows = sylRange.getValues();
+  const sylFormulas = sylRange.getFormulas();
+  let sylRich = null;
+  try { sylRich = sylRange.getRichTextValues(); } catch(e) {}
+
   const syllabusData = {};
-  for (let i = 1; i < sylRows.length; i++) {
-    const subject = String(sylRows[i][1]||'').trim();
-    if (!subject) continue;
-    if (!syllabusData[subject]) syllabusData[subject] = [];
-    // 신형 컬럼: [완료체크(0), 과목(1), 순서(2), 기간(3), 차시(4), 단원(5), 학습주제(6), 준비물(7), 메모(8)]
-    syllabusData[subject].push({
-      done: String(sylRows[i][0]||'').trim() === '완료',
-      period: String(sylRows[i][3]||''),
-      ch: String(sylRows[i][4]||''),
-      unit: String(sylRows[i][5]||''),
-      topic: String(sylRows[i][6]||''),
-      prep: String(sylRows[i][7]||''),
-      memo: String(sylRows[i][8]||'')
-    });
+  const sylHeader = sylRows[0] || [];
+  const sylFmt = jm_getSylFormatType(sylHeader);
+
+  if (sylFmt === 'new14') {
+    // 과목(B)·기간(D) 빈칸은 위 행 값 상속
+    let currentSubject = '';
+    let currentPeriod = '';
+    const urlColMap = [[3,'period'],[4,'ch'],[5,'unit'],[6,'topic'],[7,'prep'],[8,'memo']];
+    for (let i = 1; i < sylRows.length; i++) {
+      const rowSubject = String(sylRows[i][1]||'').trim();
+      if (rowSubject && rowSubject !== currentSubject) currentPeriod = '';
+      if (rowSubject) currentSubject = rowSubject;
+      const subject = currentSubject;
+      const rowPeriod = String(jm_parseSheetVal(sylRows[i][3])||'').trim();
+      if (rowPeriod) currentPeriod = rowPeriod;
+
+      const isDoneRow = jm_sylDone(sylRows[i][0]);
+      const hasSylContent = isDoneRow ||
+        String(sylRows[i][3]||'').trim() || String(sylRows[i][4]||'').trim() ||
+        String(sylRows[i][5]||'').trim() || String(sylRows[i][6]||'').trim() ||
+        String(sylRows[i][7]||'').trim() || String(sylRows[i][8]||'').trim();
+      if (hasSylContent && subject) {
+        if (!syllabusData[subject]) syllabusData[subject] = [];
+        const item = jm_parseSylRow(sylRows[i], false, sylHeader);
+        if (!item.period && currentPeriod) item.period = currentPeriod;
+        const links = {};
+        for (let m = 0; m < urlColMap.length; m++) {
+          const c = urlColMap[m][0], field = urlColMap[m][1];
+          const runs = jm_getCellRuns(sylRows[i][c], sylFormulas[i] ? sylFormulas[i][c] : '', sylRich && sylRich[i] ? sylRich[i][c] : null);
+          if (runs) links[field] = runs;
+        }
+        if (Object.keys(links).length) item._links = links;
+        syllabusData[subject].push(item);
+      }
+    }
+  } else {
+    // 레거시(old/trans/new8)
+    const sylIsOld = sylFmt !== 'new8';
+    const urlMap = sylFmt === 'old'
+      ? [[1,'period'],[2,'unit'],[3,'ch'],[4,'topic'],[5,'prep']]
+      : sylFmt === 'trans'
+        ? [[1,'ch'],[2,'unit'],[3,'topic'],[4,'prep'],[5,'memo']]
+        : [[1,'period'],[2,'ch'],[3,'unit'],[4,'topic'],[5,'prep'],[6,'memo']];
+    for (let i = 1; i < sylRows.length; i++) {
+      const subject = String(sylRows[i][0]||'').trim();
+      if (!subject) continue;
+      if (!syllabusData[subject]) syllabusData[subject] = [];
+      const item = jm_parseSylRow(sylRows[i], sylIsOld, sylHeader);
+      const links = {};
+      for (let m = 0; m < urlMap.length; m++) {
+        const c = urlMap[m][0], field = urlMap[m][1];
+        const runs = jm_getCellRuns(sylRows[i][c], sylFormulas[i] ? sylFormulas[i][c] : '', sylRich && sylRich[i] ? sylRich[i][c] : null);
+        if (runs) links[field] = runs;
+      }
+      if (Object.keys(links).length) item._links = links;
+      syllabusData[subject].push(item);
+    }
   }
+
   const journalResult = loadJournal(userId);
   const conceptResult = loadConceptLinks();
   return {
@@ -793,8 +911,8 @@ function loadAllTimetables(userId) {
     }
   }
 
-  // 빈 슬롯(시간표가 모두 비어있는 학급) 제외
-  const classTTList = Object.keys(classTTMap).sort()
+  // 빈 슬롯 제외 + 시트 입력 순서 보존(정렬 없음 — 사용자 입력 순서 그대로)
+  const classTTList = Object.keys(classTTMap)
     .filter(name => classTTMap[name].some(period => period.some(v => v !== '')))
     .map(name => ({ name, tt: classTTMap[name] }));
   return { success:true, myTT, classTTList, timetableEvents, vacationPeriods, subjectHoursData };
@@ -1082,40 +1200,65 @@ function calcTimetable(userId, semYear) {
 function loadSyllabus(userId, subject) {
   const s = jm_syllabusSheet();
   const data = s.getDataRange().getValues();
+  const sylHeader = data[0] || [];
+  const fmt = jm_getSylFormatType(sylHeader);
+  const isOld = fmt === 'old' || fmt === 'trans';
   const items = [];
-  for (let i = 1; i < data.length; i++) {
-    if (String(data[i][1]||'').trim() !== subject) continue;
-    // 신형: [완료체크(0), 과목(1), 순서(2), 기간(3), 차시(4), 단원(5), 학습주제(6), 준비물(7), 메모(8)]
-    items.push({
-      done: String(data[i][0]||'').trim() === '완료',
-      period: String(data[i][3]||''),
-      ch: String(data[i][4]||''),
-      unit: String(data[i][5]||''),
-      topic: String(data[i][6]||''),
-      prep: String(data[i][7]||''),
-      memo: String(data[i][8]||'')
-    });
+  if (fmt === 'new14') {
+    let currentSubject = '';
+    let currentPeriod = '';
+    for (let i = 1; i < data.length; i++) {
+      const rowSubject = String(data[i][1]||'').trim();
+      if (rowSubject && rowSubject !== currentSubject) currentPeriod = '';
+      if (rowSubject) currentSubject = rowSubject;
+      const rowPeriod = String(jm_parseSheetVal(data[i][3])||'').trim();
+      if (rowPeriod) currentPeriod = rowPeriod;
+      if (currentSubject !== subject) continue;
+      const isDoneRow = jm_sylDone(data[i][0]);
+      const hasSylContent = isDoneRow ||
+        String(data[i][3]||'').trim() || String(data[i][4]||'').trim() ||
+        String(data[i][5]||'').trim() || String(data[i][6]||'').trim() ||
+        String(data[i][7]||'').trim() || String(data[i][8]||'').trim();
+      if (hasSylContent) {
+        const item = jm_parseSylRow(data[i], false, sylHeader);
+        if (!item.period && currentPeriod) item.period = currentPeriod;
+        items.push(item);
+      }
+    }
+  } else {
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][0]||'').trim() !== subject) continue;
+      items.push(jm_parseSylRow(data[i], isOld, sylHeader));
+    }
   }
   return {success:true, items};
 }
 
+// 명시적 저장 전용(자동저장은 프론트에서 끔). 상속 인식 삭제 + 개념행(K) 보존.
 function saveSyllabus(userId, subject, sylData) {
   const s = jm_syllabusSheet();
+  const numCols = Math.max(s.getLastColumn(), 7);
+  const header = s.getRange(1, 1, 1, numCols).getValues()[0];
+  if (jm_isOldSylFormat(header)) jm_migrateSylToNewFormat(s);
   const data = s.getDataRange().getValues();
+  // 빈 과목칸은 위 행 과목 상속 → 행별 실효 과목 계산
+  const effSubjects = [''];
+  let eff = '';
+  for (let i = 1; i < data.length; i++) {
+    const rs = String(data[i][1]||'').trim();
+    if (rs) eff = rs;
+    effSubjects[i] = eff;
+  }
   for (let i = data.length - 1; i >= 1; i--) {
-    if (String(data[i][1]||'').trim() === subject) s.deleteRow(i + 1);
+    if (effSubjects[i] !== subject) continue;
+    if (String(data[i][10]||'').trim()) continue; // 개념(K) 행은 보존
+    s.deleteRow(i + 1);
   }
   sylData.forEach((item, idx) => {
     s.appendRow([
-      item.done ? '완료' : '할일',
-      subject,
-      idx + 1,
-      item.period || '',
-      item.ch || '',
-      item.unit || '',
-      item.topic || '',
-      item.prep || '',
-      item.memo || ''
+      item.done ? true : false, subject, idx + 1,
+      item.period||'', item.ch||'', item.unit||'', item.topic||'', item.prep||'', item.memo||'',
+      '', '', '', '', ''
     ]);
   });
   return {success:true};

@@ -14,7 +14,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
 // GAS API URL
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbwcBvhVytMDZwEX1qeblieQQn34kAAIe9dETrWm8kZC6JWUUzNPzmDZQR6MaocViSKv/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbx4TBHb2XU7V5OoUb37bM2oYBPs9srtiKD3GzeV9drhk0tvqGiQ-iPY6kHhBHa7LW_N/exec';
 
 const TIMES = ['09:00~09:40','09:50~10:30','10:40~11:20','11:30~12:10','13:00~13:40'];
 const DAY_NAMES = ['일','월','화','수','목','금','토'];
@@ -246,12 +246,8 @@ async function saveUserData() {
       method: 'POST',
       body: JSON.stringify({ app: 'journal-management', action: 'saveMyTimetable', userId, ttData: myTT })
     });
-    for (const subject in syllabusData) {
-      await fetch(GAS_URL, {
-        method: 'POST',
-        body: JSON.stringify({ app: 'journal-management', action: 'saveSyllabus', userId, subject, sylData: syllabusData[subject] })
-      });
-    }
+    // 진도표는 자동 저장하지 않음 — 구글시트 수기 구조(과목/기간 상속·개념행) 보호.
+    // 명시적 [☁ 저장] 버튼(saveSyllabus)으로만 시트에 기록.
     apiCache.delete('loadAll_' + userId);
   } catch(e) {
     console.log('데이터 저장 실패:', e);
@@ -1086,6 +1082,7 @@ window.toggleDone = async (subject, idx, checked) => {
     syllabusData[subject][idx].done = checked;
     await saveUserData();
     buildSyllabus();
+    markSylUnsaved();
   }
 };
 
@@ -1134,6 +1131,8 @@ window.saveSyllabus = async () => {
         })
       });
     }
+    apiCache.delete('loadAll_' + currentUser.email);
+    clearSylUnsaved();
     alert('진도표가 저장되었습니다!');
   } catch(e) {
     alert('저장 중 오류: ' + e.message);
@@ -1166,6 +1165,7 @@ window.addSyllabusRow = async (subject) => {
   syllabusData[subject].push({ period: '', ch: String(ch), unit: '', topic: '', prep: '', memo: '', done: false });
   await saveUserData();
   buildSyllabus();
+  markSylUnsaved();
   setTimeout(() => {
     const rows = document.querySelectorAll(`#syl-${subject.replace(/ /g,'_')} tbody tr`);
     const lastRow = rows[rows.length - 1];
@@ -1176,9 +1176,32 @@ window.addSyllabusRow = async (subject) => {
 window.updateSylField = (subject, idx, field, val) => {
   if (syllabusData[subject]?.[idx]) {
     syllabusData[subject][idx][field] = val;
-    scheduleSylAutoSave(); // 4번: 변경 즉시 자동저장 예약
+    markSylUnsaved(); // 자동저장 끔(구글시트 수기구조 보호) — 명시적 [☁ 저장]만
   }
 };
+
+// 진도표 미저장 변경 표시 (자동저장 비활성 — 사용자가 직접 저장)
+let sylUnsaved = false;
+function markSylUnsaved() {
+  sylUnsaved = true;
+  const btn = document.getElementById('syl-save-btn');
+  if (btn) {
+    btn.textContent = '● 저장 필요';
+    btn.style.color = '#E24B4A';
+    btn.style.borderColor = '#E24B4A';
+    btn.style.fontWeight = '600';
+  }
+}
+function clearSylUnsaved() {
+  sylUnsaved = false;
+  const btn = document.getElementById('syl-save-btn');
+  if (btn) {
+    btn.textContent = '☁ 저장';
+    btn.style.color = '';
+    btn.style.borderColor = '';
+    btn.style.fontWeight = '';
+  }
+}
 window.connectSheets = async () => {
   const url = document.getElementById('sheets-url').value.trim();
   const journalTab = document.getElementById('sheets-journal').value.trim();
@@ -1609,7 +1632,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v5.1';
+const APP_VERSION = 'v5.2';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');
