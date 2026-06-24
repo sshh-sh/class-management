@@ -154,9 +154,18 @@ window.logout = async () => {
 };
 
 // ==================== 데이터 로드/저장 ====================
+function normalizeClassName(name) {
+  if (typeof name !== 'string') return String(name);
+  // GAS에서 "3-1" 형식이 날짜 객체로 변환되어 올 때 복원 (예: "Fri May 01 2026...")
+  const m = name.match(/^[A-Z][a-z]{2} ([A-Z][a-z]{2}) (\d{2}) \d{4}/);
+  if (!m) return name;
+  const months = {Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
+  return `${months[m[1]]}-${parseInt(m[2])}`;
+}
+
 function applyUserData(d) {
   if (d.myTT) myTT = d.myTT;
-  if (d.classTTList && d.classTTList.length) classTTList = d.classTTList;
+  if (d.classTTList && d.classTTList.length) classTTList = d.classTTList.map(c => ({...c, name: normalizeClassName(c.name)}));
   if (d.syllabusData && Object.keys(d.syllabusData).length) syllabusData = d.syllabusData;
   if (d.journals) journalData = d.journals.sort((a, b) => new Date(a.date) - new Date(b.date));
   if (d.timetableEvents) timetableEvents = d.timetableEvents;
@@ -634,28 +643,24 @@ function renderClassTTs() {
   const el = document.getElementById('cls-tt-list');
   if (!el) return;
   if (!classTTList.length) { el.innerHTML = '<div style="font-size:13px;color:#aaa;padding:8px 0;">구글시트에서 학급 시간표를 입력하고 연동하세요.</div>'; return; }
-  const grades = {};
-  classTTList.forEach(c => { const g = c.name.split('-')[0]; if (!grades[g]) grades[g] = []; grades[g].push(c); });
-  el.innerHTML = Object.keys(grades).sort().map(g => `
-    <div class="grade-row">
-      ${grades[g].map(cls => `
-        <div class="cls-wrap">
-          <div class="cls-head">
-            <div class="cls-name">${cls.name}</div>
-          </div>
-          <table class="cls-table">
-            <thead><tr><th style="width:18px;"></th><th>월</th><th>화</th><th>수</th><th>목</th><th>금</th></tr></thead>
-            <tbody>${[0,1,2,3,4].map(p => `<tr>
-              <td class="p-cell">${p+1}</td>
-              ${[0,1,2,3,4].map(d => {
-                const v = cls.tt && cls.tt[p] && cls.tt[p][d] ? cls.tt[p][d] : '';
-                const isMine = v && (myTT[p+1] && myTT[p+1][d] === v);
-                return `<td class="${isMine?'mine':''}">${v || '—'}</td>`;
-              }).join('')}
-            </tr>`).join('')}</tbody>
-          </table>
-        </div>`).join('')}
-    </div>`).join('');
+  el.innerHTML = `<div class="cls-grid">${classTTList.map(cls => `
+    <div class="cls-wrap">
+      <div class="cls-head">
+        <div class="cls-name">${cls.name}</div>
+      </div>
+      <table class="cls-table">
+        <thead><tr><th style="width:18px;"></th><th>월</th><th>화</th><th>수</th><th>목</th><th>금</th></tr></thead>
+        <tbody>${[0,1,2,3,4].map(p => `<tr>
+          <td class="p-cell">${p+1}</td>
+          ${[0,1,2,3,4].map(d => {
+            const v = cls.tt && cls.tt[p] && cls.tt[p][d] ? cls.tt[p][d] : '';
+            const isMine = v && (myTT[p+1] && myTT[p+1][d] === v);
+            return `<td class="${isMine?'mine':''}">${v || '—'}</td>`;
+          }).join('')}
+        </tr>`).join('')}</tbody>
+      </table>
+    </div>`).join('')}
+  </div>`;
 }
 
 window.updateClsTT = (name, p, d, val) => {
@@ -901,7 +906,8 @@ function buildSyllabus() {
           const se = s.replace(/'/g,"\\'");
           const hasLinks = !!(r.links && r.links.trim());
           const linksEsc = (r.links||'').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-          return `<tr class="${done ? 'syl-done-row' : ''}" onclick="selectSylRow('${se}',${idx},'${linksEsc}')" style="cursor:pointer;">
+          const onclickAttr = hasLinks ? `openSylRowLink('${linksEsc}')` : `selectSylRow('${se}',${idx},'${linksEsc}')`;
+          return `<tr class="${done ? 'syl-done-row' : ''}${hasLinks ? ' syl-has-link' : ''}" onclick="${onclickAttr}" style="cursor:pointer;">
             <td style="text-align:center;"><input type="checkbox" class="syl-done-check" ${done ? 'checked' : ''} onchange="toggleDone('${se}',${idx},this.checked)" onclick="event.stopPropagation()"></td>
             <td style="text-align:center;" class="syl-seq-cell">
               <span class="syl-seq">${idx+1}</span>
@@ -927,6 +933,17 @@ window.selectSylRow = (subject, idx, linksRaw) => {
   document.querySelectorAll('.syl-table tbody tr').forEach(tr => tr.classList.remove('syl-row-selected'));
   const rows = document.querySelectorAll(`#syl-${subject.replace(/ /g,'_')} tbody tr`);
   if (rows[idx]) rows[idx].classList.add('syl-row-selected');
+};
+
+window.openSylRowLink = (linksRaw) => {
+  const parts = linksRaw.split('|').map(p => {
+    const comma = p.indexOf(',');
+    if (comma < 0) return { url: p.trim() };
+    return { topic: p.slice(0, comma).trim(), url: p.slice(comma + 1).trim() };
+  }).filter(l => l.url);
+  if (!parts.length) return;
+  if (parts.length === 1) { window.open(parts[0].url, '_blank'); return; }
+  parts.forEach(l => window.open(l.url, '_blank'));
 };
 
 // 링크 편집 팝업
@@ -1505,7 +1522,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v4.2';
+const APP_VERSION = 'v4.3';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');
