@@ -537,7 +537,7 @@ function buildMyTT() {
   const body = document.getElementById('my-tt-body');
   if (!body) return;
   body.innerHTML = [1,2,3,4,5].map(p => `<tr>
-    <td class="period-cell">${p}교시<br><span style="font-size:9px;">${TIMES[p-1].split('~')[0]}</span></td>
+    <td class="period-cell">${p}교시<br><span class="period-time">${TIMES[p-1]}</span></td>
     ${[0,1,2,3,4].map(d => {
       const v = myTT[p]?.[d] || '';
       return `<td class="tt-read-cell${v ? '' : ' empty'}">${v || '—'}</td>`;
@@ -628,7 +628,7 @@ window.addClassTT = async () => {
   const c = cls.trim();
   if (classTTList.find(x => x.name === c)) { alert('이미 추가된 학급입니다.'); return; }
   classTTList.push({ name: c, tt: [[],[],[],[],[]] });
-  classTTList.sort((a,b) => a.name.localeCompare(b.name));
+  // 정렬 없음: 입력 순서 그대로 유지
   await saveUserData();
   renderClassTTs();
 };
@@ -725,6 +725,7 @@ window.calcSubjectHours = async () => {
     return;
   }
   const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  // 방학 제외 실제 수업 주 수 (시수계산표)
   function countWeeks(year, half) {
     const sem = getSemDates(year, half);
     let count = 0;
@@ -743,25 +744,39 @@ window.calcSubjectHours = async () => {
     }
     return count;
   }
+  // 전체시간표에 표시되는 총 주 수 (buildOneSemTable과 동일 알고리즘)
+  function countAllWeeks(year, half) {
+    const sem = getSemDates(year, half);
+    const start = new Date(sem.start);
+    const dow = start.getDay();
+    if (dow === 0) start.setDate(start.getDate() + 1);
+    else if (dow > 1) start.setDate(start.getDate() - (dow - 1));
+    let count = 0, cur = new Date(start);
+    while (cur <= sem.end) { count++; cur.setDate(cur.getDate() + 7); }
+    return count;
+  }
   const w1 = countWeeks(semYear, 1);
   const w2 = countWeeks(semYear, 2);
+  const all1 = countAllWeeks(semYear, 1);
+  const all2 = countAllWeeks(semYear, 2);
   const rows = Object.entries(weekly).sort(([a],[b]) => a.localeCompare(b));
   let html = `<table class="tt-hours-table"><thead><tr>
-    <th style="text-align:left;">학급</th><th>주당</th>
+    <th style="text-align:left;">학급</th>
     <th>1학기(${w1}주)</th><th>2학기(${w2}주)</th><th>연간</th>
   </tr></thead><tbody>`;
   rows.forEach(([cls, pw]) => {
     const s1 = pw * w1, s2 = pw * w2;
-    html += `<tr><td class="row-subject">${cls}</td><td>${pw}</td><td>${s1}</td><td>${s2}</td><td>${s1+s2}</td></tr>`;
+    const t1 = pw * all1, t2 = pw * all2;
+    const r1 = s1 !== t1, r2 = s2 !== t2;
+    html += `<tr>
+      <td class="row-subject">${cls}</td>
+      <td class="${r1 ? 'hours-mismatch' : ''}"${r1 ? ` title="전체시간표 기준 ${t1}시간"` : ''}>${s1}${r1 ? ' ⚠' : ''}</td>
+      <td class="${r2 ? 'hours-mismatch' : ''}"${r2 ? ` title="전체시간표 기준 ${t2}시간"` : ''}>${s2}${r2 ? ' ⚠' : ''}</td>
+      <td>${s1+s2}</td>
+    </tr>`;
   });
   html += '</tbody></table>';
   el.innerHTML = html;
-  try {
-    await fetch(GAS_URL, {
-      method: 'POST',
-      body: JSON.stringify({ app: 'journal-management', action: 'calcTimetable', userId: currentUser.email, semYear })
-    });
-  } catch(e) {}
 };
 
 window.downloadMyTTTemplate = () => {
@@ -1182,7 +1197,7 @@ async function loadFromSheets(id, names) {
       const existing = classTTList.find(c => c.name === name);
       const tt = [0,1,2,3,4].map(p => [0,1,2,3,4].map(d => (rows[p+1] && rows[p+1][d+1]) ? rows[p+1][d+1] : ''));
       if (existing) existing.tt = tt;
-      else { classTTList.push({ name, tt }); classTTList.sort((a,b) => a.name.localeCompare(b.name)); }
+      else { classTTList.push({ name, tt }); } // 정렬 없음: 입력 순서 유지
       result.push(`✅ "${name}" → 담당 학급 시간표`);
     } else {
       result.push(`⚠ "${name}" - 형식 인식 불가 (헤더: ${rows[0].slice(0,3).join(', ')})`);
@@ -1526,7 +1541,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v4.7';
+const APP_VERSION = 'v4.8';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');
