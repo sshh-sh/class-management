@@ -14,7 +14,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
 // GAS API URL
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbwSFhFuMf_1fgwqeiCSrqFTsflCi5rArURL0rDk8EP45QMZTakzVRwUS4ajyZ4NRstY/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzLe-8UgP4F4fL6zu2S653CyAA1Rb9bjWD-kvc52fdj4WUc7PscxnBMKzIjSVRXTIIw/exec';
 
 const TIMES = ['09:00~09:40','09:50~10:30','10:40~11:20','11:30~12:10','13:00~13:40'];
 const DAY_NAMES = ['일','월','화','수','목','금','토'];
@@ -816,7 +816,7 @@ function sylCell(val, field, r, idx, subjectEsc) {
       const safeUrl = url ? url.replace(/"/g,'&quot;') : '';
       const safeText = line.replace(/</g,'&lt;').replace(/>/g,'&gt;');
       if (url) {
-        return `<div class="syl-cell-line"><a href="${safeUrl}" target="_blank" rel="noopener" class="syl-text-link" onclick="event.stopPropagation()">${safeText}<i class="ti ti-external-link" style="font-size:11px;margin-left:3px;vertical-align:1px;" aria-hidden="true"></i></a></div>`;
+        return `<div class="syl-cell-line"><a href="${safeUrl}" target="_blank" rel="noopener" class="syl-text-link" onclick="event.stopPropagation()">${safeText}</a></div>`;
       }
       return `<div class="syl-cell-line"><span class="syl-line-text">${safeText}</span></div>`;
     }).join('')}</div>`;
@@ -827,7 +827,8 @@ function sylCell(val, field, r, idx, subjectEsc) {
               (field === 'memo' && strVal.startsWith('http') ? strVal : '');
   const inp = `<input value="${esc}" style="width:100%;border:none;font-size:inherit;background:transparent;" onchange="updateSylField('${subjectEsc}',${idx},'${field}',this.value)">`;
   if (!url) return inp;
-  return `<div class="syl-cell-link">${inp}<a href="${url.replace(/"/g,'&quot;')}" target="_blank" rel="noopener" class="syl-ext-link" onclick="event.stopPropagation()" title="링크 열기"><i class="ti ti-external-link" aria-hidden="true"></i></a></div>`;
+  const safeText2 = strVal.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return `<a href="${url.replace(/"/g,'&quot;')}" target="_blank" rel="noopener" class="syl-text-link" onclick="event.stopPropagation()">${safeText2}</a>`;
 }
 
 const CONCEPT_ICONS = [
@@ -923,14 +924,12 @@ function buildSyllabus() {
         <tbody>${(syllabusData[s]||[]).map((r,idx) => {
           const done = isDone(r);
           const se = s.replace(/'/g,"\\'");
-          const hasLinks = !!(r.links && r.links.trim());
           const linksEsc = (r.links||'').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-          const onclickAttr = hasLinks ? `openSylRowLink('${linksEsc}')` : `selectSylRow('${se}',${idx},'${linksEsc}')`;
-          return `<tr class="${done ? 'syl-done-row' : ''}${hasLinks ? ' syl-has-link' : ''}" onclick="${onclickAttr}" style="cursor:pointer;">
+          return `<tr class="${done ? 'syl-done-row' : ''}" onclick="selectSylRow('${se}',${idx},'${linksEsc}')" style="cursor:pointer;">
             <td style="text-align:center;"><input type="checkbox" class="syl-done-check" ${done ? 'checked' : ''} onchange="toggleDone('${se}',${idx},this.checked)" onclick="event.stopPropagation()"></td>
             <td style="text-align:center;" class="syl-seq-cell">
               <span class="syl-seq">${idx+1}</span>
-              ${hasLinks ? `<button class="syl-link-icon" onclick="event.stopPropagation();openSylLinkEditor('${se}',${idx})" title="링크 편집">🔗</button>` : `<button class="syl-link-icon syl-link-empty" onclick="event.stopPropagation();openSylLinkEditor('${se}',${idx})" title="링크 추가">+</button>`}
+              <button class="syl-link-icon syl-link-empty" onclick="event.stopPropagation();openSylLinkEditor('${se}',${idx})" title="링크 추가/편집">+</button>
             </td>
             <td>${sylCell(r.period,'period',r,idx,se)}</td>
             <td style="text-align:center;">${sylCell(r.ch,'ch',r,idx,se)}</td>
