@@ -911,9 +911,10 @@ function loadAllTimetables(userId) {
     }
   }
 
-  // 빈 슬롯 제외 + 시트 입력 순서 보존(정렬 없음 — 사용자 입력 순서 그대로)
+  // 입력 순서 보존(정렬 없음). 이름이 있으면 시간표가 비어도 표시.
+  // 단, 사용자가 안 건드린 기본 슬롯 이름(학급1~학급15)은 제외.
   const classTTList = Object.keys(classTTMap)
-    .filter(name => classTTMap[name].some(period => period.some(v => v !== '')))
+    .filter(name => !/^학급\d+$/.test(name) || classTTMap[name].some(period => period.some(v => v !== '')))
     .map(name => ({ name, tt: classTTMap[name] }));
   return { success:true, myTT, classTTList, timetableEvents, vacationPeriods, subjectHoursData };
 }
