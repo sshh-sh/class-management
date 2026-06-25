@@ -809,7 +809,10 @@ function loadAll(userId) {
     for (let i = 1; i < sylRows.length; i++) {
       const rowSubject = String(sylRows[i][1]||'').trim();
       if (rowSubject && rowSubject !== currentSubject) currentPeriod = '';
-      if (rowSubject) currentSubject = rowSubject;
+      if (rowSubject) {
+        currentSubject = rowSubject;
+        if (!syllabusData[currentSubject]) syllabusData[currentSubject] = []; // 내용 없어도 과목 탭 보장
+      }
       const subject = currentSubject;
       const rowPeriod = String(jm_parseSheetVal(sylRows[i][3])||'').trim();
       if (rowPeriod) currentPeriod = rowPeriod;
