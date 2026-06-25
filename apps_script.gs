@@ -75,6 +75,8 @@ function doPost(e) {
         result = calcTimetable(userId, data.semYear);
       } else if (action === 'generateFullTimetable') {
         result = generateFullTimetable(data.semYear);
+      } else if (action === 'saveSubjectHours') {
+        result = saveSubjectHours(userId, data.hours);
       } else {
         result = {success: false, message: '알 수 없는 액션'};
       }
@@ -369,12 +371,15 @@ function jm_timetableSheet() {
 function jm_readTTForRebuild(s) {
   const lastRow = Math.max(s.getLastRow(), 1);
   const data = s.getRange(1, 1, lastRow, 7).getValues();
-  const myTT = {}, classTTMap = {}, classOrder = [], vacationPeriods = [], timetableEvents = {};
+  const myTT = {}, classTTMap = {}, classOrder = [], vacationPeriods = [], timetableEvents = {}, subjectHours = {};
   let curClass = '';
   const toStr = v => v instanceof Date ? Utilities.formatDate(v, 'Asia/Seoul', 'yyyy-MM-dd') : String(v).trim();
   for (let i = 0; i < data.length; i++) {
     const type = String(data[i][0]||'').trim();
-    if (type === '내시간표') {
+    if (type === '시수' || type === '필요시수') {
+      const cls = String(data[i][1]||'').trim();
+      if (cls) subjectHours[cls] = { s1req: parseInt(data[i][2])||0, s2req: parseInt(type==='시수'?data[i][4]:data[i][3])||0 };
+    } else if (type === '내시간표') {
       const m = String(data[i][1]||'').trim().match(/^(\d+)/);
       if (m) {
         const p = parseInt(m[1]);
@@ -409,7 +414,7 @@ function jm_readTTForRebuild(s) {
   const classTTList = classOrder
     .filter(n => !/^학급\d+$/.test(n) || classTTMap[n].some(per=>per.some(v=>v!=='')))
     .map(n => ({ name: n, tt: classTTMap[n] }));
-  return { myTT, classTTList, vacationPeriods, timetableEvents };
+  return { myTT, classTTList, vacationPeriods, timetableEvents, subjectHours };
 }
 
 // 재생성 후 데이터를 깨끗한 v5 양식 위치에 복원
@@ -428,6 +433,13 @@ function jm_writeBackTT(s, pre) {
   const evRows = [];
   for (let i=0;i<10;i++) evRows.push(i<evEntries.length ? evEntries[i] : ['','','']);
   s.getRange(28, 2, 10, 3).setValues(evRows);
+  // ④ 시수 기준값 복원 (rows 41-50): C=1학기기준, E=2학기기준
+  const sh = pre.subjectHours || {};
+  const shKeys = Object.keys(sh).slice(0, 10);
+  for (let i = 0; i < shKeys.length; i++) {
+    const k = shKeys[i];
+    s.getRange(41+i, 1, 1, 5).setValues([['시수', k, sh[k].s1req||0, '', sh[k].s2req||0]]);
+  }
   const list = pre.classTTList || [];
   if (list.length) {
     const rows = [];
@@ -487,19 +499,19 @@ function setupTimetableTemplate(s) {
     ['행사', '', '', '', '', '', ''],
     ['행사', '', '', '', '', '', ''],
     ['빈칸', '', '', '', '', '', ''],
-    // ④ 시수계산표 (rows 39-51) — 사이트에서 [시수 계산] 버튼으로 자동 갱신
-    ['섹션', '④ 시수계산표 — 사이트 [📊 시수 계산] 버튼 클릭 시 자동 갱신', '', '', '', '', ''],
-    ['컬럼헤더', '학급', '주당시수', '1학기 예상', '2학기 예상', '연간 합계', '기준년도'],
-    ['시수결과', '(계산 전)', '', '', '', '', ''],
-    ['시수결과', '', '', '', '', '', ''],
-    ['시수결과', '', '', '', '', '', ''],
-    ['시수결과', '', '', '', '', '', ''],
-    ['시수결과', '', '', '', '', '', ''],
-    ['시수결과', '', '', '', '', '', ''],
-    ['시수결과', '', '', '', '', '', ''],
-    ['시수결과', '', '', '', '', '', ''],
-    ['시수결과', '', '', '', '', '', ''],
-    ['시수결과', '', '', '', '', '', ''],
+    // ④ 시수계산표 (rows 39-51) — 노란칸(기준) 입력, 실제는 사이트/자동 계산. 사이트와 양방향 동기화
+    ['섹션', '④ 시수계산표 — 노란칸(기준시수) 입력 · 실제는 전체시간표 기준 자동(불일치 시 빨강)', '', '', '', '', ''],
+    ['컬럼헤더', '학급', '1학기 기준', '1학기 실제', '2학기 기준', '2학기 실제', '연간'],
+    ['시수', '', '', '', '', '', ''],
+    ['시수', '', '', '', '', '', ''],
+    ['시수', '', '', '', '', '', ''],
+    ['시수', '', '', '', '', '', ''],
+    ['시수', '', '', '', '', '', ''],
+    ['시수', '', '', '', '', '', ''],
+    ['시수', '', '', '', '', '', ''],
+    ['시수', '', '', '', '', '', ''],
+    ['시수', '', '', '', '', '', ''],
+    ['시수', '', '', '', '', '', ''],
     ['빈칸', '', '', '', '', '', ''],
     // ⑤ 담당학급 시간표 (rows 52-53 고정 헤더, 54+는 15개 슬롯)
     ['섹션', '⑤ 담당학급 시간표 — 학급명을 [ ] 안에 입력 · 시간표는 노란 칸에 입력', '', '', '', '', ''],
@@ -576,10 +588,10 @@ function setupTimetableTemplate(s) {
   s.getRange(28, 2, 10, 3).setBackground(COLORS.yellow);
   for (let r = 28; r <= 37; r++) s.setRowHeight(r, 22);
 
-  // ④ 시수계산표: rows 41-50 (결과 영역 — 연한 배경)
-  s.getRange(41, 2, 10, 6).setBackground('#F8F9FF').setFontColor('#555')
-    .setHorizontalAlignment('center');
-  s.getRange(41, 2).setFontColor('#888').setFontStyle('italic');
+  // ④ 시수계산표: rows 41-50. 학급(B)·실제(D,F)·연간(G)=연한 배경, 기준(C,E)=노랑 입력
+  s.getRange(41, 2, 10, 6).setBackground('#F8F9FF').setFontColor('#555').setHorizontalAlignment('center');
+  s.getRange(41, 3, 10, 1).setBackground('#FFFDE7'); // C: 1학기 기준(입력)
+  s.getRange(41, 5, 10, 1).setBackground('#FFFDE7'); // E: 2학기 기준(입력)
   for (let r = 41; r <= 50; r++) s.setRowHeight(r, 22);
 
   // ⑤ 담당학급 섹션 헤더 (초록색)
@@ -941,6 +953,13 @@ function loadAllTimetables(userId) {
     if (!type || type === '타이틀' || type === '안내' || type === '빈칸' ||
         type === '섹션' || type === '컬럼헤더' || type === '시수결과') continue;
 
+    if (type === '시수') {
+      // ④ 시수: B=학급, C=1학기기준, E=2학기기준 (D/F=실제는 표시용)
+      const cls = String(allData[i][1]||'').trim();
+      if (cls) subjectHoursData[cls] = { s1req: parseInt(allData[i][2])||0, s2req: parseInt(allData[i][4])||0 };
+      continue;
+    }
+
     if (type === '내시간표') {
       const label = String(allData[i][1] || '').trim();
       const m = label.match(/^(\d+)/);
@@ -1074,6 +1093,35 @@ function saveTimetables(userId, myTT, classTTList, events) {
     for (let r = 28; r <= 37; r++) s.setRowHeight(r, 22);
   }
 
+  s.hideColumns(1);
+  return { success: true };
+}
+
+// ---------- 시수계산표 저장 (사이트 → 시트 ④, 양방향 동기화) ----------
+// hours: [{cls, s1req, s1act, s2req, s2act}, ...]
+function saveSubjectHours(userId, hours) {
+  const s = jm_timetableSheet();
+  // ④ 헤더 보정(구버전 헤더 대비) + 데이터 영역(41-50) 초기화
+  s.getRange(40, 1, 1, 7).setValues([['컬럼헤더','학급','1학기 기준','1학기 실제','2학기 기준','2학기 실제','연간']]);
+  s.getRange(41, 1, 10, 7).clearContent();
+  s.getRange(41, 2, 10, 6).setBackground('#F8F9FF').setFontColor('#555').setFontWeight('normal').setHorizontalAlignment('center');
+  s.getRange(41, 3, 10, 1).setBackground('#FFFDE7'); // C 1학기 기준
+  s.getRange(41, 5, 10, 1).setBackground('#FFFDE7'); // E 2학기 기준
+  const list = (hours || []).slice(0, 10);
+  const rows = [];
+  for (let i = 0; i < 10; i++) {
+    if (i < list.length) {
+      const h = list[i];
+      rows.push(['시수', h.cls||'', h.s1req||0, h.s1act||0, h.s2req||0, h.s2act||0, (h.s1act||0)+(h.s2act||0)]);
+    } else rows.push(['시수','','','','','','']);
+  }
+  s.getRange(41, 1, 10, 7).setValues(rows);
+  // 실제(D,F)가 기준(C,E)과 다르면 빨강
+  for (let i = 0; i < list.length; i++) {
+    const h = list[i], r = 41 + i;
+    if ((h.s1req||0) !== (h.s1act||0)) s.getRange(r, 4).setFontColor('#CC0000').setFontWeight('bold');
+    if ((h.s2req||0) !== (h.s2act||0)) s.getRange(r, 6).setFontColor('#CC0000').setFontWeight('bold');
+  }
   s.hideColumns(1);
   return { success: true };
 }

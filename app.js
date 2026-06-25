@@ -14,7 +14,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
 // GAS API URL
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbwdp3XnWlzVTkepbi3rnfz74DnZqQWQ7r3V5xHbGHXVinuX3C692jsIHm1HtdbaLP-a/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbywEAjPCwo72fm2jarvsJ19vmoz-ACWxAnwXAFmihYT_0QR9vvMdWzdAsQ7C6Yx6Sjd/exec';
 
 const TIMES = ['09:00~09:40','09:50~10:30','10:40~11:20','11:30~12:10','13:00~13:40'];
 const DAY_NAMES = ['일','월','화','수','목','금','토'];
@@ -714,74 +714,95 @@ window.handleTTUpload = (input) => {
   input.value = '';
 };
 
+// 내 시간표에 등장하는 학급 라벨(예: "과(3-1)") 수집 — 등장 순서 보존
+function getMyTTLabels() {
+  const labels = [], seen = {};
+  const periods = Object.keys(myTT).map(Number).sort((a,b)=>a-b);
+  for (const p of periods) for (let d = 0; d < 5; d++) {
+    const v = (myTT[p]?.[d] || '').trim();
+    if (v && !seen[v]) { seen[v] = 1; labels.push(v); }
+  }
+  return labels;
+}
+
+// 전체시간표 기준 실제 수업 횟수 (방학·행사일 제외) — generateFullTimetable과 동일 셈법
+function countActualSessions(label, half) {
+  const sem = getSemDates(semYear, half);
+  const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const start = new Date(sem.start);
+  const dow = start.getDay();
+  if (dow === 0) start.setDate(start.getDate() + 1);
+  else if (dow > 1) start.setDate(start.getDate() - (dow - 1));
+  const periods = Object.keys(myTT).map(Number);
+  let total = 0, cur = new Date(start);
+  while (cur <= sem.end) {
+    for (let d = 0; d < 5; d++) {
+      const day = new Date(cur); day.setDate(day.getDate() + d);
+      if (day < sem.start || day > sem.end) continue;
+      const ds = fmt(day);
+      if (isVacationDate(ds) || timetableEvents[ds]) continue;
+      for (const p of periods) if ((myTT[p]?.[d] || '').trim() === label) total++;
+    }
+    cur.setDate(cur.getDate() + 7);
+  }
+  return total;
+}
+
 window.calcSubjectHours = async () => {
   const el = document.getElementById('subject-hours-result');
   if (!el) return;
-  const weekly = {};
-  for (let p = 1; p <= 5; p++) {
-    for (let d = 0; d < 5; d++) {
-      const cls = (myTT[p]?.[d] || '').trim();
-      if (cls) weekly[cls] = (weekly[cls] || 0) + 1;
-    }
-  }
-  if (!Object.keys(weekly).length) {
+  const labels = getMyTTLabels();
+  if (!labels.length) {
     el.innerHTML = '<div style="font-size:13px;color:#aaa;padding:8px 0;">내 시간표에 학급 정보가 없습니다. 구글시트에서 시간표를 입력하고 연동하세요.</div>';
     return;
   }
-  const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  // 방학 제외 실제 수업 주 수 (시수계산표)
-  function countWeeks(year, half) {
-    const sem = getSemDates(year, half);
-    let count = 0;
-    const cur = new Date(sem.start);
-    const dow = cur.getDay();
-    if (dow !== 1) cur.setDate(cur.getDate() + (dow === 0 ? 1 : 8 - dow));
-    while (fmt(cur) <= fmt(sem.end)) {
-      let active = false;
-      for (let i = 0; i < 5; i++) {
-        const day = new Date(cur); day.setDate(day.getDate() + i);
-        const ds = fmt(day);
-        if (ds >= fmt(sem.start) && ds <= fmt(sem.end) && !isVacationDate(ds)) { active = true; break; }
-      }
-      if (active) count++;
-      cur.setDate(cur.getDate() + 7);
-    }
-    return count;
-  }
-  // 전체시간표에 표시되는 총 주 수 (buildOneSemTable과 동일 알고리즘)
-  function countAllWeeks(year, half) {
-    const sem = getSemDates(year, half);
-    const start = new Date(sem.start);
-    const dow = start.getDay();
-    if (dow === 0) start.setDate(start.getDate() + 1);
-    else if (dow > 1) start.setDate(start.getDate() - (dow - 1));
-    let count = 0, cur = new Date(start);
-    while (cur <= sem.end) { count++; cur.setDate(cur.getDate() + 7); }
-    return count;
-  }
-  const w1 = countWeeks(semYear, 1);
-  const w2 = countWeeks(semYear, 2);
-  const all1 = countAllWeeks(semYear, 1);
-  const all2 = countAllWeeks(semYear, 2);
-  const rows = Object.entries(weekly).sort(([a],[b]) => a.localeCompare(b));
+  const inStyle = 'width:62px;padding:4px 6px;border:0.5px solid #ddd;border-radius:4px;text-align:center;';
   let html = `<table class="tt-hours-table"><thead><tr>
     <th style="text-align:left;">학급</th>
-    <th>1학기(${w1}주)</th><th>2학기(${w2}주)</th><th>연간</th>
+    <th>1학기 기준</th><th>1학기 실제</th>
+    <th>2학기 기준</th><th>2학기 실제</th><th>연간</th>
   </tr></thead><tbody>`;
-  rows.forEach(([cls, pw]) => {
-    const s1 = pw * w1, s2 = pw * w2;
-    const t1 = pw * all1, t2 = pw * all2;
-    const r1 = s1 !== t1, r2 = s2 !== t2;
+  labels.forEach(label => {
+    const h = subjectHoursData[label] || {};
+    const req1 = h.s1req || 0, req2 = h.s2req || 0;
+    const act1 = countActualSessions(label, 1), act2 = countActualSessions(label, 2);
+    const r1 = req1 > 0 && req1 !== act1, r2 = req2 > 0 && req2 !== act2;
+    const le = label.replace(/'/g,"\\'");
     html += `<tr>
-      <td class="row-subject">${cls}</td>
-      <td class="${r1 ? 'hours-mismatch' : ''}"${r1 ? ` title="전체시간표 기준 ${t1}시간"` : ''}>${s1}${r1 ? ' ⚠' : ''}</td>
-      <td class="${r2 ? 'hours-mismatch' : ''}"${r2 ? ` title="전체시간표 기준 ${t2}시간"` : ''}>${s2}${r2 ? ' ⚠' : ''}</td>
-      <td>${s1+s2}</td>
+      <td class="row-subject">${label}</td>
+      <td><input type="number" min="0" value="${req1}" onchange="setBaseHours('${le}','s1req',this.value)" style="${inStyle}"></td>
+      <td class="${r1 ? 'hours-mismatch' : ''}"${r1 ? ` title="기준 ${req1}시간과 다름"` : ''}>${act1}${r1 ? ' ⚠' : ''}</td>
+      <td><input type="number" min="0" value="${req2}" onchange="setBaseHours('${le}','s2req',this.value)" style="${inStyle}"></td>
+      <td class="${r2 ? 'hours-mismatch' : ''}"${r2 ? ` title="기준 ${req2}시간과 다름"` : ''}>${act2}${r2 ? ' ⚠' : ''}</td>
+      <td>${act1 + act2}</td>
     </tr>`;
   });
   html += '</tbody></table>';
   el.innerHTML = html;
 };
+
+window.setBaseHours = async (label, key, val) => {
+  if (!subjectHoursData[label]) subjectHoursData[label] = {};
+  subjectHoursData[label][key] = parseInt(val) || 0;
+  calcSubjectHours();            // 빨강/연간 즉시 갱신
+  await saveSubjectHoursToSheet(); // 구글시트 ④로 동기화
+};
+
+// 기준시수(+실제) 구글시트 ④에 저장 (양방향 동기화)
+async function saveSubjectHoursToSheet() {
+  saveVacationAndHours(); // localStorage 캐시 갱신
+  const labels = getMyTTLabels();
+  const hours = labels.map(label => {
+    const h = subjectHoursData[label] || {};
+    return { cls: label, s1req: h.s1req || 0, s1act: countActualSessions(label, 1),
+             s2req: h.s2req || 0, s2act: countActualSessions(label, 2) };
+  });
+  try {
+    await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({
+      app: 'journal-management', action: 'saveSubjectHours', userId: currentUser.email, hours }) });
+    apiCache.delete('loadAll_' + currentUser.email);
+  } catch(e) { console.log('시수 저장 실패:', e); }
+}
 
 window.downloadMyTTTemplate = () => {
   const csv = '\uFEFF교시,월,화,수,목,금\n' + [1,2,3,4,5].map(p => `${p}교시,,,,,`).join('\n');
@@ -1632,7 +1653,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v5.4';
+const APP_VERSION = 'v5.5';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');
