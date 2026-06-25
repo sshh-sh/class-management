@@ -1409,32 +1409,38 @@ function loadSyllabus(userId, subject) {
 }
 
 // 명시적 저장 전용(자동저장은 프론트에서 끔). 상속 인식 삭제 + 개념행(K) 보존.
+// 비파괴 저장: 기존 행은 '완료(A)'만 제자리 갱신(구조·내용·상속·링크 보존),
+// 사이트에서 새로 늘어난 행만 맨 아래 추가. 행 삭제/이동/내용덮어쓰기 안 함.
 function saveSyllabus(userId, subject, sylData) {
   const s = jm_syllabusSheet();
   const numCols = Math.max(s.getLastColumn(), 7);
   const header = s.getRange(1, 1, 1, numCols).getValues()[0];
   if (jm_isOldSylFormat(header)) jm_migrateSylToNewFormat(s);
   const data = s.getDataRange().getValues();
-  // 빈 과목칸은 위 행 과목 상속 → 행별 실효 과목 계산
-  const effSubjects = [''];
+  // 과목 상속 적용해 해당 과목의 '레슨행'(내용 있는 행)을 순서대로 식별 — loadAll과 동일 필터
   let eff = '';
+  const lessonRows = []; // 0-base 시트 행 인덱스
   for (let i = 1; i < data.length; i++) {
     const rs = String(data[i][1]||'').trim();
     if (rs) eff = rs;
-    effSubjects[i] = eff;
+    if (eff !== subject) continue;
+    const hasContent = jm_sylDone(data[i][0]) ||
+      String(data[i][3]||'').trim() || String(data[i][4]||'').trim() ||
+      String(data[i][5]||'').trim() || String(data[i][6]||'').trim() ||
+      String(data[i][7]||'').trim() || String(data[i][8]||'').trim();
+    if (hasContent) lessonRows.push(i);
   }
-  for (let i = data.length - 1; i >= 1; i--) {
-    if (effSubjects[i] !== subject) continue;
-    if (String(data[i][10]||'').trim()) continue; // 개념(K) 행은 보존
-    s.deleteRow(i + 1);
+  // 기존 레슨행: 완료(A)만 제자리 갱신
+  const n = Math.min(lessonRows.length, sylData.length);
+  for (let k = 0; k < n; k++) {
+    s.getRange(lessonRows[k] + 1, 1).setValue(sylData[k].done ? true : false);
   }
-  sylData.forEach((item, idx) => {
-    s.appendRow([
-      item.done ? true : false, subject, idx + 1,
-      item.period||'', item.ch||'', item.unit||'', item.topic||'', item.prep||'', item.memo||'',
-      '', '', '', '', ''
-    ]);
-  });
+  // 사이트에서 추가된 새 행만 맨 아래 추가
+  for (let k = lessonRows.length; k < sylData.length; k++) {
+    const item = sylData[k];
+    s.appendRow([item.done ? true : false, subject, '', item.period||'', item.ch||'',
+      item.unit||'', item.topic||'', item.prep||'', item.memo||'', '', '', '', '', '']);
+  }
   return {success:true};
 }
 
