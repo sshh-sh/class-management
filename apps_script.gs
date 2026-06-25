@@ -8,16 +8,20 @@
  */
 
 // 구글 시트 열릴 때 커스텀 메뉴 추가
-function onOpen() {
-  SpreadsheetApp.getUi()
-    .createMenu('📅 일해용 전담')
-    .addItem('전체시간표 생성 (J열~)', 'generateFullTimetableMenu')
-    .addToUi();
-}
-
-function generateFullTimetableMenu() {
-  generateFullTimetable(null); // 현재 학년도 자동 적용
-  SpreadsheetApp.getUi().alert('✅ 전체시간표 생성 완료!\n시간표 탭 J열을 확인하세요.');
+// 시트 내 '전체시간표 생성' 체크박스(시간표 탭 I1) → 체크하면 자동 생성 후 해제
+// (커스텀 메뉴 제거: onOpen 없앰)
+function onEdit(e) {
+  try {
+    if (!e || !e.range) return;
+    const sh = e.range.getSheet();
+    if (sh.getName() !== '시간표') return;
+    if (e.range.getRow() !== 1 || e.range.getColumn() !== 9) return; // I1 체크박스
+    if (e.range.getValue() === true) {
+      generateFullTimetable(null);
+      e.range.setValue(false);
+      SpreadsheetApp.getActiveSpreadsheet().toast('전체시간표 생성 완료 (J열~)', '✅', 5);
+    }
+  } catch(err) {}
 }
 
 function migrateKaoData() {
@@ -341,12 +345,99 @@ function jm_timetableSheet() {
   if (!s) {
     s = ss.insertSheet('시간표');
     setupTimetableTemplate(s);
-  } else {
-    // A1이 '타이틀'이 아니면 새 템플릿 미적용 → 초기화
-    const a1 = String(s.getRange(1, 1).getValue() || '').trim();
-    if (a1 !== '타이틀') setupTimetableTemplate(s);
+    return s;
+  }
+  const a1 = String(s.getRange(1, 1).getValue() || '').trim();
+  const title = String(s.getRange(1, 2).getValue() || '');
+  if (a1 !== '타이틀') {
+    setupTimetableTemplate(s);
+  } else if (title.indexOf('v5') < 0) {
+    // 구버전(v4 등): 기본시간표 중복·옛 레이아웃 → 데이터 보존하며 깨끗한 v5로 1회 재생성
+    const pre = jm_readTTForRebuild(s);
+    // 기본시간표(레이아웃 민감 데이터)를 읽어낸 경우에만 재생성 → 못 읽으면 시트 손대지 않음(데이터 보호)
+    const hasMyTT = Object.keys(pre.myTT).some(p => (pre.myTT[p]||[]).some(v => String(v).trim()));
+    if (hasMyTT) {
+      setupTimetableTemplate(s);   // 깨끗한 v5 양식(기본시간표 1개)
+      jm_writeBackTT(s, pre);      // 기존 데이터 복원
+      generateFullTimetable(null); // 전체시간표 재생성
+    }
   }
   return s;
+}
+
+// 재생성용 직접 파서(재귀 방지: jm_timetableSheet 호출 안 함). 중복 대비 '채워진 행 우선'.
+function jm_readTTForRebuild(s) {
+  const lastRow = Math.max(s.getLastRow(), 1);
+  const data = s.getRange(1, 1, lastRow, 7).getValues();
+  const myTT = {}, classTTMap = {}, classOrder = [], vacationPeriods = [], timetableEvents = {};
+  let curClass = '';
+  const toStr = v => v instanceof Date ? Utilities.formatDate(v, 'Asia/Seoul', 'yyyy-MM-dd') : String(v).trim();
+  for (let i = 0; i < data.length; i++) {
+    const type = String(data[i][0]||'').trim();
+    if (type === '내시간표') {
+      const m = String(data[i][1]||'').trim().match(/^(\d+)/);
+      if (m) {
+        const p = parseInt(m[1]);
+        const row = [String(data[i][2]||''),String(data[i][3]||''),String(data[i][4]||''),String(data[i][5]||''),String(data[i][6]||'')];
+        if (row.some(v => v.trim()) || !myTT[p]) myTT[p] = row;
+      }
+    } else if (type === '방학') {
+      const st = toStr(data[i][1]), en = toStr(data[i][2]);
+      if (/\d{4}-\d{2}-\d{2}/.test(st) && /\d{4}-\d{2}-\d{2}/.test(en))
+        vacationPeriods.push({ start: st, end: en, label: String(data[i][3]||'방학').trim() });
+    } else if (type === '행사') {
+      const d = toStr(data[i][1]), nm = String(data[i][2]||'').trim();
+      if (/\d{4}-\d{2}-\d{2}/.test(d) && nm) timetableEvents[d] = nm;
+    } else if (type === '담당학급헤더') {
+      const raw = String(data[i][1]||'').trim();
+      const mm = raw.match(/\[\s*(.+?)\s*\]/);
+      curClass = mm ? mm[1].trim() : raw;
+    } else if (type === '담당학급') {
+      const label = String(data[i][1]||'').trim();
+      let cls, p;
+      const legacy = label.match(/^(.+)-(\d+)교시$/);
+      if (legacy) { cls = legacy[1]; p = parseInt(legacy[2])-1; curClass = cls; }
+      else { const pm = label.match(/^(\d+)교시$/); if (!pm) continue; cls = curClass; p = parseInt(pm[1])-1; }
+      if (!cls) continue;
+      if (!classTTMap[cls]) { classTTMap[cls] = Array.from({length:6},()=>['','','','','']); classOrder.push(cls); }
+      if (p>=0 && p<6) {
+        const row = [String(data[i][2]||''),String(data[i][3]||''),String(data[i][4]||''),String(data[i][5]||''),String(data[i][6]||'')];
+        if (row.some(v=>v.trim()) || !classTTMap[cls][p].some(v=>v)) classTTMap[cls][p] = row;
+      }
+    }
+  }
+  const classTTList = classOrder
+    .filter(n => !/^학급\d+$/.test(n) || classTTMap[n].some(per=>per.some(v=>v!=='')))
+    .map(n => ({ name: n, tt: classTTMap[n] }));
+  return { myTT, classTTList, vacationPeriods, timetableEvents };
+}
+
+// 재생성 후 데이터를 깨끗한 v5 양식 위치에 복원
+function jm_writeBackTT(s, pre) {
+  for (let p = 1; p <= 6; p++) {
+    const tt = pre.myTT[p];
+    if (!tt) continue;
+    s.getRange(5+p, 3, 1, 5).setNumberFormat('@').setValues([[tt[0]||'',tt[1]||'',tt[2]||'',tt[3]||'',tt[4]||'']]);
+  }
+  const vac = pre.vacationPeriods || [];
+  const vacRows = [];
+  for (let i=0;i<10;i++) vacRows.push(i<vac.length ? [vac[i].start||'', vac[i].end||'', vac[i].label||''] : ['','','']);
+  s.getRange(15, 2, 10, 3).setValues(vacRows);
+  const ev = pre.timetableEvents || {};
+  const evEntries = Object.keys(ev).sort().map(k => [k, ev[k], '']);
+  const evRows = [];
+  for (let i=0;i<10;i++) evRows.push(i<evEntries.length ? evEntries[i] : ['','','']);
+  s.getRange(28, 2, 10, 3).setValues(evRows);
+  const list = pre.classTTList || [];
+  if (list.length) {
+    const rows = [];
+    for (const cls of list) {
+      rows.push(['담당학급헤더', '[ '+cls.name+' ]', '월','화','수','목','금']);
+      for (let p=0;p<6;p++){ const tt=cls.tt[p]||['','','','','']; rows.push(['담당학급', (p+1)+'교시', tt[0]||'',tt[1]||'',tt[2]||'',tt[3]||'',tt[4]||'']); }
+      rows.push(['','','','','','','']);
+    }
+    s.getRange(54, 1, rows.length, 7).setValues(rows);
+  }
 }
 
 function setupTimetableTemplate(s) {
@@ -355,7 +446,7 @@ function setupTimetableTemplate(s) {
   // A열=타입마커(숨김), B~G=사용자 표시 영역
   const rows = [
     // 메타 (rows 1-3)
-    ['타이틀', '📅 일해용! 전담 — 시간표 시스템 v4', '', '', '', '', ''],
+    ['타이틀', '📅 일해용! 전담 — 시간표 시스템 v5', '', '', '', '', ''],
     ['안내', '💡 노란색 칸에 직접 입력 | 수정 후 사이트에서 [☁ 구글시트 연동] 클릭', '', '', '', '', ''],
     ['빈칸', '', '', '', '', '', ''],
     // ① 기본시간표 (rows 4-12)
@@ -531,7 +622,15 @@ function setupTimetableTemplate(s) {
   s.setColumnWidth(7, 110);  // G
 
   s.hideColumns(1);
-  s.setFrozenRows(2);
+  s.setFrozenRows(0); // 행 고정 전부 해제
+
+  // 전체시간표 생성 버튼 (체크박스): H1 라벨 + I1 체크박스
+  s.getRange(1, 8).setValue('전체시간표 생성 ▶')
+    .setFontWeight('bold').setFontColor('#534AB7').setHorizontalAlignment('right').setVerticalAlignment('middle');
+  s.getRange(1, 9).insertCheckboxes().setValue(false);
+  s.getRange(2, 8).setValue('☑ 체크하면 오른쪽 J열에 생성').setFontColor('#888').setFontSize(9);
+  s.setColumnWidth(8, 150);
+  s.setColumnWidth(9, 40);
 }
 
 // 진도표 14열 구조: 수업완료(A)|과목(B)|순서(C)|기간(D)|차시(E)|단원(F)|학습주제(G)|준비물(H)|메모(I)|(빈J)|카테고리(K)|소카테고리(L)|주제(M)|URL(N)
