@@ -14,7 +14,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
 // GAS API URL
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbywEAjPCwo72fm2jarvsJ19vmoz-ACWxAnwXAFmihYT_0QR9vvMdWzdAsQ7C6Yx6Sjd/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxSgJ39wGuaXVsXzm0wVLFtxjgBfiZCxHSvFLxWYuEf4KEntLYpU53CrYFHvJliy2dx/exec';
 
 const TIMES = ['09:00~09:40','09:50~10:30','10:40~11:20','11:30~12:10','13:00~13:40'];
 const DAY_NAMES = ['일','월','화','수','목','금','토'];
@@ -43,6 +43,7 @@ const API_CACHE_TTL = 5 * 60 * 1000; // 5분
 let sylAutoSaveTimer = null;
 
 let semDatesData = null; // GAS 시간표 시트 '설정'에서 읽은 학기 일정 {1:{start,end},2:{start,end}}
+let fullTTGrid = null;   // 방식A: 구글시트 J열 전체시간표 그리드 {grid, r0, c0}
 
 function getSemDates(year, half) {
   // 구글시트 설정값이 있으면 우선 사용
@@ -179,6 +180,7 @@ function applyUserData(d) {
   if (d.vacationPeriods && d.vacationPeriods.length) vacationPeriods = d.vacationPeriods;
   if (d.semDatesData) semDatesData = d.semDatesData;
   if (d.subjectHoursData) subjectHoursData = d.subjectHoursData;
+  if (d.fullTT) fullTTGrid = d.fullTT;
   if (d.conceptLinks) { conceptLinksData = d.conceptLinks; buildConceptIcons(); }
 }
 
@@ -210,7 +212,7 @@ async function loadUserData() {
         apiCache.set('loadAll_' + userId, { ts: now });
         localStorage.setItem(cacheKey, JSON.stringify({
           myTT, classTTList, syllabusData, journals: journalData, timetableEvents,
-          vacationPeriods, subjectHoursData, conceptLinks: conceptLinksData, semDatesData
+          vacationPeriods, subjectHoursData, conceptLinks: conceptLinksData, semDatesData, fullTT: fullTTGrid
         }));
       }
     } catch(e) {
@@ -576,12 +578,21 @@ window.saveMyTT = async () => {
   }
 };
 
+function escHtml(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
 function buildFullTimetable() {
   const el = document.getElementById('full-timetable');
   if (!el) return;
   const titleEl = document.getElementById('full-tt-title');
   if (titleEl) titleEl.textContent = `전체 시간표 (${semYear}학년도)`;
-  el.innerHTML = `<div class="full-tt-split">${buildOneSemTable(semYear,1)}${buildOneSemTable(semYear,2)}</div>`;
+  // 방식A: 구글시트 J열 전체시간표 그리드를 그대로 표시(편집 시 시트에 기록)
+  if (fullTTGrid && fullTTGrid.grid && fullTTGrid.grid.length) {
+    el.innerHTML = renderFullTTGrid();
+    return;
+  }
+  // 그리드 없으면 안내 + 기존 myTT 미리보기
+  el.innerHTML = `<div style="font-size:13px;color:#aaa;padding:6px 0 10px;">아직 구글시트에 전체시간표가 없습니다. 시트 시간표 탭 상단 체크박스로 생성하세요. (아래는 기본시간표 미리보기)</div>`
+    + `<div class="full-tt-split">${buildOneSemTable(semYear,1)}${buildOneSemTable(semYear,2)}</div>`;
   el.querySelectorAll('.event-cell-input').forEach(input => {
     input.addEventListener('change', async e => {
       timetableEvents[e.target.dataset.key] = e.target.value;
@@ -589,6 +600,50 @@ function buildFullTimetable() {
     });
   });
 }
+
+// 시트 전체시간표 그리드 렌더 (편집 가능 — 칸 수정 시 시트에 기록)
+function renderFullTTGrid() {
+  const g = fullTTGrid.grid, r0 = fullTTGrid.r0, c0 = fullTTGrid.c0;
+  let html = '<div class="full-tt-wrap"><table class="full-tt full-tt-grid">';
+  for (let i = 0; i < g.length; i++) {
+    const row = g[i];
+    if (row.every(c => !String(c).trim())) continue; // 빈 행 스킵
+    const firstFilled = String(row[0]).trim();
+    const restEmpty = row.slice(1).every(c => !String(c).trim());
+    if (firstFilled && restEmpty) { // 학기 라벨 행
+      html += `<tr><td class="full-tt-sem" colspan="${row.length}">${escHtml(firstFilled)}</td></tr>`;
+      continue;
+    }
+    html += '<tr>';
+    for (let j = 0; j < row.length; j++) {
+      const val = String(row[j]);
+      const isHeader = i < 2;       // 1~2행: 요일/교시 헤더
+      const isFixedCol = j < 2;     // 주/기간
+      if (isHeader || isFixedCol) {
+        html += `<td class="full-tt-h">${escHtml(val)}</td>`;
+      } else {
+        html += `<td class="full-tt-edit"><input value="${val.replace(/"/g,'&quot;')}" data-r="${i+r0}" data-c="${j+c0}" onchange="saveFullTTCell(this)"></td>`;
+      }
+    }
+    html += '</tr>';
+  }
+  html += '</table></div>';
+  return html;
+}
+
+window.saveFullTTCell = async (inp) => {
+  const r = parseInt(inp.dataset.r), c = parseInt(inp.dataset.c);
+  // 로컬 그리드도 갱신(다시 그릴 때 유지)
+  try { fullTTGrid.grid[r - fullTTGrid.r0][c - fullTTGrid.c0] = inp.value; } catch(e) {}
+  inp.style.background = '#FFF9C4';
+  try {
+    const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({
+      app: 'journal-management', action: 'saveFullTTCell', userId: currentUser.email, row: r, col: c, value: inp.value }) });
+    const d = await res.json();
+    inp.style.background = d.success ? '' : '#FFCDD2';
+    apiCache.delete('loadAll_' + currentUser.email);
+  } catch(e) { inp.style.background = '#FFCDD2'; }
+};
 
 function buildOneSemTable(year, half) {
   const sem = getSemDates(year, half);
@@ -689,7 +744,7 @@ window.syncFromGAS = async () => {
       localStorage.setItem(`userdata_${userId}_ts`, String(Date.now()));
       localStorage.setItem(`userdata_${userId}`, JSON.stringify({
         myTT, classTTList, syllabusData, journals: journalData, timetableEvents,
-        vacationPeriods, subjectHoursData, conceptLinks: conceptLinksData, semDatesData
+        vacationPeriods, subjectHoursData, conceptLinks: conceptLinksData, semDatesData, fullTT: fullTTGrid
       }));
       renderVacations(); buildMyTT(); renderClassTTs(); buildFullTimetable(); buildSyllabus(); filterJournal();
       alert('구글 시트에서 최신 데이터를 불러왔습니다!');
@@ -847,10 +902,11 @@ function sylCell(val, field, r, idx, subjectEsc) {
     }).join('')}</div>`;
   }
 
-  const esc = strVal.replace(/"/g,'&quot;');
   const url = (runs && runs[0] && runs[0].url) ||
               (field === 'memo' && strVal.startsWith('http') ? strVal : '');
-  const inp = `<input value="${esc}" style="width:100%;border:none;font-size:inherit;background:transparent;" onchange="updateSylField('${subjectEsc}',${idx},'${field}',this.value)">`;
+  // 자동 높이 textarea: 짧으면 한 줄, 길면 자동 줄바꿈+높이 증가
+  const taEsc = strVal.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const inp = `<textarea rows="1" class="syl-cell-input" oninput="autoGrowSyl(this)" onchange="updateSylField('${subjectEsc}',${idx},'${field}',this.value)">${taEsc}</textarea>`;
   if (!url) return inp;
   const safeText2 = strVal.replace(/</g,'&lt;').replace(/>/g,'&gt;');
   return `<a href="${url.replace(/"/g,'&quot;')}" target="_blank" rel="noopener" class="syl-text-link" onclick="event.stopPropagation()">${safeText2}</a>`;
@@ -981,7 +1037,15 @@ function buildSyllabus() {
     </div>`;
   }).join('');
   applyAllSylColWidths();
+  // 진도표 셀 textarea 초기 높이 맞추기
+  document.querySelectorAll('#syllabus-content .syl-cell-input').forEach(autoGrowSyl);
 }
+
+// 진도표 셀 textarea 자동 높이 조절
+window.autoGrowSyl = (el) => {
+  el.style.height = 'auto';
+  el.style.height = (el.scrollHeight) + 'px';
+};
 
 // 진도표 컬럼 너비 — 과목별 localStorage 저장
 const SYL_COLS = [
@@ -1597,7 +1661,7 @@ window.refreshFromSheets = async () => {
       localStorage.setItem(`userdata_${userId}_ts`, String(Date.now()));
       localStorage.setItem(`userdata_${userId}`, JSON.stringify({
         myTT, classTTList, syllabusData, journals: journalData, timetableEvents,
-        vacationPeriods, subjectHoursData, conceptLinks: conceptLinksData, semDatesData
+        vacationPeriods, subjectHoursData, conceptLinks: conceptLinksData, semDatesData, fullTT: fullTTGrid
       }));
       renderVacations();
       buildMyTT();
@@ -1653,7 +1717,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v5.5';
+const APP_VERSION = 'v5.6';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');

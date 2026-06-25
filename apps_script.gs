@@ -77,6 +77,8 @@ function doPost(e) {
         result = generateFullTimetable(data.semYear);
       } else if (action === 'saveSubjectHours') {
         result = saveSubjectHours(userId, data.hours);
+      } else if (action === 'saveFullTTCell') {
+        result = saveFullTTCell(data.row, data.col, data.value);
       } else {
         result = {success: false, message: '알 수 없는 액션'};
       }
@@ -721,7 +723,8 @@ function jm_getCellRuns(value, formula, richText) {
 // Google Sheets Date 자동변환 대응: Date면 "월-일" 복원
 function jm_parseSheetVal(v) {
   if (!v && v !== 0) return '';
-  if (v instanceof Date) return (v.getMonth()+1) + '-' + v.getDate();
+  // "1/12" 등 슬래시 입력이 구글시트에서 날짜로 자동변환된 경우 → "M/D" 슬래시로 복구(표시만, 시트 데이터 미변경)
+  if (v instanceof Date) return (v.getMonth()+1) + '/' + v.getDate();
   return String(v);
 }
 
@@ -856,10 +859,33 @@ function loadAll(userId) {
     timetableEvents: ttResult.timetableEvents,
     vacationPeriods: ttResult.vacationPeriods,
     subjectHoursData: ttResult.subjectHoursData,
+    fullTT: loadFullTimetableGrid(),
     syllabusData,
     journals: journalResult.journals,
     conceptLinks: conceptResult.data
   };
+}
+
+// ---------- 전체시간표 그리드 읽기/쓰기 (방식A 양방향 동기화) ----------
+// 시간표 시트 J열(10)~ 영역을 그대로 2차원 배열로 반환
+function loadFullTimetableGrid() {
+  const s = jm_timetableSheet();
+  const C0 = 10; // J열
+  const lastRow = s.getLastRow();
+  const lastCol = s.getLastColumn();
+  if (lastRow < 1 || lastCol < C0) return { grid: [], r0: 1, c0: C0 };
+  const vals = s.getRange(1, C0, lastRow, lastCol - C0 + 1).getValues();
+  const grid = vals.map(row => row.map(v =>
+    v instanceof Date ? Utilities.formatDate(v, 'Asia/Seoul', 'M/d') : String(v)));
+  return { grid, r0: 1, c0: C0 };
+}
+
+// 사이트에서 전체시간표 한 칸 수정 → 시트 J열 영역에 기록 (J열 미만은 거부: 다른 데이터 보호)
+function saveFullTTCell(row, col, value) {
+  if (!(col >= 10)) return { success: false, message: '전체시간표 영역(J열~)만 수정할 수 있습니다.' };
+  const s = jm_timetableSheet();
+  s.getRange(row, col).setValue(value);
+  return { success: true };
 }
 
 // ---------- 개념링크 ----------

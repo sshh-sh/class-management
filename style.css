@@ -173,6 +173,7 @@ body{font-family:'Noto Sans KR',sans-serif;font-size:17px;background:#f5f5f5;col
 .sub-content.active{display:block;}
 .syl-table{width:100%;border-collapse:collapse;font-size:19px;table-layout:fixed;}
 .syl-table th{background:#f8f8f8;padding:10px 14px;font-weight:500;color:#888;border:0.5px solid #eee;text-align:left;overflow:hidden;}
+.syl-cell-input{width:100%;border:none;font-size:inherit;background:transparent;resize:none;overflow:hidden;font-family:inherit;line-height:1.45;padding:0;margin:0;color:inherit;display:block;box-sizing:border-box;}
 .syl-col-resizer{position:absolute;top:0;right:-4px;width:8px;height:100%;cursor:col-resize;z-index:6;}
 .syl-col-resizer:hover{background:#AFA9EC;}
 .syl-table td{word-break:break-word;}
@@ -246,6 +247,11 @@ body{font-family:'Noto Sans KR',sans-serif;font-size:17px;background:#f5f5f5;col
 .full-tt td{padding:4px 6px;border:0.5px solid #eee;text-align:center;color:#555;font-size:11px;}
 .full-tt .week-num{background:#EEEDFE;color:#3C3489;font-weight:600;}
 .full-tt .date-cell{background:#f8f8f8;color:#888;font-size:11px;white-space:nowrap;}
+.full-tt-grid .full-tt-h{background:#EEEDFE;color:#3C3489;font-weight:500;border:0.5px solid #ddd;padding:4px 6px;font-size:11px;white-space:nowrap;}
+.full-tt-grid .full-tt-sem{background:#4285F4;color:#fff;font-weight:600;text-align:left;padding:5px 10px;font-size:12px;}
+.full-tt-grid .full-tt-edit{padding:0;border:0.5px solid #eee;}
+.full-tt-grid .full-tt-edit input{width:48px;border:none;background:transparent;text-align:center;font-size:11px;color:#333;padding:4px 2px;font-family:inherit;}
+.full-tt-grid .full-tt-edit input:focus{outline:2px solid #AFA9EC;background:#fff;}
 .full-tt .day-header{background:#dddaf8;color:#3C3489;font-weight:500;}
 .full-tt .period-header{background:#f0f0f0;color:#aaa;font-size:10px;}
 .full-tt .has-class{background:#EEEDFE;color:#3C3489;font-weight:500;}
