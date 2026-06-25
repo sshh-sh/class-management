@@ -782,7 +782,14 @@ function jm_migrateSylToNewFormat(s) {
 
 // ---------- 전체 데이터 한번에 ----------
 function loadAll(userId) {
-  const ttResult = loadAllTimetables(userId);
+  // 시간표 처리 오류가 진도표 로드를 막지 않도록 분리(방어)
+  let ttResult, ttErr = '';
+  try {
+    ttResult = loadAllTimetables(userId);
+  } catch(e) {
+    ttErr = String(e);
+    ttResult = { myTT:{}, classTTList:[], timetableEvents:{}, vacationPeriods:[], subjectHoursData:{} };
+  }
   const sylSheet = jm_syllabusSheet();
   const sylRange = sylSheet.getDataRange();
   const sylRows = sylRange.getValues();
@@ -850,8 +857,13 @@ function loadAll(userId) {
     }
   }
 
-  const journalResult = loadJournal(userId);
-  const conceptResult = loadConceptLinks();
+  let fullTT = { grid:[], r0:1, c0:10 };
+  try { fullTT = loadFullTimetableGrid(); } catch(e) { ttErr = ttErr || String(e); }
+
+  let journals = [], conceptLinks = {};
+  try { journals = loadJournal(userId).journals; } catch(e) {}
+  try { conceptLinks = loadConceptLinks().data; } catch(e) {}
+
   return {
     success: true,
     myTT: ttResult.myTT,
@@ -859,10 +871,11 @@ function loadAll(userId) {
     timetableEvents: ttResult.timetableEvents,
     vacationPeriods: ttResult.vacationPeriods,
     subjectHoursData: ttResult.subjectHoursData,
-    fullTT: loadFullTimetableGrid(),
+    fullTT,
     syllabusData,
-    journals: journalResult.journals,
-    conceptLinks: conceptResult.data
+    journals,
+    conceptLinks,
+    ttError: ttErr  // 시간표 처리 오류 진단용(있으면 시간표만 영향, 진도표는 정상)
   };
 }
 
