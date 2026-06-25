@@ -14,7 +14,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
 // GAS API URL
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbyyTAQmzzIBbK30wicZkS5v2cscQ0PDZGr1JZdnJp_TpOkzmp_i0VlhvUBq9f3zP7Dp/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzBQwOh3bhAtDULGN4CnN7prEa5H56riwhFxryGCop3dbkvldIL9H2sZtbm0cAJZJ0C/exec';
 
 const TIMES = ['09:00~09:40','09:50~10:30','10:40~11:20','11:30~12:10','13:00~13:40'];
 const DAY_NAMES = ['일','월','화','수','목','금','토'];
