@@ -14,7 +14,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
 // GAS API URL
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbzBQwOh3bhAtDULGN4CnN7prEa5H56riwhFxryGCop3dbkvldIL9H2sZtbm0cAJZJ0C/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzLcn8psnogzO-LAWkh-Qq4Ml0Tl7D96-IcPJRaI1z1N0eohkbNx9ZrNE01Mqeuetw/exec';
 
 const TIMES = ['09:00~09:40','09:50~10:30','10:40~11:20','11:30~12:10','13:00~13:40'];
 const DAY_NAMES = ['일','월','화','수','목','금','토'];
@@ -1225,6 +1225,12 @@ window.saveSyllabus = async () => {
       });
     }
     apiCache.delete('loadAll_' + currentUser.email);
+    // 로컬 캐시도 갱신 — 새로고침해도 방금 저장한 내용 유지
+    try {
+      const ck = `userdata_${currentUser.email}`;
+      const prev = JSON.parse(localStorage.getItem(ck) || '{}');
+      localStorage.setItem(ck, JSON.stringify({ ...prev, syllabusData }));
+    } catch(e) {}
     clearSylUnsaved();
     alert('진도표가 저장되었습니다!');
   } catch(e) {
@@ -1725,7 +1731,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v6.1';
+const APP_VERSION = 'v6.2';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');

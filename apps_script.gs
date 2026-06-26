@@ -1446,10 +1446,23 @@ function saveSyllabus(userId, subject, sylData) {
       String(data[i][7]||'').trim() || String(data[i][8]||'').trim();
     if (hasContent) lessonRows.push(i);
   }
-  // 기존 레슨행: 완료(A)만 제자리 갱신
+  // 기존 레슨행: 완료(A) + 내용칸(D~I) 비파괴 갱신
+  // 안전 규칙: ① 시트 원래 빈칸(상속·병합 하위)은 절대 미변경  ② 실제로 바뀐 셀만 덮어쓰기
+  const FIELD_BY_COL = { 3:'period', 4:'ch', 5:'unit', 6:'topic', 7:'prep', 8:'memo' };
   const n = Math.min(lessonRows.length, sylData.length);
   for (let k = 0; k < n; k++) {
-    s.getRange(lessonRows[k] + 1, 1).setValue(sylData[k].done ? true : false);
+    const r = lessonRows[k]; // 0-base 시트 행
+    const item = sylData[k] || {};
+    s.getRange(r + 1, 1).setValue(item.done ? true : false); // 완료(A)는 항상 갱신
+    for (let c = 3; c <= 8; c++) {
+      const orig = data[r][c];
+      if (String(orig || '').trim() === '') continue; // 빈칸/병합 하위 → 보존(미변경)
+      const newVal = item[FIELD_BY_COL[c]];
+      if (newVal === undefined || newVal === null) continue;
+      // 로드 때와 동일 정규화(Date→M/D 등)로 비교 — 사용자가 실제 바꾼 셀만 덮어씀
+      if (String(jm_parseSheetVal(orig)) === String(newVal)) continue;
+      s.getRange(r + 1, c + 1).setValue(newVal);
+    }
   }
   // 사이트에서 추가된 새 행만 맨 아래 추가
   for (let k = lessonRows.length; k < sylData.length; k++) {
