@@ -174,11 +174,9 @@ function normalizeClassName(name) {
 function applyUserData(d) {
   if (d.myTT) myTT = d.myTT;
   if (d.classTTList && d.classTTList.length) classTTList = d.classTTList.map(c => ({...c, name: normalizeClassName(c.name)}));
-  const sylKeys = d.syllabusData ? Object.keys(d.syllabusData) : [];
-  console.log('[applyUserData] d.syllabusData 키수:', sylKeys.length, '/ 현재 syllabusData 키수:', Object.keys(syllabusData).length);
-  if (d.syllabusData && sylKeys.length) {
-    syllabusData = d.syllabusData;
-    console.log('[applyUserData] syllabusData 교체 완료. 키수:', Object.keys(syllabusData).length);
+  if (d.syllabusData && Object.keys(d.syllabusData).length) {
+    Object.keys(syllabusData).forEach(k => delete syllabusData[k]);
+    Object.assign(syllabusData, d.syllabusData);
   }
   if (d.journals) journalData = d.journals.sort((a, b) => new Date(a.date) - new Date(b.date));
   if (d.timetableEvents) timetableEvents = d.timetableEvents;
@@ -753,14 +751,6 @@ window.syncFromGAS = async () => {
     });
     const d = await res.json();
     if (d.success) {
-      // 진단 로그: GAS 응답 내용 확인
-      const sylKeys = Object.keys(d.syllabusData || {});
-      console.log('[진단] GAS 응답 syllabusData 과목:', sylKeys);
-      sylKeys.forEach(k => {
-        const rows = (d.syllabusData[k] || []);
-        const first = rows[0] || {};
-        console.log(`[진단] "${k}" ${rows.length}행 첫행:`, JSON.stringify(first));
-      });
       applyUserData(d);
       localStorage.setItem(`userdata_${userId}_ts`, String(Date.now()));
       localStorage.setItem(`userdata_${userId}`, JSON.stringify({
@@ -1012,10 +1002,6 @@ window.hideConceptOverlay = () => {
 
 function buildSyllabus() {
   const subjects = Object.keys(syllabusData);
-  if (subjects.length) {
-    const s0 = subjects[0], r0 = syllabusData[s0]?.[0];
-    console.log('[buildSyllabus] 과목:', subjects, '/ 첫행:', r0 ? JSON.stringify(r0) : '없음');
-  }
   const tabBar = document.getElementById('syllabus-tabs');
   const content = document.getElementById('syllabus-content');
   tabBar.innerHTML = subjects.map((s, i) =>
@@ -1748,7 +1734,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v6.4';
+const APP_VERSION = 'v6.5';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');
