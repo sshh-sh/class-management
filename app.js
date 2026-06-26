@@ -748,6 +748,13 @@ window.syncFromGAS = async () => {
     });
     const d = await res.json();
     if (d.success) {
+      // 진단 로그: GAS 응답 내용 확인
+      const sylKeys = Object.keys(d.syllabusData || {});
+      console.log('[진단] GAS 응답 syllabusData 과목:', sylKeys);
+      sylKeys.forEach(k => {
+        const rows = (d.syllabusData[k] || []);
+        console.log(`[진단] "${k}" ${rows.length}행`, rows.slice(0,3));
+      });
       applyUserData(d);
       localStorage.setItem(`userdata_${userId}_ts`, String(Date.now()));
       localStorage.setItem(`userdata_${userId}`, JSON.stringify({
@@ -1731,7 +1738,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v6.3';
+const APP_VERSION = 'v6.4';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');
