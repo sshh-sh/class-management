@@ -720,12 +720,12 @@ function jm_getCellRuns(value, formula, richText) {
   return null;
 }
 
-// Google Sheets Date 자동변환 대응: Date면 "월-일" 복원
+// Google Sheets Date 자동변환 대응: Date면 "월-일" 복원. 공백만 있는 셀은 빈칸으로 처리(상속 정상 적용)
 function jm_parseSheetVal(v) {
   if (!v && v !== 0) return '';
   // "1/12" 등 슬래시 입력이 구글시트에서 날짜로 자동변환된 경우 → "M/D" 슬래시로 복구(표시만, 시트 데이터 미변경)
   if (v instanceof Date) return (v.getMonth()+1) + '/' + v.getDate();
-  return String(v);
+  return String(v).trim();
 }
 
 function jm_parseSylRow(row, isOld, headerArr) {
@@ -1467,6 +1467,7 @@ function saveSyllabus(userId, subject, sylData) {
       if (String(orig || '').trim() === '') continue; // 빈칸/병합 하위 → 보존(미변경)
       const newVal = item[FIELD_BY_COL[c]];
       if (newVal === undefined || newVal === null) continue;
+      if (String(newVal).trim() === '') continue; // 빈값으로 기존 내용 지우지 않음(비파괴)
       // 로드 때와 동일 정규화(Date→M/D 등)로 비교 — 사용자가 실제 바꾼 셀만 덮어씀
       if (String(jm_parseSheetVal(orig)) === String(newVal)) continue;
       s.getRange(r + 1, c + 1).setValue(newVal);
