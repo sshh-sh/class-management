@@ -802,13 +802,15 @@ function loadAll(userId) {
   const sylFmt = jm_getSylFormatType(sylHeader);
 
   if (sylFmt === 'new14') {
-    // 과목(B)·기간(D) 빈칸은 위 행 값 상속
+    // 과목(B)·기간(D)·단원(F)·학습주제(G) 빈칸은 위 행 값 상속(병합 해제·묶음 차시 2/2 등)
     let currentSubject = '';
     let currentPeriod = '';
+    let currentUnit = '';
+    let currentTopic = '';
     const urlColMap = [[3,'period'],[4,'ch'],[5,'unit'],[6,'topic'],[7,'prep'],[8,'memo']];
     for (let i = 1; i < sylRows.length; i++) {
       const rowSubject = String(sylRows[i][1]||'').trim();
-      if (rowSubject && rowSubject !== currentSubject) currentPeriod = '';
+      if (rowSubject && rowSubject !== currentSubject) { currentPeriod = ''; currentUnit = ''; currentTopic = ''; }
       if (rowSubject) {
         currentSubject = rowSubject;
         if (!syllabusData[currentSubject]) syllabusData[currentSubject] = []; // 내용 없어도 과목 탭 보장
@@ -816,6 +818,10 @@ function loadAll(userId) {
       const subject = currentSubject;
       const rowPeriod = String(jm_parseSheetVal(sylRows[i][3])||'').trim();
       if (rowPeriod) currentPeriod = rowPeriod;
+      const rowUnit = String(jm_parseSheetVal(sylRows[i][5])||'').trim();
+      if (rowUnit) currentUnit = rowUnit;
+      const rowTopic = String(jm_parseSheetVal(sylRows[i][6])||'').trim();
+      if (rowTopic) currentTopic = rowTopic;
 
       const isDoneRow = jm_sylDone(sylRows[i][0]);
       const hasSylContent = isDoneRow ||
@@ -826,6 +832,8 @@ function loadAll(userId) {
         if (!syllabusData[subject]) syllabusData[subject] = [];
         const item = jm_parseSylRow(sylRows[i], false, sylHeader);
         if (!item.period && currentPeriod) item.period = currentPeriod;
+        if (!item.unit && currentUnit) item.unit = currentUnit;
+        if (!item.topic && currentTopic) item.topic = currentTopic;
         const links = {};
         for (let m = 0; m < urlColMap.length; m++) {
           const c = urlColMap[m][0], field = urlColMap[m][1];
