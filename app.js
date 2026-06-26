@@ -753,7 +753,8 @@ window.syncFromGAS = async () => {
       console.log('[진단] GAS 응답 syllabusData 과목:', sylKeys);
       sylKeys.forEach(k => {
         const rows = (d.syllabusData[k] || []);
-        console.log(`[진단] "${k}" ${rows.length}행`, rows.slice(0,3));
+        const first = rows[0] || {};
+        console.log(`[진단] "${k}" ${rows.length}행 첫행:`, JSON.stringify(first));
       });
       applyUserData(d);
       localStorage.setItem(`userdata_${userId}_ts`, String(Date.now()));
