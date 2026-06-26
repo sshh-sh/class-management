@@ -205,10 +205,8 @@ async function loadUserData() {
   } catch(e) {}
 
   // 【6번】localStorage 타임스탬프 기반 TTL — 새로고침 후에도 5분 내면 GAS 스킵
-  // 단, 진도표 데이터가 없으면(캐시에 과목 없음) 항상 GAS 호출해 최신 데이터 보장
   const lastTs = parseInt(localStorage.getItem(tsKey) || '0');
-  const hasCachedSyllabus = Object.keys(syllabusData).length > 0;
-  const isFresh = (now - lastTs) < API_CACHE_TTL && hasCachedSyllabus;
+  const isFresh = (now - lastTs) < API_CACHE_TTL;
   if (!isFresh) {
     try {
       const res = await fetch(GAS_URL, {
@@ -1009,6 +1007,10 @@ window.hideConceptOverlay = () => {
 
 function buildSyllabus() {
   const subjects = Object.keys(syllabusData);
+  if (subjects.length) {
+    const s0 = subjects[0], r0 = syllabusData[s0]?.[0];
+    console.log('[buildSyllabus] 과목:', subjects, '/ 첫행:', r0 ? JSON.stringify(r0) : '없음');
+  }
   const tabBar = document.getElementById('syllabus-tabs');
   const content = document.getElementById('syllabus-content');
   tabBar.innerHTML = subjects.map((s, i) =>
