@@ -205,8 +205,10 @@ async function loadUserData() {
   } catch(e) {}
 
   // 【6번】localStorage 타임스탬프 기반 TTL — 새로고침 후에도 5분 내면 GAS 스킵
+  // 단, 진도표 데이터가 없으면(캐시에 과목 없음) 항상 GAS 호출해 최신 데이터 보장
   const lastTs = parseInt(localStorage.getItem(tsKey) || '0');
-  const isFresh = (now - lastTs) < API_CACHE_TTL;
+  const hasCachedSyllabus = Object.keys(syllabusData).length > 0;
+  const isFresh = (now - lastTs) < API_CACHE_TTL && hasCachedSyllabus;
   if (!isFresh) {
     try {
       const res = await fetch(GAS_URL, {
