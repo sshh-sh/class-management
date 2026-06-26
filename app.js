@@ -188,7 +188,15 @@ async function loadUserData() {
   const userId = currentUser.email;
   const cacheKey = `userdata_${userId}`;
   const tsKey = `${cacheKey}_ts`;
+  const verKey = `${cacheKey}_ver`;
   const now = Date.now();
+
+  // 앱 버전이 바뀌면 옛 캐시 무효화 — 배포 시 구형 캐시로 인한 데이터 누락 방지
+  if (localStorage.getItem(verKey) !== APP_VERSION) {
+    localStorage.removeItem(cacheKey);
+    localStorage.removeItem(tsKey);
+    localStorage.setItem(verKey, APP_VERSION);
+  }
 
   // 캐시된 데이터 즉시 화면에 표시 (GAS 응답 전)
   try {
@@ -1717,7 +1725,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v5.9';
+const APP_VERSION = 'v6.0';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');
