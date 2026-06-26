@@ -174,7 +174,12 @@ function normalizeClassName(name) {
 function applyUserData(d) {
   if (d.myTT) myTT = d.myTT;
   if (d.classTTList && d.classTTList.length) classTTList = d.classTTList.map(c => ({...c, name: normalizeClassName(c.name)}));
-  if (d.syllabusData && Object.keys(d.syllabusData).length) syllabusData = d.syllabusData;
+  const sylKeys = d.syllabusData ? Object.keys(d.syllabusData) : [];
+  console.log('[applyUserData] d.syllabusData 키수:', sylKeys.length, '/ 현재 syllabusData 키수:', Object.keys(syllabusData).length);
+  if (d.syllabusData && sylKeys.length) {
+    syllabusData = d.syllabusData;
+    console.log('[applyUserData] syllabusData 교체 완료. 키수:', Object.keys(syllabusData).length);
+  }
   if (d.journals) journalData = d.journals.sort((a, b) => new Date(a.date) - new Date(b.date));
   if (d.timetableEvents) timetableEvents = d.timetableEvents;
   if (d.vacationPeriods && d.vacationPeriods.length) vacationPeriods = d.vacationPeriods;
