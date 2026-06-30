@@ -80,6 +80,9 @@ body{font-family:'Noto Sans KR',sans-serif;font-size:17px;background:#f5f5f5;col
 .lesson-class{font-size:26px;font-weight:600;color:#222;}
 .lesson-detail{font-size:18px;color:#534AB7;margin-top:4px;font-weight:500;}
 .lesson-prep{font-size:15px;color:#aaa;margin-top:3px;}
+.lesson-links{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
+.lesson-link-btn{display:inline-block;padding:4px 10px;background:#E6F1FB;color:#185FA5;border:1px solid #9DC4ED;border-radius:6px;font-size:13px;font-weight:500;text-decoration:none;cursor:pointer;}
+.lesson-link-btn:hover{background:#185FA5;color:#fff;}
 .no-lesson{font-size:20px;color:#aaa;text-align:center;padding:20px 0;}
 
 .sec-label{flex-shrink:0;font-size:18px;font-weight:500;color:#aaa;letter-spacing:.04em;text-transform:uppercase;margin:8px 0 8px;}

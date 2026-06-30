@@ -16,7 +16,7 @@ const auth = getAuth(app);
 // GAS API URL
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwbJGxcbS6NS60SLJp22muASnG-3Y-aSGVeC7aNYSepUnckSfaGLW3ER0q6b5SUxyt_/exec';
 
-const TIMES = ['09:00~09:40','09:50~10:30','10:40~11:20','11:30~12:10','13:00~13:40'];
+const TIMES = ['09:00~09:40','09:50~10:30','10:40~11:20','11:30~12:10','13:00~13:40','13:50~14:30'];
 const DAY_NAMES = ['일','월','화','수','목','금','토'];
 
 let currentUser = null;
@@ -24,7 +24,7 @@ let currentYear = new Date().getFullYear();
 let currentMonth = new Date().getMonth();
 let selectedDate = null;
 let selectedDow = 0;
-let myTT = {1:['','','','',''],2:['','','','',''],3:['','','','',''],4:['','','','',''],5:['','','','','']};
+let myTT = {1:['','','','',''],2:['','','','',''],3:['','','','',''],4:['','','','',''],5:['','','','',''],6:['','','','','']};
 let classTTList = [];
 let syllabusData = {};
 let conceptLinksData = {};
@@ -36,6 +36,8 @@ let timetableEvents = {};
 // 3번: 방학·시수
 let vacationPeriods = [];
 let subjectHoursData = {};
+let fullTimetableData = {s1:[], s2:[]};
+let subjectHoursClasses = [];
 // 6번: API 응답 캐시
 const apiCache = new Map();
 const API_CACHE_TTL = 5 * 60 * 1000; // 5분
@@ -144,7 +146,7 @@ window.goToLogin = () => {
 window.loginWithGoogle = async () => {
   const provider = new GoogleAuthProvider();
   try { await signInWithPopup(auth, provider); }
-  catch(e) { alert('로그인 실패: ' + e.message); }
+  catch(e) { console.error('로그인 실패:', e); }
 };
 
 window.logout = async () => {
@@ -163,6 +165,8 @@ function applyUserData(d) {
   if (d.vacationPeriods) vacationPeriods = d.vacationPeriods;
   if (d.subjectHoursData) subjectHoursData = d.subjectHoursData;
   if (d.conceptLinks) { conceptLinksData = d.conceptLinks; buildConceptIcons(); }
+  if (d.fullTimetable) fullTimetableData = d.fullTimetable;
+  if (d.subjectHoursClasses) subjectHoursClasses = d.subjectHoursClasses;
 }
 
 async function loadUserData() {
@@ -193,7 +197,8 @@ async function loadUserData() {
         apiCache.set('loadAll_' + userId, { ts: now });
         localStorage.setItem(cacheKey, JSON.stringify({
           myTT, classTTList, syllabusData, journals: journalData, timetableEvents,
-          vacationPeriods, subjectHoursData, conceptLinks: conceptLinksData
+          vacationPeriods, subjectHoursData, conceptLinks: conceptLinksData,
+          fullTimetable: fullTimetableData, subjectHoursClasses
         }));
       }
     } catch(e) {
@@ -306,7 +311,7 @@ function renderWeek(d, dow) {
   const dayName = DAY_NAMES[new Date(currentYear, currentMonth, d).getDay()];
   document.getElementById('week-title').textContent = `${currentMonth + 1}월 ${d}일 (${dayName})`;
   const slots = [];
-  for (let p = 1; p <= 5; p++) {
+  for (let p = 1; p <= 6; p++) {
     const cls = myTT[p] && myTT[p][dow - 1] ? myTT[p][dow - 1] : null;
     if (cls) slots.push({ p, cls });
   }
@@ -314,6 +319,13 @@ function renderWeek(d, dow) {
   if (!slots.length) { wc.innerHTML = '<div class="no-lesson">수업이 없습니다</div>'; return; }
   wc.innerHTML = slots.map(s => {
     const syl = getSyllabusCurrent(s.cls);
+    const linkHtml = syl && syl.links ? syl.links.split('|').map(pair => {
+      const ci = pair.indexOf(',');
+      if (ci < 0) return '';
+      const text = pair.slice(0, ci).trim(), url = pair.slice(ci+1).trim();
+      if (!url) return '';
+      return `<a href="${url.replace(/"/g,'&quot;')}" target="_blank" class="lesson-link-btn">${text || url}</a>`;
+    }).filter(Boolean).join('') : '';
     return `<div class="lesson-item">
       <div class="lesson-left">
         <div class="lesson-period">${s.p}교시</div>
@@ -323,6 +335,7 @@ function renderWeek(d, dow) {
         <div class="lesson-class">${s.cls}</div>
         <div class="lesson-detail">${syl ? syl.unit + ' ' + syl.topic + ' (' + syl.cur + '/' + syl.total + ')' : '진도표 미등록'}</div>
         <div class="lesson-prep">${syl ? '준비물: ' + syl.prep : ''}</div>
+        ${linkHtml ? `<div class="lesson-links">${linkHtml}</div>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -337,7 +350,7 @@ function getSyllabusCurrent(cls) {
     const next = items.find(i => !isDone(i));
     if (!next) continue;
     const doneCount = items.filter(i => isDone(i)).length;
-    return { unit: next.unit, topic: next.topic, prep: next.prep, cur: doneCount + 1, total: items.length };
+    return { unit: next.unit, topic: next.topic, prep: next.prep, links: next.links || '', cur: doneCount + 1, total: items.length };
   }
   return null;
 }
@@ -421,8 +434,7 @@ window.saveJournal = async () => {
     if (result.success) {
       closeJournalPopupDirect();
       await loadJournal();
-      alert('저장되었습니다!');
-    } else {
+        } else {
       alert('저장 실패: ' + result.message);
     }
   } catch(e) {
@@ -574,7 +586,7 @@ window.updateMyTT = (p, d, val) => { myTT[p][d] = val; };
 function buildMyTT() {
   const body = document.getElementById('my-tt-body');
   if (!body) return;
-  body.innerHTML = [1,2,3,4,5].map(p => `<tr>
+  body.innerHTML = [1,2,3,4,5,6].map(p => `<tr>
     <td class="period-cell">${p}교시<br><span style="font-size:9px;">${TIMES[p-1].split('~')[0]}</span></td>
     ${[0,1,2,3,4].map(d => {
       const v = myTT[p]?.[d] || '';
@@ -583,93 +595,44 @@ function buildMyTT() {
   </tr>`).join('');
 }
 
-window.saveMyTT = async () => {
-  try {
-    const res = await fetch(GAS_URL, {
-      method: 'POST',
-      body: JSON.stringify({
-        app: 'journal-management',
-        action: 'saveTimetables',
-        userId: currentUser.email,
-        myTT,
-        classTTList,
-        events: timetableEvents,
-        semYear
-      })
-    });
-    const result = await res.json();
-    if (result.success) {
-      alert('시간표가 저장되었습니다!');
-      renderWeek(selectedDate || new Date().getDate(), selectedDow || new Date().getDay());
-      buildFullTimetable();
-    } else {
-      alert('저장 실패: ' + result.message);
-    }
-  } catch(e) {
-    alert('저장 중 오류: ' + e.message);
-  }
-};
+window.saveMyTT = () => { /* 구글시트가 단일 원본 — 앱에서 시간표 저장 불필요 */ };
 
 function buildFullTimetable() {
   const el = document.getElementById('full-timetable');
   if (!el) return;
   const titleEl = document.getElementById('full-tt-title');
   if (titleEl) titleEl.textContent = `전체 시간표 (${semYear}학년도)`;
-  el.innerHTML = `<div class="full-tt-split">${buildOneSemTable(semYear,1)}${buildOneSemTable(semYear,2)}</div>`;
-  el.querySelectorAll('.event-cell-input').forEach(input => {
-    input.addEventListener('change', async e => {
-      timetableEvents[e.target.dataset.key] = e.target.value;
-      await saveUserData();
-    });
-  });
-}
-
-function buildOneSemTable(year, half) {
-  const sem = getSemDates(year, half);
-  const start = new Date(sem.start);
-  const dow = start.getDay();
-  if (dow === 0) start.setDate(start.getDate() + 1);
-  else if (dow > 1) start.setDate(start.getDate() - (dow - 1));
-  const weeks = [];
-  let cur = new Date(start), wn = 1;
-  while (cur <= sem.end) {
-    const mon = new Date(cur), fri = new Date(cur);
-    fri.setDate(fri.getDate() + 4);
-    weeks.push({ num: wn++, mon, fri });
-    cur.setDate(cur.getDate() + 7);
+  if (!fullTimetableData.s1.length && !fullTimetableData.s2.length) {
+    el.innerHTML = '<div style="font-size:13px;color:#aaa;padding:12px 0;">☁ 구글시트 연동 버튼을 눌러 전체시간표를 불러오세요.<br>구글 시트 [시간표] 탭에서 직접 입력 후 연동합니다.</div>';
+    return;
   }
-  const fmt = d => `${d.getMonth()+1}.${d.getDate()}`;
   const DAYS = ['월','화','수','목','금'];
-  let html = `<div><div class="full-tt-section-title">${sem.label}</div><div class="full-tt-wrap"><table class="full-tt"><thead>`;
-  html += '<tr><th rowspan="2">주</th><th rowspan="2" class="date-cell">기간</th>';
-  DAYS.forEach(d => html += `<th colspan="5" class="day-header">${d}</th>`);
-  html += '<th rowspan="2" class="day-header">행사</th></tr><tr>';
-  DAYS.forEach(() => { for (let p=1;p<=5;p++) html += `<th class="period-header">${p}</th>`; });
-  html += '</tr></thead><tbody>';
-  weeks.forEach(w => {
-    html += `<tr><td class="week-num">${w.num}</td><td class="date-cell">${fmt(w.mon)}~${fmt(w.fri)}</td>`;
-    for (let d=0;d<5;d++) for (let p=1;p<=5;p++) {
-      const cls = myTT[p]&&myTT[p][d] ? myTT[p][d] : '';
-      html += cls ? `<td class="has-class">${cls}</td>` : `<td class="empty-cell">—</td>`;
-    }
-    const evKey = `${year}-${half}-${w.num}`;
-    const evVal = (timetableEvents[evKey]||'').replace(/"/g,'&quot;');
-    html += `<td><input class="event-cell-input" data-key="${evKey}" value="${evVal}" placeholder="행사"></td></tr>`;
-  });
-  html += '</tbody></table></div></div>';
-  return html;
+  function renderSem(rows, label) {
+    if (!rows.length) return '';
+    let html = `<div><div class="full-tt-section-title">${label}</div><div class="full-tt-wrap"><table class="full-tt"><thead>`;
+    html += '<tr><th rowspan="2">주</th><th rowspan="2" class="date-cell">기간</th>';
+    DAYS.forEach(d => html += `<th colspan="6" class="day-header">${d}</th>`);
+    html += '<th rowspan="2" class="day-header">비고</th></tr><tr>';
+    DAYS.forEach(() => { for (let p=1;p<=6;p++) html += `<th class="period-header">${p}</th>`; });
+    html += '</tr></thead><tbody>';
+    rows.forEach(w => {
+      html += `<tr><td class="week-num">${w.week}</td><td class="date-cell">${w.period||''}</td>`;
+      for (let d=0;d<5;d++) for (let p=0;p<6;p++) {
+        const cls = w.days && w.days[d] && w.days[d][p] ? w.days[d][p] : '';
+        html += cls ? `<td class="has-class">${cls}</td>` : `<td class="empty-cell">—</td>`;
+      }
+      html += `<td class="note-cell">${w.note||''}</td></tr>`;
+    });
+    html += '</tbody></table></div></div>';
+    return html;
+  }
+  el.innerHTML = `<div class="full-tt-split">
+    ${renderSem(fullTimetableData.s1, semYear + '학년도 1학기')}
+    ${renderSem(fullTimetableData.s2, semYear + '학년도 2학기')}
+  </div>`;
 }
 
-window.addClassTT = async () => {
-  const cls = prompt('학급을 입력하세요 (예: 4-2)');
-  if (!cls || !cls.trim()) return;
-  const c = cls.trim();
-  if (classTTList.find(x => x.name === c)) { alert('이미 추가된 학급입니다.'); return; }
-  classTTList.push({ name: c, tt: [[],[],[],[],[]] });
-  classTTList.sort((a,b) => a.name.localeCompare(b.name));
-  await saveUserData();
-  renderClassTTs();
-};
+window.addClassTT = () => { /* 구글시트 [시간표] 탭에서 학급을 추가하고 "구글시트 연동" 버튼을 누르세요 */ };
 
 window.removeClassTT = async (name) => {
   classTTList = classTTList.filter(c => c.name !== name);
@@ -692,7 +655,7 @@ function renderClassTTs() {
           </div>
           <table class="cls-table">
             <thead><tr><th style="width:18px;"></th><th>월</th><th>화</th><th>수</th><th>목</th><th>금</th></tr></thead>
-            <tbody>${[0,1,2,3,4].map(p => `<tr>
+            <tbody>${[0,1,2,3,4,5].map(p => `<tr>
               <td class="p-cell">${p+1}</td>
               ${[0,1,2,3,4].map(d => {
                 const v = cls.tt && cls.tt[p] && cls.tt[p][d] ? cls.tt[p][d] : '';
@@ -713,6 +676,9 @@ window.updateClsTT = (name, p, d, val) => {
 };
 
 window.syncFromGAS = async () => {
+  const btn = document.querySelector('[onclick="syncFromGAS()"]');
+  const origText = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = '불러오는 중...'; }
   try {
     const userId = currentUser.email;
     apiCache.delete('loadAll_' + userId);
@@ -727,15 +693,16 @@ window.syncFromGAS = async () => {
       localStorage.setItem(`userdata_${userId}_ts`, String(Date.now()));
       localStorage.setItem(`userdata_${userId}`, JSON.stringify({
         myTT, classTTList, syllabusData, journals: journalData, timetableEvents,
-        vacationPeriods, subjectHoursData
+        vacationPeriods, subjectHoursData, fullTimetable: fullTimetableData, subjectHoursClasses
       }));
-      buildMyTT(); renderClassTTs(); buildFullTimetable(); buildSyllabus(); filterJournal();
-      alert('구글 시트에서 최신 데이터를 불러왔습니다!');
+      buildMyTT(); renderClassTTs(); buildFullTimetable(); buildSyllabus(); filterJournal(); buildSubjectHoursFromGAS();
+      if (btn) { btn.textContent = '연동 완료 ✓'; setTimeout(() => { btn.disabled = false; btn.textContent = origText; }, 2000); }
     } else {
-      alert('불러오기 실패: ' + (d.message || '오류'));
+      if (btn) { btn.textContent = '실패'; setTimeout(() => { btn.disabled = false; btn.textContent = origText; }, 2000); }
     }
   } catch(e) {
-    alert('연동 오류: ' + e.message);
+    console.error('연동 오류:', e);
+    if (btn) { btn.textContent = '오류'; setTimeout(() => { btn.disabled = false; btn.textContent = origText; }, 2000); }
   }
 };
 
@@ -747,67 +714,38 @@ window.downloadTTExcel = () => {
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = '시간표_양식.csv'; a.click();
 };
 
-window.handleTTUpload = (input) => {
-  if (input.files[0]) alert(`"${input.files[0].name}" 업로드 기능은 준비 중입니다.`);
-  input.value = '';
-};
+window.handleTTUpload = (input) => { input.value = ''; };
 
-window.calcSubjectHours = async () => {
+window.calcSubjectHours = () => { buildSubjectHoursFromGAS(); };
+
+function buildSubjectHoursFromGAS() {
   const el = document.getElementById('subject-hours-result');
   if (!el) return;
-  const weekly = {};
-  for (let p = 1; p <= 5; p++) {
-    for (let d = 0; d < 5; d++) {
-      const cls = (myTT[p]?.[d] || '').trim();
-      if (cls) weekly[cls] = (weekly[cls] || 0) + 1;
-    }
-  }
-  if (!Object.keys(weekly).length) {
-    el.innerHTML = '<div style="font-size:13px;color:#aaa;padding:8px 0;">내 시간표에 학급 정보가 없습니다. 구글시트에서 시간표를 입력하고 연동하세요.</div>';
+  if (!subjectHoursClasses.length) {
+    el.innerHTML = '<div style="font-size:13px;color:#aaa;padding:8px 0;">☁ 구글시트 연동 버튼을 눌러 시수 데이터를 불러오세요.<br>구글 시트 [시간표] 탭 [시수계산표] 구역에서 학급 목록과 주당시수를 입력하세요.</div>';
     return;
   }
-  const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  function countWeeks(year, half) {
-    const sem = getSemDates(year, half);
-    let count = 0;
-    const cur = new Date(sem.start);
-    const dow = cur.getDay();
-    if (dow !== 1) cur.setDate(cur.getDate() + (dow === 0 ? 1 : 8 - dow));
-    while (fmt(cur) <= fmt(sem.end)) {
-      let active = false;
-      for (let i = 0; i < 5; i++) {
-        const day = new Date(cur); day.setDate(day.getDate() + i);
-        const ds = fmt(day);
-        if (ds >= fmt(sem.start) && ds <= fmt(sem.end) && !isVacationDate(ds)) { active = true; break; }
-      }
-      if (active) count++;
-      cur.setDate(cur.getDate() + 7);
-    }
-    return count;
-  }
-  const w1 = countWeeks(semYear, 1);
-  const w2 = countWeeks(semYear, 2);
-  const rows = Object.entries(weekly).sort(([a],[b]) => a.localeCompare(b));
   let html = `<table class="tt-hours-table"><thead><tr>
-    <th style="text-align:left;">학급</th><th>주당</th>
-    <th>1학기 예상 (${w1}주)</th><th>2학기 예상 (${w2}주)</th><th>연간</th>
+    <th style="text-align:left;">학급</th>
+    <th>1학기 주당</th><th>×17주</th><th>실제수업</th>
+    <th>2학기 주당</th><th>×17주</th><th>실제수업</th>
+    <th>시수체크</th>
   </tr></thead><tbody>`;
-  rows.forEach(([cls, pw]) => {
-    const s1 = pw * w1, s2 = pw * w2;
-    html += `<tr><td class="row-subject">${cls}</td><td>${pw}</td><td>${s1}</td><td>${s2}</td><td>${s1+s2}</td></tr>`;
+  subjectHoursClasses.forEach(cls => {
+    const d = subjectHoursData[cls] || {};
+    html += `<tr>
+      <td class="row-subject">${cls}</td>
+      <td>${d.s1weekly||0}</td><td>${d.s1total17||0}</td><td>${d.s1actual||0}</td>
+      <td>${d.s2weekly||0}</td><td>${d.s2total17||0}</td><td>${d.s2actual||0}</td>
+      <td><b>${d.check||0}</b></td>
+    </tr>`;
   });
   html += '</tbody></table>';
   el.innerHTML = html;
-  try {
-    await fetch(GAS_URL, {
-      method: 'POST',
-      body: JSON.stringify({ app: 'journal-management', action: 'calcTimetable', userId: currentUser.email, semYear })
-    });
-  } catch(e) {}
-};
+}
 
 window.downloadMyTTTemplate = () => {
-  const csv = '\uFEFF교시,월,화,수,목,금\n' + [1,2,3,4,5].map(p => `${p}교시,,,,,`).join('\n');
+  const csv = '\uFEFF교시,월,화,수,목,금\n' + [1,2,3,4,5,6].map(p => `${p}교시,,,,,`).join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = '내_시간표_양식.csv'; a.click();
 };
@@ -818,8 +756,8 @@ window.downloadClsTTTemplate = () => {
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = '담당학급_시간표_양식.csv'; a.click();
 };
 
-window.handleMyTTUpload = (input) => { if (input.files[0]) alert(`"${input.files[0].name}" 업로드 기능은 준비 중입니다.`); };
-window.handleClsTTUpload = (input) => { if (input.files[0]) alert(`"${input.files[0].name}" 업로드 기능은 준비 중입니다.`); };
+window.handleMyTTUpload = (input) => { input.value = ''; };
+window.handleClsTTUpload = (input) => { input.value = ''; };
 
 // ==================== 진도표 ====================
 function isDone(r) {
@@ -1013,7 +951,7 @@ window.toggleDone = async (subject, idx, checked) => {
   }
 };
 
-window.handleSylUpload = (input, subject) => { if (input.files[0]) alert(`"${input.files[0].name}" 업로드 기능은 준비 중입니다.`); };
+window.handleSylUpload = (input) => { input.value = ''; };
 
 window.downloadSylTemplate = () => {
   const csv = '﻿과목,차시,단원,학습주제,준비물,메모,완료\n3학년 과학,1,1. 생물과 환경,먹이 사슬과 먹이 그물,교과서,,\n3학년 과학,2,1. 생물과 환경,생태계 평형,교과서,,\n';
@@ -1037,7 +975,7 @@ window.handleSylGlobalUpload = (input) => {
     });
     await saveUserData();
     buildSyllabus();
-    alert('업로드 완료!');
+
   };
   reader.readAsText(file, 'UTF-8');
   input.value = '';
@@ -1058,9 +996,8 @@ window.saveSyllabus = async () => {
         })
       });
     }
-    alert('진도표가 저장되었습니다!');
   } catch(e) {
-    alert('저장 중 오류: ' + e.message);
+    console.error('저장 오류:', e);
   }
 };
 
@@ -1069,7 +1006,7 @@ window.addSyllabusSubject = async () => {
   const name = prompt('과목명을 입력하세요\n예: 3학년 과학, 4학년 과학, 5학년 놀이');
   if (!name || !name.trim()) return;
   const n = name.trim();
-  if (syllabusData[n]) { alert('이미 있는 과목입니다.'); return; }
+  if (syllabusData[n]) return;
   syllabusData[n] = [];
   await saveUserData();
   buildSyllabus();
@@ -1109,18 +1046,15 @@ window.connectSheets = async () => {
   const timetableInput = document.getElementById('sheets-timetable').value.trim();
   const syllabusInput = document.getElementById('sheets-syllabus').value.trim();
 
-  if (!url) { alert('구글 시트 URL을 입력하세요.'); return; }
+  if (!url) return;
   const match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
-  if (!match) { alert('올바른 구글 시트 URL이 아닙니다.'); return; }
+  if (!match) return;
   const id = match[1];
 
   const timetableTabs = timetableInput ? timetableInput.split(',').map(s => s.trim()).filter(Boolean) : [];
   const syllabusTabs = syllabusInput ? syllabusInput.split(',').map(s => s.trim()).filter(Boolean) : [];
 
-  if (!journalTab && !timetableTabs.length && !syllabusTabs.length) {
-    alert('최소 하나의 탭 이름을 입력하세요.');
-    return;
-  }
+  if (!journalTab && !timetableTabs.length && !syllabusTabs.length) return;
 
   const btn = document.getElementById('sheets-connect-btn');
   btn.textContent = '불러오는 중...'; btn.disabled = true;
@@ -1131,9 +1065,8 @@ window.connectSheets = async () => {
     updateSheetsBtn(true);
     buildMyTT(); renderClassTTs(); buildSyllabus(); buildProgress(); loadJournal();
     closeSheetsModalDirect();
-    alert(`불러오기 완료!\n${result.join('\n')}`);
   } catch(e) {
-    alert('불러오기 실패: ' + e.message + '\n\n시트가 "링크가 있는 모든 사용자" 공개로 설정되어 있는지 확인하세요.');
+    console.error('불러오기 실패:', e);
   } finally {
     btn.textContent = '불러오기'; btn.disabled = false;
   }
@@ -1485,55 +1418,44 @@ window.refreshFromSheets = async () => {
       buildFullTimetable();
       buildSyllabus();
       filterJournal();
-      alert('구글 시트에서 최신 데이터를 불러왔습니다!');
+      if (btn) btn.textContent = '완료 ✓';
     } else {
-      alert('불러오기 실패: ' + (d.message || '오류'));
+      if (btn) btn.textContent = '실패';
     }
   } catch(e) {
-    alert('불러오기 오류: ' + e.message);
+    console.error(e);
+    if (btn) btn.textContent = '오류';
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '🔄 시트에서 새로고침'; }
+    setTimeout(() => { if (btn) { btn.disabled = false; btn.textContent = '🔄 시트에서 새로고침'; } }, 2000);
   }
 };
 
 // ==================== 시간표 시트 양식 초기화 ====================
-window.generateFullTT = async () => {
-  if (!confirm(`구글 시트 시간표 탭 J열부터 ${semYear}학년도 전체시간표를 생성합니다.\nJ열 이후 기존 내용은 덮어씁니다. 계속하시겠습니까?`)) return;
-  try {
-    const res = await fetch(GAS_URL, {
-      method: 'POST',
-      body: JSON.stringify({ app: 'journal-management', action: 'generateFullTimetable', semYear })
-    });
-    const d = await res.json();
-    if (d.success) alert('✅ 전체시간표 생성 완료!\n구글 시트 > 시간표 탭 J열을 확인하세요.');
-    else alert('오류: ' + (d.error || d.message || '알 수 없는 오류'));
-  } catch(e) {
-    alert('오류: ' + e.message);
-  }
-};
+window.generateFullTT = () => { /* 전체시간표는 구글 시트에서 직접 입력 */ };
 
 window.resetTimetableSheet = async () => {
-  if (!confirm('구글 시트의 시간표 탭을 새 양식으로 초기화합니다.\n기존에 입력한 방학/행사/필요시수 데이터가 초기화됩니다.\n계속하시겠습니까?')) return;
+  const btn = document.querySelector('[onclick="resetTimetableSheet()"]');
+  const origText = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = '초기화 중...'; }
   try {
     const userId = currentUser?.email;
-    if (!userId) { alert('로그인이 필요합니다.'); return; }
+    if (!userId) return;
     const res = await fetch(GAS_URL, {
       method: 'POST',
-      body: JSON.stringify({ app: 'journal-management', action: 'setupTimetableSheet', userId })
+      body: JSON.stringify({ app: 'journal-management', action: 'setupNewTimetableSheet', userId })
     });
     const d = await res.json();
-    if (d.success) {
-      alert('시간표 양식이 초기화되었습니다!\n구글 시트 > 시간표 탭을 열어 확인하세요.');
-    } else {
-      alert('초기화 실패: ' + (d.message || '오류'));
-    }
+    if (btn) { btn.textContent = d.success ? '완료 ✓ 시트를 확인하세요' : '오류'; }
   } catch(e) {
-    alert('오류: ' + e.message);
+    console.error(e);
+    if (btn) btn.textContent = '오류';
+  } finally {
+    setTimeout(() => { if (btn) { btn.disabled = false; btn.textContent = origText; } }, 3000);
   }
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v4.0';
+const APP_VERSION = 'v48';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');
