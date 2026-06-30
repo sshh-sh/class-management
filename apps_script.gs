@@ -7,14 +7,6 @@
  *           → L열 이후 메모 영역은 더 이상 삭제되지 않음
  */
 
-// 구글 시트 열릴 때 커스텀 메뉴 추가
-function onOpen() {
-  SpreadsheetApp.getUi()
-    .createMenu('📅 일해용 전담')
-    .addItem('전체시간표 생성 (J열~)', 'generateFullTimetableMenu')
-    .addToUi();
-}
-
 function generateFullTimetableMenu() {
   generateFullTimetable(null); // 현재 학년도 자동 적용
   SpreadsheetApp.getUi().alert('✅ 전체시간표 생성 완료!\n시간표 탭 J열을 확인하세요.');
