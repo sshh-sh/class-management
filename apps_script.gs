@@ -8,7 +8,7 @@
  */
 
 function generateFullTimetableMenu() {
-  generateFullTimetable(null); // 현재 학년도 자동 적용
+  generateFullTimetable(null);
   SpreadsheetApp.getUi().alert('✅ 전체시간표 생성 완료!\n시간표 탭 J열을 확인하세요.');
 }
 
@@ -61,8 +61,6 @@ function doPost(e) {
         const ts = ss2.getSheetByName('시간표') || ss2.insertSheet('시간표');
         setupTimetableTemplate(ts);
         result = { success: true, message: '시간표 양식이 초기화되었습니다.' };
-      } else if (action === 'setupNewTimetableSheet') {
-        result = setupNewTimetableSheet();
       } else if (action === 'calcTimetable') {
         result = calcTimetable(userId, data.semYear);
       } else if (action === 'generateFullTimetable') {
@@ -336,11 +334,11 @@ function jm_timetableSheet() {
   let s = ss.getSheetByName('시간표');
   if (!s) {
     s = ss.insertSheet('시간표');
-    setupNewTimetableSheet_internal(s);
+    setupTimetableTemplate(s);
   } else {
+    // A1이 '타이틀'이 아니면 새 템플릿 미적용 → 초기화
     const a1 = String(s.getRange(1, 1).getValue() || '').trim();
-    // 신규 양식([내시간표]) 또는 구 양식(타이틀) 모두 허용 — 없으면 신규 양식 생성
-    if (a1 !== '[내시간표]' && a1 !== '타이틀') setupNewTimetableSheet_internal(s);
+    if (a1 !== '타이틀') setupTimetableTemplate(s);
   }
   return s;
 }
@@ -620,11 +618,9 @@ function loadAll(userId) {
     success: true,
     myTT: ttResult.myTT,
     classTTList: ttResult.classTTList,
-    timetableEvents: ttResult.timetableEvents || {},
-    vacationPeriods: ttResult.vacationPeriods || [],
-    subjectHoursData: ttResult.subjectHoursData || {},
-    fullTimetable: ttResult.fullTimetable || {s1:[], s2:[]},
-    subjectHoursClasses: ttResult.subjectHoursClasses || [],
+    timetableEvents: ttResult.timetableEvents,
+    vacationPeriods: ttResult.vacationPeriods,
+    subjectHoursData: ttResult.subjectHoursData,
     syllabusData,
     journals: journalResult.journals,
     conceptLinks: conceptResult.data
@@ -715,355 +711,95 @@ function saveMyTimetable(userId, ttData) {
 function loadAllTimetables(userId) {
   const s = jm_timetableSheet();
   const lastRow = s.getLastRow();
-  if (lastRow < 1) return { success:true, myTT:{}, classTTList:[], timetableEvents:{}, vacationPeriods:[], subjectHoursData:{}, fullTimetable:{s1:[],s2:[]}, subjectHoursClasses:[] };
-
-  const a1 = String(s.getRange(1,1).getValue()||'').trim();
-  // 신 양식([내시간표]) 파싱
-  if (a1 === '[내시간표]') {
-    return loadAllTimetables_new(s, lastRow);
-  }
-  // 구 양식(타이틀) 파싱
-  return loadAllTimetables_legacy(s, lastRow);
-}
-
-function loadAllTimetables_new(s, lastRow) {
-  // 신 양식: 4구역 (내시간표, 학급시간표, 전체시간표, 시수계산표)
-  const totalCols = 34; // A~AH: A=마커, B=주/교시, C=기간/월, D-AH=30교시셀+비고
-  const allData = s.getRange(1, 1, lastRow, totalCols).getValues();
-
-  const myTT = {};
-  const classTTMap = {};
-  const fullTimetable = { s1: [], s2: [] };
-  const subjectHoursData = {};
-  let subjectHoursClasses = [];
-  let currentSection = '';
-  let currentSemKey = 's1';
-  let currentClassKey = '';
-
-  for (let i = 0; i < allData.length; i++) {
-    const raw0 = allData[i][0];
-    // Date 자동변환 버그 처리 (날짜→학급명 복원)
-    let type = '';
-    if (raw0 instanceof Date) {
-      type = (raw0.getMonth()+1) + '-' + raw0.getDate();
-    } else {
-      type = String(raw0 || '').trim();
-    }
-    if (!type) continue;
-
-    // 섹션 판별
-    if (type === '[내시간표]') { currentSection = 'mytt'; continue; }
-    if (type === '[학급시간표]') { currentSection = 'classtt'; continue; }
-    if (type === '[전체시간표]') {
-      currentSection = 'fulltt';
-      const label = String(allData[i][1]||'').trim();
-      currentSemKey = label.includes('2학기') ? 's2' : 's1';
-      continue;
-    }
-    if (type === '[시수계산표]') { currentSection = 'hours'; continue; }
-
-    if (currentSection === 'mytt') {
-      if (type !== '내시간표') continue;
-      const label = String(allData[i][1]||'').trim();
-      const m = label.match(/^(\d+)/);
-      if (!m) continue;
-      const p = parseInt(m[1]);
-      myTT[p] = [2,3,4,5,6].map(c => String(allData[i][c]||'').trim());
-    }
-    else if (currentSection === 'classtt') {
-      if (type === '[학급]') {
-        const raw = allData[i][1];
-        currentClassKey = raw instanceof Date
-          ? (raw.getMonth()+1) + '-' + raw.getDate()
-          : String(raw||'').trim();
-      } else if (type === '학급행' && currentClassKey) {
-        const label = String(allData[i][1]||'').trim();
-        const m = label.match(/^(\d+)/);
-        if (!m) continue;
-        const p = parseInt(m[1]) - 1;
-        if (!classTTMap[currentClassKey]) classTTMap[currentClassKey] = Array.from({length:6},()=>['','','','','']);
-        if (p >= 0 && p < 6) {
-          classTTMap[currentClassKey][p] = [2,3,4,5,6].map(c => String(allData[i][c]||'').trim());
-        }
-      }
-    }
-    else if (currentSection === 'fulltt') {
-      if (type === '전체헤더' || type === '전체헤더2') continue;
-      const weekNum = parseInt(type);
-      if (isNaN(weekNum) || weekNum < 1) continue;
-      const period = String(allData[i][2]||'').trim();
-      const days = [];
-      for (let d = 0; d < 5; d++) {
-        const periods = [];
-        for (let p = 0; p < 6; p++) {
-          // 전체시간표 데이터: col 3~32 (B=주, C=기간, D=월1, ...) → index 3+d*6+p
-          periods.push(String(allData[i][3+d*6+p]||'').trim());
-        }
-        days.push(periods);
-      }
-      const note = String(allData[i][33]||'').trim();
-      fullTimetable[currentSemKey].push({ week: weekNum, period, days, note });
-    }
-    else if (currentSection === 'hours') {
-      if (type === '시수학급') {
-        subjectHoursClasses = allData[i].slice(1).map(v => {
-          if (v instanceof Date) return (v.getMonth()+1) + '-' + v.getDate();
-          return String(v||'').trim();
-        }).filter(Boolean);
-      } else if (type === '시수주당1') {
-        subjectHoursClasses.forEach((cls, ci) => {
-          if (!subjectHoursData[cls]) subjectHoursData[cls] = {};
-          subjectHoursData[cls].s1weekly = parseInt(allData[i][ci+1]) || 0;
-        });
-      } else if (type === '시수주당2') {
-        subjectHoursClasses.forEach((cls, ci) => {
-          if (!subjectHoursData[cls]) subjectHoursData[cls] = {};
-          subjectHoursData[cls].s2weekly = parseInt(allData[i][ci+1]) || 0;
-        });
-      }
-    }
-  }
-
-  // 실제수업 및 합계 계산
-  subjectHoursClasses.forEach(cls => {
-    if (!subjectHoursData[cls]) subjectHoursData[cls] = {};
-    const d = subjectHoursData[cls];
-    let s1count = 0, s2count = 0;
-    fullTimetable.s1.forEach(w => {
-      if (w.days.some(day => day.some(p => p === cls))) s1count++;
-    });
-    fullTimetable.s2.forEach(w => {
-      if (w.days.some(day => day.some(p => p === cls))) s2count++;
-    });
-    d.s1actual = s1count;
-    d.s2actual = s2count;
-    d.s1total17 = (d.s1weekly || 0) * 17;
-    d.s2total17 = (d.s2weekly || 0) * 17;
-    d.check = s1count + s2count;
-  });
-
-  const classTTList = Object.keys(classTTMap).sort()
-    .filter(n => classTTMap[n].some(p => p.some(v => v !== '')))
-    .map(n => ({ name: n, tt: classTTMap[n] }));
-
-  return { success:true, myTT, classTTList, timetableEvents:{}, vacationPeriods:[],
-           subjectHoursData, fullTimetable, subjectHoursClasses };
-}
-
-function loadAllTimetables_legacy(s, lastRow) {
   const readLen = Math.max(lastRow, 53);
   const allData = s.getRange(1, 1, readLen, 7).getValues();
+
   const myTT = {};
   const classTTMap = {};
   const timetableEvents = {};
   const vacationPeriods = [];
   const subjectHoursData = {};
   let currentClassKey = '';
+
   for (let i = 0; i < allData.length; i++) {
     const type = String(allData[i][0] || '').trim();
     if (!type || type === '타이틀' || type === '안내' || type === '빈칸' ||
         type === '섹션' || type === '컬럼헤더' || type === '시수결과') continue;
+
     if (type === '내시간표') {
       const label = String(allData[i][1] || '').trim();
       const m = label.match(/^(\d+)/);
       if (m) {
         const p = parseInt(m[1]);
-        myTT[p] = [String(allData[i][2]||''), String(allData[i][3]||''),
-          String(allData[i][4]||''), String(allData[i][5]||''), String(allData[i][6]||'')];
+        myTT[p] = [
+          String(allData[i][2]||''), String(allData[i][3]||''),
+          String(allData[i][4]||''), String(allData[i][5]||''), String(allData[i][6]||'')
+        ];
       }
+
     } else if (type === '방학') {
       const rawS = allData[i][1], rawE = allData[i][2];
       if (!rawS || !rawE) continue;
-      const toStr = v => v instanceof Date ? Utilities.formatDate(v,'Asia/Seoul','yyyy-MM-dd') : String(v).trim();
+      const toStr = v => v instanceof Date
+        ? Utilities.formatDate(v, 'Asia/Seoul', 'yyyy-MM-dd') : String(v).trim();
       const s1 = toStr(rawS), e1 = toStr(rawE);
-      if (/\d{4}-\d{2}-\d{2}/.test(s1) && /\d{4}-\d{2}-\d{2}/.test(e1))
-        vacationPeriods.push({ start:s1, end:e1, label: String(allData[i][3]||'방학').trim() });
+      if (/\d{4}-\d{2}-\d{2}/.test(s1) && /\d{4}-\d{2}-\d{2}/.test(e1)) {
+        vacationPeriods.push({ start: s1, end: e1, label: String(allData[i][3]||'방학').trim() });
+      }
+
     } else if (type === '행사') {
       const rawD = allData[i][1], evName = String(allData[i][2]||'').trim();
       if (!rawD || !evName) continue;
-      const toStr = v => v instanceof Date ? Utilities.formatDate(v,'Asia/Seoul','yyyy-MM-dd') : String(v).trim();
+      const toStr = v => v instanceof Date
+        ? Utilities.formatDate(v, 'Asia/Seoul', 'yyyy-MM-dd') : String(v).trim();
       const d = toStr(rawD);
       if (/\d{4}-\d{2}-\d{2}/.test(d)) timetableEvents[d] = evName;
+
+    } else if (type === '필요시수') {
+      const subject = String(allData[i][1]||'').trim();
+      if (!subject) continue;
+      subjectHoursData[subject] = {
+        s1req: parseInt(allData[i][2]) || 0,
+        s2req: parseInt(allData[i][3]) || 0
+      };
+
     } else if (type === '담당학급헤더') {
       const raw = String(allData[i][1]||'').trim();
       const m = raw.match(/\[\s*(.+?)\s*\]/);
       currentClassKey = m ? m[1].trim() : raw;
+
     } else if (type === '담당학급') {
       const label = String(allData[i][1]||'').trim();
-      const legacyMatch = label.match(/^(.+)-(\d+)교시$/);
       let cls, p;
+      // 구형 포맷: "3-1-1교시" (클래스명 포함)
+      const legacyMatch = label.match(/^(.+)-(\d+)교시$/);
       if (legacyMatch) {
-        cls = legacyMatch[1]; p = parseInt(legacyMatch[2]) - 1; currentClassKey = cls;
+        cls = legacyMatch[1];
+        p = parseInt(legacyMatch[2]) - 1;
+        currentClassKey = cls;
       } else {
+        // 신형 포맷: "1교시" (클래스명은 헤더에서)
         const periodMatch = label.match(/^(\d+)교시$/);
         if (!periodMatch) continue;
-        cls = currentClassKey; p = parseInt(periodMatch[1]) - 1;
+        cls = currentClassKey;
+        p = parseInt(periodMatch[1]) - 1;
       }
       if (!cls) continue;
-      if (!classTTMap[cls]) classTTMap[cls] = Array.from({length:6},()=>['','','','','']);
-      if (p >= 0 && p < 6)
-        classTTMap[cls][p] = [String(allData[i][2]||''), String(allData[i][3]||''),
-          String(allData[i][4]||''), String(allData[i][5]||''), String(allData[i][6]||'')];
+      if (!classTTMap[cls]) classTTMap[cls] = Array.from({length:6}, () => ['','','','','']);
+      if (p >= 0 && p < 6) {
+        classTTMap[cls][p] = [
+          String(allData[i][2]||''), String(allData[i][3]||''),
+          String(allData[i][4]||''), String(allData[i][5]||''), String(allData[i][6]||'')
+        ];
+      }
     }
   }
+
+  // 빈 슬롯(시간표가 모두 비어있는 학급) 제외
   const classTTList = Object.keys(classTTMap).sort()
-    .filter(n => classTTMap[n].some(p => p.some(v => v !== '')))
-    .map(n => ({ name:n, tt:classTTMap[n] }));
-  return { success:true, myTT, classTTList, timetableEvents, vacationPeriods, subjectHoursData,
-           fullTimetable:{s1:[],s2:[]}, subjectHoursClasses:[] };
-}
-
-
-
-// ==================== 신규 시간표 시트 초기화 (4구역) ====================
-function setupNewTimetableSheet() {
-  const ss = jm_getSpreadsheet();
-  let s = ss.getSheetByName('시간표');
-  if (s) ss.deleteSheet(s);
-  s = ss.insertSheet('시간표');
-  setupNewTimetableSheet_internal(s);
-  return { success: true, message: '시간표 시트가 4구역 양식으로 초기화되었습니다.' };
-}
-
-function setupNewTimetableSheet_internal(s) {
-  s.clear();
-  const BLUE = '#185FA5', BLUE_L = '#E6F1FB', YELLOW = '#FAEEDA', GRAY = '#F5F5F5';
-  const yr = new Date().getFullYear();
-  let row = 1;
-
-  // ── 구역1: 내 시간표 ──
-  s.getRange(row,1,1,7).setValues([['[내시간표]','교시','월','화','수','목','금']]);
-  s.getRange(row,1,1,7).setBackground(BLUE).setFontColor('#fff').setFontWeight('bold');
-  row++;
-  for (let p=1;p<=6;p++) {
-    s.getRange(row,1,1,7).setValues([['내시간표',p+'교시','','','','','']]);
-    s.getRange(row,3,1,5).setBackground(YELLOW);
-    row++;
-  }
-  row += 2;
-
-  // ── 구역2: 학급시간표 ──
-  s.getRange(row,1,1,7).setValues([['[학급시간표]','학급별 시간표 — [학급] 행의 B열에 학급명 입력','','','','','']]);
-  s.getRange(row,1,1,7).setBackground(BLUE).setFontColor('#fff').setFontWeight('bold');
-  row++;
-  // 샘플 학급 2개
-  ['3-1','4-1'].forEach(cls => {
-    s.getRange(row,1,1,7).setValues([['[학급]',cls,'월','화','수','목','금']]);
-    s.getRange(row,1,1,7).setBackground(BLUE_L).setFontColor(BLUE).setFontWeight('bold');
-    row++;
-    for (let p=1;p<=6;p++) {
-      s.getRange(row,1,1,7).setValues([['학급행',p+'교시','','','','','']]);
-      s.getRange(row,3,1,5).setBackground(YELLOW);
-      row++;
-    }
-    row++;
-  });
-  row++;
-
-  // ── 구역3: 전체시간표 ──
-  // 열 구성: A(마커) B(주) C(기간) D~I(月1~6) J~O(火) P~U(水) V~AA(木) AB~AG(金) AH(비고) = 34열
-  const DAYS = ['월','화','수','목','금'];
-  function makeFullTTSection(semLabel) {
-    // 섹션 헤더
-    s.getRange(row,1,1,34).merge().setValue('[전체시간표] '+semLabel);
-    s.getRange(row,1,1,34).setBackground(BLUE).setFontColor('#fff').setFontWeight('bold');
-    row++;
-    // 헤더 1행: 마커 주 기간 月(×6) 火(×6) ... 비고
-    const h1 = ['전체헤더','주','기간'];
-    DAYS.forEach(d => { h1.push(d); for(let i=0;i<5;i++) h1.push(''); });
-    h1.push('비고');
-    s.getRange(row,1,1,34).setValues([h1]);
-    for (let d=0;d<5;d++) s.getRange(row,4+d*6,1,6).merge();
-    s.getRange(row,1,1,34).setBackground(BLUE_L).setFontColor(BLUE).setFontWeight('bold').setHorizontalAlignment('center');
-    row++;
-    // 헤더 2행: 교시번호
-    const h2 = ['전체헤더2','',''];
-    for (let d=0;d<5;d++) for (let p=1;p<=6;p++) h2.push(String(p));
-    h2.push('');
-    s.getRange(row,1,1,34).setValues([h2]);
-    s.getRange(row,1,1,34).setBackground(BLUE_L).setFontColor(BLUE).setHorizontalAlignment('center');
-    row++;
-    // 데이터 행 (20주)
-    for (let w=1;w<=20;w++) {
-      const rowData = [String(w), w, '', ...Array(30).fill(''), ''];
-      s.getRange(row,1,1,34).setValues([rowData]);
-      s.getRange(row,3,1,31).setBackground(YELLOW);
-      row++;
-    }
-    row += 5; // 5줄 공백
-  }
-  var savedRow = row;
-  // 함수 내부에서 row 변수를 직접 수정할 수 없으므로 인라인 처리
-  // 1학기
-  s.getRange(row,1,1,34).merge().setValue('[전체시간표] '+yr+'학년도 1학기');
-  s.getRange(row,1,1,34).setBackground(BLUE).setFontColor('#fff').setFontWeight('bold');
-  row++;
-  var h1a = ['전체헤더','주','기간'];
-  DAYS.forEach(function(d){h1a.push(d);for(var i=0;i<5;i++)h1a.push('');});
-  h1a.push('비고');
-  s.getRange(row,1,1,34).setValues([h1a]);
-  for(var d=0;d<5;d++) s.getRange(row,4+d*6,1,6).merge();
-  s.getRange(row,1,1,34).setBackground(BLUE_L).setFontColor(BLUE).setFontWeight('bold').setHorizontalAlignment('center');
-  row++;
-  var h2a = ['전체헤더2','',''];
-  for(var d2=0;d2<5;d2++) for(var p2=1;p2<=6;p2++) h2a.push(String(p2));
-  h2a.push('');
-  s.getRange(row,1,1,34).setValues([h2a]);
-  s.getRange(row,1,1,34).setBackground(BLUE_L).setFontColor(BLUE).setHorizontalAlignment('center');
-  row++;
-  for(var w1=1;w1<=20;w1++) {
-    var rd1 = [String(w1), w1, ''].concat(Array(30).fill('')).concat(['']);
-    s.getRange(row,1,1,34).setValues([rd1]);
-    s.getRange(row,3,1,31).setBackground(YELLOW);
-    row++;
-  }
-  row += 5;
-
-  // 2학기
-  s.getRange(row,1,1,34).merge().setValue('[전체시간표] '+yr+'학년도 2학기');
-  s.getRange(row,1,1,34).setBackground(BLUE).setFontColor('#fff').setFontWeight('bold');
-  row++;
-  s.getRange(row,1,1,34).setValues([h1a]);
-  for(var d3=0;d3<5;d3++) s.getRange(row,4+d3*6,1,6).merge();
-  s.getRange(row,1,1,34).setBackground(BLUE_L).setFontColor(BLUE).setFontWeight('bold').setHorizontalAlignment('center');
-  row++;
-  s.getRange(row,1,1,34).setValues([h2a]);
-  s.getRange(row,1,1,34).setBackground(BLUE_L).setFontColor(BLUE).setHorizontalAlignment('center');
-  row++;
-  for(var w2=1;w2<=20;w2++) {
-    var rd2 = [String(w2), w2, ''].concat(Array(30).fill('')).concat(['']);
-    s.getRange(row,1,1,34).setValues([rd2]);
-    s.getRange(row,3,1,31).setBackground(YELLOW);
-    row++;
-  }
-  row += 2;
-
-  // ── 구역4: 시수계산표 ──
-  s.getRange(row,1,1,7).merge().setValue('[시수계산표] B열에 학급명, C열부터 주당시수 입력 (노란칸)');
-  s.getRange(row,1,1,7).setBackground(BLUE).setFontColor('#fff').setFontWeight('bold');
-  row++;
-  s.getRange(row,1,1,7).setValues([['시수학급','학급1','학급2','학급3','학급4','학급5','학급6']]);
-  s.getRange(row,1,1,7).setBackground(GRAY).setFontWeight('bold');
-  row++;
-  s.getRange(row,1,1,7).setValues([['시수주당1','1학기 주당','','','','','']]);
-  s.getRange(row,2,1,6).setBackground(YELLOW);
-  row++;
-  s.getRange(row,1,1,7).setValues([['시수주당2','2학기 주당','','','','','']]);
-  s.getRange(row,2,1,6).setBackground(YELLOW);
-  row++;
-
-  // 열 너비 설정
-  s.setColumnWidth(1, 90);  // A(마커)
-  s.setColumnWidth(2, 40);  // B(주)
-  s.setColumnWidth(3, 80);  // C(기간/교시)
-  for(var ci=4;ci<=33;ci++) s.setColumnWidth(ci, 36);
-  s.setColumnWidth(34, 70); // AH(비고)
-
-  // A열 숨기기
-  s.hideColumns(1);
-
-  // 첫 3행 고정
-  s.setFrozenRows(0);
+    .filter(name => classTTMap[name].some(period => period.some(v => v !== '')))
+    .map(name => ({ name, tt: classTTMap[name] }));
+  return { success:true, myTT, classTTList, timetableEvents, vacationPeriods, subjectHoursData };
 }
 
 function saveTimetables(userId, myTT, classTTList, events) {
