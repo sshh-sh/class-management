@@ -137,10 +137,12 @@
         <button class="btn-sm" onclick="filterJournal()">검색</button>
         <button class="btn-sm" onclick="exportJournalExcel()">&#8595; 엑셀</button>
         <button class="btn-sm" id="toggle-old-btn" onclick="toggleOldJournals()">이전 학년도 보기</button>
+        <button class="btn-sm" id="jl-delete-btn" onclick="toggleDeleteMode()">삭제</button>
+        <button class="btn-sm primary" id="jl-sync-btn" onclick="syncJournal()">&#9729; 구글시트 연동</button>
       </div>
       <div class="table-wrap">
         <table class="data-table" id="journal-table">
-          <thead><tr><th></th><th>날짜</th><th>교시</th><th>학급</th><th>학생명</th><th>지도내용</th></tr></thead>
+          <thead><tr><th></th><th>날짜</th><th>교시</th><th>학급</th><th>학생명</th><th>지도내용</th><th id="jl-del-th" style="display:none;width:36px;"></th></tr></thead>
           <tbody id="journal-body"></tbody>
         </table>
       </div>

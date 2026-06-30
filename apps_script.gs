@@ -48,6 +48,8 @@ function doPost(e) {
         result = loadJournal(userId);
       } else if (action === 'saveJournal') {
         result = saveJournal(userId, data.journalData);
+      } else if (action === 'deleteJournal') {
+        result = deleteJournal(userId, data.rowNum);
       } else if (action === 'loadMyTimetable') {
         result = loadMyTimetable(userId);
       } else if (action === 'saveMyTimetable') {
@@ -675,10 +677,11 @@ function loadJournal(userId) {
     const clsStr = (rawCls instanceof Date)
       ? `${rawCls.getMonth() + 1}-${rawCls.getDate()}`
       : String(rawCls || '');
+    const rowNum = i + 1; // 시트 실제 행 번호 (1-indexed, 1행은 헤더)
     if (has대상) {
-      journals.push({ seq:data[i][0], date:dateStr, period:data[i][2], class:clsStr, target:data[i][4], name:data[i][5], content:data[i][6] });
+      journals.push({ rowNum, seq:data[i][0], date:dateStr, period:data[i][2], class:clsStr, target:data[i][4], name:data[i][5], content:data[i][6] });
     } else {
-      journals.push({ seq:data[i][0], date:dateStr, period:data[i][2], class:clsStr, name:data[i][4], content:data[i][5] });
+      journals.push({ rowNum, seq:data[i][0], date:dateStr, period:data[i][2], class:clsStr, name:data[i][4], content:data[i][5] });
     }
   }
   return {success:true, journals};
@@ -695,6 +698,13 @@ function saveJournal(userId, j) {
     s.appendRow([seq, j.date, j.period, j.class, j.name, j.content]);
   }
   return {success:true};
+}
+
+function deleteJournal(userId, rowNum) {
+  const s = jm_journalSheet();
+  if (!rowNum || rowNum < 2) return {success: false, message: '잘못된 행 번호'};
+  s.deleteRow(rowNum);
+  return {success: true};
 }
 
 // ---------- 시간표 ----------

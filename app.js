@@ -14,7 +14,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
 // GAS API URL
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbyDnzHtR5fnj1FHvOKtxA0wF59BNzLNsD6jeZnBWNnj8lenwr0OqniWXqZ4e8s7MY03/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbwbJGxcbS6NS60SLJp22muASnG-3Y-aSGVeC7aNYSepUnckSfaGLW3ER0q6b5SUxyt_/exec';
 
 const TIMES = ['09:00~09:40','09:50~10:30','10:40~11:20','11:30~12:10','13:00~13:40'];
 const DAY_NAMES = ['일','월','화','수','목','금','토'];
@@ -300,7 +300,6 @@ window.selectDay = (d, dow) => {
   selectedDow = dow;
   buildCalendar();
   renderWeek(d, dow);
-  openJournalPopup(d, dow);
 };
 
 function renderWeek(d, dow) {
@@ -406,6 +405,8 @@ window.saveJournal = async () => {
   if (!period || !name || !content) { alert('교시, 학생 이름, 지도내용을 모두 입력해 주세요.'); return; }
   const dateStr = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${String(selectedDate).padStart(2,'0')}`;
 
+  const btn = document.querySelector('#journal-popup .btn-primary');
+  if (btn) { btn.disabled = true; btn.textContent = '저장 중...'; }
   try {
     const res = await fetch(GAS_URL, {
       method: 'POST',
@@ -419,18 +420,21 @@ window.saveJournal = async () => {
     const result = await res.json();
     if (result.success) {
       closeJournalPopupDirect();
-      loadJournal();
+      await loadJournal();
       alert('저장되었습니다!');
     } else {
       alert('저장 실패: ' + result.message);
     }
   } catch(e) {
     alert('저장 중 오류: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '저장'; }
   }
 };
 
 // ==================== 수업일지 탭 ====================
 let showOldJournals = false;
+let deleteMode = false;
 
 async function loadJournal() {
   try {
@@ -445,10 +449,16 @@ async function loadJournal() {
     const result = await res.json();
     if (result.success && result.journals) {
       journalData = result.journals.sort((a, b) => new Date(a.date) - new Date(b.date));
+      // localStorage 캐시도 즉시 갱신
+      try {
+        const cacheKey = `userdata_${currentUser.email}`;
+        const cached = JSON.parse(localStorage.getItem(cacheKey) || '{}');
+        cached.journals = journalData;
+        localStorage.setItem(cacheKey, JSON.stringify(cached));
+      } catch(e) {}
     }
   } catch(e) {
     console.log('수업일지 로드 실패:', e);
-    journalData = [];
   }
   filterJournal();
   updateJournalFilter();
@@ -459,6 +469,13 @@ function updateJournalFilter() {
   const classes = [...new Set(journalData.map(j => fmtClass(j.class)).filter(Boolean))].sort();
   sel.innerHTML = '<option value="">전체 학급</option>' + classes.map(c => `<option>${c}</option>`).join('');
 }
+
+window.syncJournal = async () => {
+  const btn = document.getElementById('jl-sync-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '불러오는 중...'; }
+  await loadJournal();
+  if (btn) { btn.disabled = false; btn.textContent = '☁ 구글시트 연동'; }
+};
 
 window.toggleOldJournals = () => {
   showOldJournals = !showOldJournals;
@@ -500,7 +517,8 @@ function fmtClass(cls) {
 
 function renderJournal(data) {
   const tbody = document.getElementById('journal-body');
-  if (!data.length) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:16px;color:#aaa;">기록이 없습니다</td></tr>'; return; }
+  const colSpan = deleteMode ? 7 : 6;
+  if (!data.length) { tbody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align:center;padding:16px;color:#aaa;">기록이 없습니다</td></tr>`; return; }
   tbody.innerHTML = data.map((j, idx) => `
     <tr>
       <td style="text-align:center;color:#aaa;font-size:12px;">${idx + 1}</td>
@@ -509,8 +527,37 @@ function renderJournal(data) {
       <td>${fmtClass(j.class)}</td>
       <td>${j.name || ''}</td>
       <td>${j.content || ''}</td>
+      ${deleteMode ? `<td style="text-align:center;"><button class="jl-del-btn" onclick="deleteJournalRow(${j.rowNum})">✕</button></td>` : ''}
     </tr>`).join('');
 }
+
+window.toggleDeleteMode = () => {
+  deleteMode = !deleteMode;
+  const btn = document.getElementById('jl-delete-btn');
+  btn.textContent = deleteMode ? '삭제 완료' : '삭제';
+  btn.classList.toggle('active', deleteMode);
+  const th = document.getElementById('jl-del-th');
+  if (th) th.style.display = deleteMode ? '' : 'none';
+  filterJournal();
+};
+
+window.deleteJournalRow = async (rowNum) => {
+  if (!confirm('이 항목을 삭제할까요?')) return;
+  try {
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      body: JSON.stringify({ app: 'journal-management', action: 'deleteJournal', userId: currentUser.email, rowNum })
+    });
+    const result = await res.json();
+    if (result.success) {
+      await loadJournal();
+    } else {
+      alert('삭제 실패: ' + result.message);
+    }
+  } catch(e) {
+    alert('삭제 중 오류: ' + e.message);
+  }
+};
 
 window.exportJournalExcel = () => {
   const rows = [['날짜','교시','학급','학생명','지도내용']];
@@ -848,16 +895,19 @@ function buildSyllabus() {
   const subjects = Object.keys(syllabusData);
   const tabBar = document.getElementById('syllabus-tabs');
   const content = document.getElementById('syllabus-content');
+  const activeTabEl = tabBar.querySelector('.sub-tab.active');
+  const activeName = activeTabEl ? activeTabEl.textContent : null;
   tabBar.innerHTML = subjects.map((s, i) =>
-    `<button class="sub-tab${i===0?' active':''}" onclick="switchSyllabus('${s.replace(/'/g,"\\'")}',this)">${s}</button>`
+    `<button class="sub-tab${((!activeName && i===0) || s===activeName) ? ' active' : ''}" onclick="switchSyllabus('${s.replace(/'/g,"\\'")}',this)">${s}</button>`
   ).join('');
   if (!subjects.length) {
     content.innerHTML = '<div style="font-size:15px;color:#aaa;padding:20px 0;">위의 <b>+ 과목 추가</b> 버튼으로 과목을 등록하거나, CSV 업로드 또는 구글 시트 연동을 이용하세요.</div>';
     return;
   }
   content.innerHTML = subjects.map((s, i) => {
+    const isActive = (!activeName && i===0) || s===activeName;
     const sId = s.replace(/ /g,'_').replace(/'/g,'');
-    return `<div class="sub-content${i===0?' active':''}" id="syl-${sId}">
+    return `<div class="sub-content${isActive ? ' active' : ''}" id="syl-${sId}">
       <div style="display:flex;justify-content:flex-end;gap:6px;margin-bottom:8px;">
         <button class="btn-xs" onclick="deleteSyllabusSubject('${s.replace(/'/g,"\\'")}')">🗑 과목 삭제</button>
       </div>
@@ -1225,6 +1275,7 @@ window.switchTab = (name, el) => {
   const tc = document.getElementById('tab-' + name);
   tc.classList.remove('hidden');
   tc.classList.add('active');
+  if (name === 'journal') loadJournal();
 };
 
 // ==================== 3번: 방학 기간 ====================
