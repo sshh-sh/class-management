@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>일해용! 전담</title>
-  <link rel="stylesheet" href="style.css?v=60">
+  <link rel="stylesheet" href="style.css?v=61">
   <link rel="icon" href="images/ilhaeyong.jpg" type="image/jpeg">
   <!-- 【6번】외부 도메인 preconnect: 첫 연결 레이턴시 단축 -->
   <link rel="preconnect" href="https://www.gstatic.com">
@@ -150,19 +150,15 @@
 
     <!-- 시간표 탭 -->
     <div id="tab-timetable" class="tab-content hidden">
-      <!-- 상단 바: 버튼 3개 -->
+      <!-- 상단 바: 구글시트 연동 버튼 -->
       <div class="tt-header-bar">
-        <div class="btn-group">
-          <button class="btn-xs" onclick="downloadTTExcel()">&#8595; 엑셀 양식</button>
-          <button class="btn-xs" onclick="document.getElementById('tt-upload-input').click()">&#8593; 업로드</button>
-          <input type="file" id="tt-upload-input" accept=".csv" style="display:none" onchange="handleTTUpload(this)">
-          <button class="btn-xs primary" onclick="syncFromGAS(this)">☁ 구글시트 연동</button>
-        </div>
+        <button class="btn-xs primary" onclick="syncFromGAS(this)">☁ 구글시트 연동</button>
       </div>
       <!-- 전체 시간표 -->
       <div class="section-block tt-full-section">
         <div class="section-header">
           <span class="section-title" id="full-tt-title">전체 시간표</span>
+          <button class="btn-xs" id="sem-toggle-btn" onclick="toggleTTSem()">2학기 보기</button>
         </div>
         <div id="full-timetable"></div>
       </div>
@@ -216,13 +212,13 @@
 
   <footer class="app-footer">
     © 2026 일해용!전담 · 개발 최송희. 무단 복제 및 배포를 금지합니다.
-    <span class="version-badge" id="app-version">v60</span>
+    <span class="version-badge" id="app-version">v61</span>
   </footer>
 </div>
 
 <!-- 수업일지 팝업 -->
 <!-- 개념아이콘 호버 팝업 -->
-<div id="concept-overlay" style="display:none;position:fixed;background:#fff;border:1px solid #ddd;border-radius:12px;padding:8px 0;z-index:9999;box-shadow:0 6px 24px rgba(0,0,0,0.13);min-width:220px;max-width:360px;max-height:320px;overflow-y:auto;" onmouseenter="cancelHideConceptOverlay()" onmouseleave="scheduleHideConceptOverlay()">
+<div id="concept-overlay" style="display:none;position:fixed;background:#fff;border:1px solid #ddd;border-radius:12px;padding:8px 0;z-index:9999;box-shadow:0 6px 24px rgba(0,0,0,0.13);min-width:300px;max-width:480px;max-height:400px;overflow-y:auto;" onmouseenter="cancelHideConceptOverlay()" onmouseleave="scheduleHideConceptOverlay()">
   <div id="concept-overlay-title" style="font-size:12px;font-weight:700;color:#534AB7;padding:4px 14px 6px;border-bottom:1px solid #f0effe;"></div>
   <div id="concept-overlay-body"></div>
 </div>
@@ -314,6 +310,6 @@
   </div>
 </div>
 
-<script type="module" src="app.js?v=60"></script>
+<script type="module" src="app.js?v=61"></script>
 </body>
 </html>

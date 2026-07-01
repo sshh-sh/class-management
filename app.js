@@ -37,6 +37,7 @@ let timetableEvents = {};
 let vacationPeriods = [];
 let subjectHoursData = {};
 let fullTimetableData = {s1:[], s2:[]};
+let fullTTSem = (new Date().getMonth() + 1) >= 8 ? 's2' : 's1';
 let subjectHoursClasses = [];
 // 6번: API 응답 캐시
 const apiCache = new Map();
@@ -333,8 +334,8 @@ function renderWeek(d, dow) {
       </div>
       <div class="lesson-right">
         <div class="lesson-class">${s.cls}</div>
-        <div class="lesson-detail">${syl ? syl.unit + ' ' + syl.topic + ' (' + syl.cur + '/' + syl.total + ')' : '진도표 미등록'}</div>
-        <div class="lesson-prep">${syl ? '준비물: ' + syl.prep : ''}</div>
+        <div class="lesson-detail">${syl ? syl.unit + (syl.ch ? '(' + syl.ch + ')' : '') + ' ' + syl.topic : '진도표 미등록'}</div>
+        <div class="lesson-prep">${syl && (syl.prep || syl.memo) ? [syl.prep ? '준비물: ' + syl.prep : '', syl.memo].filter(Boolean).join(' | ') : ''}</div>
         ${linkHtml ? `<div class="lesson-links">${linkHtml}</div>` : ''}
       </div>
     </div>`;
@@ -344,13 +345,14 @@ function renderWeek(d, dow) {
 function getSyllabusCurrent(cls) {
   const grade = cls.split('-')[0];
   for (const subject in syllabusData) {
-    if (!subject.includes(grade + '학년')) continue;
+    const subjGrade = (subject.match(/^(\d+)/) || [])[1];
+    if (subjGrade !== grade) continue;
     const items = syllabusData[subject];
     if (!items || !items.length) continue;
+    const doneCount = items.filter(i => isDone(i)).length;
     const next = items.find(i => !isDone(i));
     if (!next) continue;
-    const doneCount = items.filter(i => isDone(i)).length;
-    return { unit: next.unit, topic: next.topic, prep: next.prep, links: next.links || '', cur: doneCount + 1, total: items.length };
+    return { unit: next.unit, ch: next.ch||'', topic: next.topic, prep: next.prep||'', memo: next.memo||'', links: next.links||'', cur: doneCount + 1, total: items.length };
   }
   return null;
 }
@@ -600,37 +602,40 @@ window.saveMyTT = () => { /* 구글시트가 단일 원본 — 앱에서 시간�
 function buildFullTimetable() {
   const el = document.getElementById('full-timetable');
   if (!el) return;
+  const semLabel = fullTTSem === 's1' ? '1학기' : '2학기';
+  const otherLabel = fullTTSem === 's1' ? '2학기 보기' : '1학기 보기';
   const titleEl = document.getElementById('full-tt-title');
-  if (titleEl) titleEl.textContent = `전체 시간표 (${semYear}학년도)`;
-  if (!fullTimetableData.s1.length && !fullTimetableData.s2.length) {
+  if (titleEl) titleEl.textContent = `전체 시간표 (${semYear}학년도 ${semLabel})`;
+  const btn = document.getElementById('sem-toggle-btn');
+  if (btn) btn.textContent = otherLabel;
+  const rows = fullTimetableData[fullTTSem] || [];
+  if (!rows.length) {
     el.innerHTML = '<div style="font-size:13px;color:#aaa;padding:12px 0;">☁ 구글시트 연동 버튼을 눌러 전체시간표를 불러오세요.<br>구글 시트 [시간표] 탭에서 직접 입력 후 연동합니다.</div>';
     return;
   }
   const DAYS = ['월','화','수','목','금'];
-  function renderSem(rows, label) {
-    if (!rows.length) return '';
-    let html = `<div><div class="full-tt-section-title">${label}</div><div class="full-tt-wrap"><table class="full-tt"><thead>`;
-    html += '<tr><th rowspan="2">주</th><th rowspan="2" class="date-cell">기간</th>';
-    DAYS.forEach(d => html += `<th colspan="6" class="day-header">${d}</th>`);
-    html += '<th rowspan="2" class="day-header">비고</th></tr><tr>';
-    DAYS.forEach(() => { for (let p=1;p<=6;p++) html += `<th class="period-header">${p}</th>`; });
-    html += '</tr></thead><tbody>';
-    rows.forEach(w => {
-      html += `<tr><td class="week-num">${w.week}</td><td class="date-cell">${w.period||''}</td>`;
-      for (let d=0;d<5;d++) for (let p=0;p<6;p++) {
-        const cls = w.days && w.days[d] && w.days[d][p] ? w.days[d][p] : '';
-        html += cls ? `<td class="has-class">${cls}</td>` : `<td class="empty-cell">—</td>`;
-      }
-      html += `<td class="note-cell">${w.note||''}</td></tr>`;
-    });
-    html += '</tbody></table></div></div>';
-    return html;
-  }
-  el.innerHTML = `<div class="full-tt-split">
-    ${renderSem(fullTimetableData.s1, semYear + '학년도 1학기')}
-    ${renderSem(fullTimetableData.s2, semYear + '학년도 2학기')}
-  </div>`;
+  let html = '<div class="full-tt-wrap"><table class="full-tt"><thead>';
+  html += '<tr><th rowspan="2">주</th><th rowspan="2" class="date-cell">기간</th>';
+  DAYS.forEach(d => html += `<th colspan="6" class="day-header">${d}</th>`);
+  html += '<th rowspan="2" class="day-header">비고</th></tr><tr>';
+  DAYS.forEach(() => { for (let p=1;p<=6;p++) html += `<th class="period-header">${p}</th>`; });
+  html += '</tr></thead><tbody>';
+  rows.forEach(w => {
+    html += `<tr><td class="week-num">${w.week}</td><td class="date-cell">${w.period||''}</td>`;
+    for (let d=0;d<5;d++) for (let p=0;p<6;p++) {
+      const cls = w.days && w.days[d] && w.days[d][p] ? w.days[d][p] : '';
+      html += cls ? `<td class="has-class">${cls}</td>` : `<td class="empty-cell">—</td>`;
+    }
+    html += `<td class="note-cell">${w.note||''}</td></tr>`;
+  });
+  html += '</tbody></table></div>';
+  el.innerHTML = html;
 }
+
+window.toggleTTSem = () => {
+  fullTTSem = fullTTSem === 's1' ? 's2' : 's1';
+  buildFullTimetable();
+};
 
 window.addClassTT = () => { /* 구글시트 [시간표] 탭에서 학급을 추가하고 "구글시트 연동" 버튼을 누르세요 */ };
 
@@ -851,15 +856,13 @@ window.showConceptOverlay = (key, ev) => {
   if (!links.length) return;
   const overlay = document.getElementById('concept-overlay');
   const body = document.getElementById('concept-overlay-body');
-  document.getElementById('concept-overlay-title').textContent = key;
+  document.getElementById('concept-overlay-title').style.display = 'none';
   body.innerHTML = links.map(lk => {
     const safeUrl = lk.url.replace(/"/g,'&quot;');
     const safeTopic = (lk.topic||lk.url).replace(/</g,'&lt;').replace(/>/g,'&gt;');
     const safeSubcat = (lk.subcat||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    return `<div class="concept-popup-row" onclick="window.open('${safeUrl}','_blank')">
-      ${safeSubcat ? `<span class="concept-popup-tag">${safeSubcat}</span>` : ''}
-      <span class="concept-popup-topic">${safeTopic}</span>
-    </div>`;
+    const label = safeSubcat ? `[${safeSubcat}]${safeTopic}` : safeTopic;
+    return `<div class="concept-popup-row" onclick="window.open('${safeUrl}','_blank')">${label}</div>`;
   }).join('');
   overlay.style.display = 'flex';
 
@@ -1564,7 +1567,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v60';
+const APP_VERSION = 'v61';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');
