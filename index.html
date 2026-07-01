@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>일해용! 전담</title>
-  <link rel="stylesheet" href="style.css?v=58">
+  <link rel="stylesheet" href="style.css?v=59">
   <link rel="icon" href="images/ilhaeyong.jpg" type="image/jpeg">
   <!-- 【6번】외부 도메인 preconnect: 첫 연결 레이턴시 단축 -->
   <link rel="preconnect" href="https://www.gstatic.com">
@@ -206,8 +206,8 @@
         <div class="sub-tab-bar" id="syllabus-tabs"></div>
         <div id="concept-icons-bar" class="concept-icons-bar"></div>
         <div class="btn-group" style="flex-shrink:0;">
-          <button class="btn-xs primary" onclick="syncFromGAS(this)">☁ 구글시트 연동</button>
           <button class="btn-xs" onclick="saveSyllabus()">☁ 저장</button>
+          <button class="btn-xs primary" onclick="syncFromGAS(this)">☁ 구글시트 연동</button>
         </div>
       </div>
       <div id="syllabus-content"></div>
@@ -217,11 +217,17 @@
 
   <footer class="app-footer">
     © 2026 일해용!전담 · 개발 최송희. 무단 복제 및 배포를 금지합니다.
-    <span class="version-badge" id="app-version">v58</span>
+    <span class="version-badge" id="app-version">v59</span>
   </footer>
 </div>
 
 <!-- 수업일지 팝업 -->
+<!-- 개념아이콘 호버 팝업 -->
+<div id="concept-overlay" style="display:none;position:fixed;background:#fff;border:1px solid #ddd;border-radius:12px;padding:8px 0;z-index:9999;box-shadow:0 6px 24px rgba(0,0,0,0.13);min-width:220px;max-width:360px;max-height:320px;overflow-y:auto;" onmouseenter="cancelHideConceptOverlay()" onmouseleave="scheduleHideConceptOverlay()">
+  <div id="concept-overlay-title" style="font-size:12px;font-weight:700;color:#534AB7;padding:4px 14px 6px;border-bottom:1px solid #f0effe;"></div>
+  <div id="concept-overlay-body"></div>
+</div>
+
 <div id="journal-popup" class="popup-overlay hidden" onclick="closeJournalPopup(event)">
   <div class="popup-box">
     <div class="popup-head">
@@ -309,6 +315,6 @@
   </div>
 </div>
 
-<script type="module" src="app.js?v=58"></script>
+<script type="module" src="app.js?v=59"></script>
 </body>
 </html>

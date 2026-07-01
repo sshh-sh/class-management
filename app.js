@@ -1099,35 +1099,6 @@ window.toggleDone = async (subject, idx, checked) => {
   if (!synced) markSylUnsaved();
 };
 
-window.handleSylUpload = (input, subject) => { if (input.files[0]) alert(`"${input.files[0].name}" 업로드 기능은 준비 중입니다.`); };
-
-window.downloadSylTemplate = () => {
-  const csv = '﻿과목,기간,차시,단원,학습주제,준비물,메모,완료\n3학년 과학,3/2~3/8,1,1. 생물과 환경,먹이 사슬과 먹이 그물,교과서,,\n3학년 과학,3/9~3/15,2,1. 생물과 환경,생태계 평형,교과서,,\n';
-  const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = '진도표_양식.csv'; a.click();
-};
-
-window.handleSylGlobalUpload = (input) => {
-  const file = input.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = async e => {
-    const lines = e.target.result.split('\n').slice(1);
-    syllabusData = {};
-    lines.forEach(row => {
-      const cols = row.split(',').map(c => c.trim().replace(/^"|"$/g,''));
-      if (cols.length < 4 || !cols[0]) return;
-      const [subject, period, ch, unit, topic, prep, memo, doneVal] = cols;
-      if (!syllabusData[subject]) syllabusData[subject] = [];
-      syllabusData[subject].push({period:period||'', ch:ch||'', unit:unit||'', topic:topic||'', prep:prep||'', memo:memo||'', done:doneVal==='완료'||doneVal==='TRUE'||doneVal==='true'});
-    });
-    await saveUserData();
-    buildSyllabus();
-    alert('업로드 완료!');
-  };
-  reader.readAsText(file, 'UTF-8');
-  input.value = '';
-};
 
 window.saveSyllabus = async () => {
   const subjects = Object.keys(syllabusData);
@@ -1159,25 +1130,6 @@ window.saveSyllabus = async () => {
 };
 
 // ==================== 구글 시트 연동 ====================
-window.addSyllabusSubject = async () => {
-  const name = prompt('과목명을 입력하세요\n예: 3학년 과학, 4학년 과학, 5학년 놀이');
-  if (!name || !name.trim()) return;
-  const n = name.trim();
-  if (syllabusData[n]) return;
-  syllabusData[n] = [];
-  await saveUserData();
-  buildSyllabus();
-  // 새 과목 탭 활성화
-  const tabs = document.querySelectorAll('.sub-tab');
-  tabs.forEach(t => { if (t.textContent === n) t.click(); });
-};
-
-window.deleteSyllabusSubject = async (subject) => {
-  if (!confirm(`"${subject}" 진도표를 삭제할까요?`)) return;
-  delete syllabusData[subject];
-  await saveUserData();
-  buildSyllabus();
-};
 
 window.addSyllabusRow = async (subject) => {
   const ch = (syllabusData[subject]?.length || 0) + 1;
@@ -1612,7 +1564,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v58';
+const APP_VERSION = 'v59';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');
