@@ -927,7 +927,7 @@ function buildSyllabus() {
             </td>
             <td>${sylCell(r.period,'period',r,idx,se)}</td>
             <td style="text-align:center;">${sylCell(r.ch,'ch',r,idx,se)}</td>
-            <td>${sylCell(r.unit,'unit',r,idx,se)}</td>
+            <td>${r.unitUrl ? `<span class="syl-unit-link" onclick="event.stopPropagation();window.open('${r.unitUrl.replace(/'/g,"\\'").replace(/"/g,'&quot;')}','_blank')">${r.unit||''}</span>` : sylCell(r.unit,'unit',r,idx,se)}</td>
             <td>${sylCell(r.topic,'topic',r,idx,se)}</td>
             <td>${sylCell(r.prep,'prep',r,idx,se)}</td>
             <td>${sylCell(r.memo,'memo',r,idx,se)}</td>
@@ -1606,7 +1606,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v55';
+const APP_VERSION = 'v56';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');

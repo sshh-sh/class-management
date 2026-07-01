@@ -415,17 +415,20 @@ function loadAll(userId) {
   const ttResult = loadAllTimetables(userId);
   const sylSheet = jm_syllabusSheet();
   const sylRows = sylSheet.getDataRange().getValues();
+  const lastDataRow = sylSheet.getLastRow();
   const syllabusData = {};
   for (let i = 1; i < sylRows.length; i++) {
     const subject = String(sylRows[i][1]||'').trim();
     if (!subject) continue;
     if (!syllabusData[subject]) syllabusData[subject] = [];
     // 신형 컬럼: [완료체크(0), 과목(1), 순서(2), 기간(3), 차시(4), 단원(5), 학습주제(6), 준비물(7), 메모(8)]
+    const unitUrl = sylSheet.getRange(i + 1, 6).getRichTextValue().getLinkUrl() || '';
     syllabusData[subject].push({
       done: String(sylRows[i][0]||'').trim() === '완료',
       period: String(sylRows[i][3]||''),
       ch: String(sylRows[i][4]||''),
       unit: String(sylRows[i][5]||''),
+      unitUrl,
       topic: String(sylRows[i][6]||''),
       prep: String(sylRows[i][7]||''),
       memo: String(sylRows[i][8]||'')
@@ -1071,11 +1074,13 @@ function loadSyllabus(userId, subject) {
   for (let i = 1; i < data.length; i++) {
     if (String(data[i][1]||'').trim() !== subject) continue;
     // 신형: [완료체크(0), 과목(1), 순서(2), 기간(3), 차시(4), 단원(5), 학습주제(6), 준비물(7), 메모(8)]
+    const unitUrl = s.getRange(i + 1, 6).getRichTextValue().getLinkUrl() || '';
     items.push({
       done: String(data[i][0]||'').trim() === '완료',
       period: String(data[i][3]||''),
       ch: String(data[i][4]||''),
       unit: String(data[i][5]||''),
+      unitUrl,
       topic: String(data[i][6]||''),
       prep: String(data[i][7]||''),
       memo: String(data[i][8]||'')
