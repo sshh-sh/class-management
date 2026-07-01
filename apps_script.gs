@@ -415,6 +415,7 @@ function loadAll(userId) {
     if (!syllabusData[subject]) syllabusData[subject] = [];
     // 신형 컬럼: [완료체크(0), 과목(1), 순서(2), 기간(3), 차시(4), 단원(5), 학습주제(6), 준비물(7), 메모(8)]
     const unitUrl = sylSheet.getRange(i + 1, 6).getRichTextValue().getLinkUrl() || '';
+    const topicUrl = sylSheet.getRange(i + 1, 7).getRichTextValue().getLinkUrl() || '';
     syllabusData[subject].push({
       done: String(sylRows[i][0]||'').trim() === '완료',
       period: String(sylRows[i][3]||''),
@@ -422,6 +423,7 @@ function loadAll(userId) {
       unit: String(sylRows[i][5]||''),
       unitUrl,
       topic: String(sylRows[i][6]||''),
+      topicUrl,
       prep: String(sylRows[i][7]||''),
       memo: String(sylRows[i][8]||'')
     });
@@ -533,7 +535,7 @@ function loadAllTimetables(userId) {
 
 function loadAllTimetables_new(s, lastRow) {
   // 신 양식: 4구역 (내시간표, 학급시간표, 전체시간표, 시수계산표)
-  const totalCols = 34;
+  const totalCols = 35;
   const allData = s.getRange(1, 1, lastRow, totalCols).getValues();
 
   const myTT = {};
@@ -592,7 +594,8 @@ function loadAllTimetables_new(s, lastRow) {
         for (let p = 0; p < 6; p++) periods.push(String(allData[i][3+d*6+p]||'').trim());
         days.push(periods);
       }
-      fullTimetable[currentSemKey].push({ week: weekNum, period, days, note: String(allData[i][33]||'').trim() });
+      const note = String(allData[i][34]||'').trim() || String(allData[i][33]||'').trim();
+      fullTimetable[currentSemKey].push({ week: weekNum, period, days, note });
     }
     else if (currentSection === 'hours') {
       if (type === '시수학급') {
@@ -923,6 +926,7 @@ function loadSyllabus(userId, subject) {
     if (String(data[i][1]||'').trim() !== subject) continue;
     // 신형: [완료체크(0), 과목(1), 순서(2), 기간(3), 차시(4), 단원(5), 학습주제(6), 준비물(7), 메모(8)]
     const unitUrl = s.getRange(i + 1, 6).getRichTextValue().getLinkUrl() || '';
+    const topicUrl = s.getRange(i + 1, 7).getRichTextValue().getLinkUrl() || '';
     items.push({
       done: String(data[i][0]||'').trim() === '완료',
       period: String(data[i][3]||''),
@@ -930,6 +934,7 @@ function loadSyllabus(userId, subject) {
       unit: String(data[i][5]||''),
       unitUrl,
       topic: String(data[i][6]||''),
+      topicUrl,
       prep: String(data[i][7]||''),
       memo: String(data[i][8]||'')
     });

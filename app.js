@@ -14,7 +14,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
 // GAS API URL
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbwZLsPLuHztsg18dweXl3M54_seud2FsTgLG5-VTXzH9l47lfBs4x5WcXdfRy5xlxiF/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbydLUJ4k9vXicJxIxzM5WanCx3iB09Nu4M5Couu7H4CaNLP9Vc5scyQPhCQ9PGzy0-y/exec';
 
 const TIMES = ['09:00~09:40','09:50~10:30','10:40~11:20','11:30~12:10','13:00~13:40','13:50~14:30'];
 const DAY_NAMES = ['일','월','화','수','목','금','토'];
@@ -817,7 +817,7 @@ function sylCell(val, field, r, idx, subjectEsc) {
     return `<a href="${safeUrl}" target="_blank" rel="noopener" class="syl-text-link" onclick="event.stopPropagation()">${safeText}</a>`;
   }
   const taEsc = strVal.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  return `<textarea rows="1" class="syl-cell-input" oninput="autoGrowSyl(this)" onchange="updateSylField('${subjectEsc}',${idx},'${field}',this.value)">${taEsc}</textarea>`;
+  return `<textarea rows="1" class="syl-cell-input" oninput="autoGrowSyl(this)" onchange="this.classList.add('syl-dirty');updateSylField('${subjectEsc}',${idx},'${field}',this.value)">${taEsc}</textarea>`;
 }
 
 const CONCEPT_ICONS = [
@@ -930,8 +930,8 @@ function buildSyllabus() {
             </td>
             <td>${sylCell(r.period,'period',r,idx,se)}</td>
             <td style="text-align:center;">${sylCell(r.ch,'ch',r,idx,se)}</td>
-            <td>${r.unitUrl ? `<span class="syl-unit-link" onclick="event.stopPropagation();window.open('${r.unitUrl.replace(/'/g,"\\'").replace(/"/g,'&quot;')}','_blank')">${r.unit||''}</span>` : sylCell(r.unit,'unit',r,idx,se)}</td>
-            <td>${sylCell(r.topic,'topic',r,idx,se)}</td>
+            <td>${r.unitUrl ? `<div style="display:flex;align-items:center;gap:3px;"><a href="${r.unitUrl.replace(/"/g,'&quot;')}" target="_blank" class="syl-link-mini-btn" onclick="event.stopPropagation()" title="링크 열기">🔗</a>${sylCell(r.unit,'unit',r,idx,se)}</div>` : sylCell(r.unit,'unit',r,idx,se)}</td>
+            <td>${r.topicUrl ? `<div style="display:flex;align-items:center;gap:3px;"><a href="${r.topicUrl.replace(/"/g,'&quot;')}" target="_blank" class="syl-link-mini-btn" onclick="event.stopPropagation()" title="링크 열기">🔗</a>${sylCell(r.topic,'topic',r,idx,se)}</div>` : sylCell(r.topic,'topic',r,idx,se)}</td>
             <td>${sylCell(r.prep,'prep',r,idx,se)}</td>
             <td>${sylCell(r.memo,'memo',r,idx,se)}</td>
           </tr>`;
@@ -1104,7 +1104,9 @@ window.toggleDone = async (subject, idx, checked) => {
 
 
 function markSylUnsaved() {}
-function clearSylUnsaved() {}
+function clearSylUnsaved() {
+  document.querySelectorAll('.syl-cell-input.syl-dirty').forEach(el => el.classList.remove('syl-dirty'));
+}
 
 window.saveSyllabus = async () => {
   const subjects = Object.keys(syllabusData);
@@ -1570,7 +1572,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v63';
+const APP_VERSION = 'v64';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');
