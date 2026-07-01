@@ -157,7 +157,6 @@
           <button class="btn-xs" onclick="downloadTTExcel()">&#8595; 엑셀 양식</button>
           <button class="btn-xs" onclick="document.getElementById('tt-upload-input').click()">&#8593; 업로드</button>
           <input type="file" id="tt-upload-input" accept=".csv" style="display:none" onchange="handleTTUpload(this)">
-          <button class="btn-xs" onclick="resetTimetableSheet()" style="color:#E24B4A;border-color:#E24B4A;">🔄 시트 초기화</button>
           <button class="btn-xs primary" onclick="syncFromGAS()">☁ 구글시트 연동</button>
         </div>
       </div>
@@ -210,6 +209,7 @@
           <button class="btn-xs" onclick="downloadSylTemplate()">&#8595; 양식</button>
           <button class="btn-xs primary" onclick="document.getElementById('syl-global-upload').click()">&#8593; 업로드</button>
           <input type="file" id="syl-global-upload" accept=".csv" style="display:none" onchange="handleSylGlobalUpload(this)">
+          <button class="btn-xs primary" onclick="syncFromGAS()">☁ 구글시트 연동</button>
           <button class="btn-xs" onclick="saveSyllabus()">☁ 저장</button>
         </div>
       </div>
@@ -222,7 +222,7 @@
 
   <footer class="app-footer">
     © 2026 일해용!전담 · 개발 최송희. 무단 복제 및 배포를 금지합니다.
-    <span class="version-badge" id="app-version">v50</span>
+    <span class="version-badge" id="app-version">v51</span>
   </footer>
 </div>
 
