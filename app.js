@@ -14,7 +14,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
 // GAS API URL
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbz__cEIqMQxJuDqNA6FTMn7FK1DwTX_D5qOxxIFA-jKoZuPzTmx1S8onyW012-vbwYZ/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbwu5pNHfIWKBDzUOnmST-p9d21VscRehOoUmjSZ-Vz2t5a3LLsHIGPjxMibvTxb1LFK/exec';
 
 const TIMES = ['09:00~09:40','09:50~10:30','10:40~11:20','11:30~12:10','13:00~13:40','13:50~14:30'];
 const DAY_NAMES = ['일','월','화','수','목','금','토'];
@@ -1588,7 +1588,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v52';
+const APP_VERSION = 'v53';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');

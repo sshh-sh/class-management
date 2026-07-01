@@ -5,6 +5,7 @@
  *
  * [수정사항] writeKaoSheet에서 시트 전체를 지우던 것을 A~J열까지만 지우도록 변경
  *           → L열 이후 메모 영역은 더 이상 삭제되지 않음
+ * GAS v82: setupTimetableTemplate/loadAllTimetables_legacy 구양식 코드 삭제
  * GAS v81: jm_syllabusSheet 헤더/마이그레이션을 A=완료,B=과목 순서로 수정
  *          (saveSyllabus/loadAll과 컬럼 순서 불일치 → 구글시트연동 결과 이상 버그 수정)
  */
@@ -335,198 +336,10 @@ function jm_timetableSheet() {
   const ss = jm_getSpreadsheet();
   let s = ss.getSheetByName('시간표');
   if (!s) {
-    s = ss.insertSheet('시간표');
-    setupTimetableTemplate(s);
-  } else {
-    const a1 = String(s.getRange(1, 1).getValue() || '').trim();
-    if (a1 !== '타이틀' && a1 !== '[내시간표]') setupTimetableTemplate(s);
+    setupNewTimetableSheet();
+    s = ss.getSheetByName('시간표');
   }
   return s;
-}
-
-function setupTimetableTemplate(s) {
-  s.clear();
-
-  // A열=타입마커(숨김), B~G=사용자 표시 영역
-  const rows = [
-    // 메타 (rows 1-3)
-    ['타이틀', '📅 일해용! 전담 — 시간표 시스템 v4', '', '', '', '', ''],
-    ['안내', '💡 노란색 칸에 직접 입력 | 수정 후 사이트에서 [☁ 구글시트 연동] 클릭', '', '', '', '', ''],
-    ['빈칸', '', '', '', '', '', ''],
-    // ① 기본시간표 (rows 4-12)
-    ['섹션', '① 기본시간표 (1주 패턴) — 요일별 교시 칸에 담당학급 입력 (예: 3-1)', '', '', '', '', ''],
-    ['컬럼헤더', '교시', '월', '화', '수', '목', '금'],
-    ['내시간표', '1교시', '', '', '', '', ''],
-    ['내시간표', '2교시', '', '', '', '', ''],
-    ['내시간표', '3교시', '', '', '', '', ''],
-    ['내시간표', '4교시', '', '', '', '', ''],
-    ['내시간표', '5교시', '', '', '', '', ''],
-    ['내시간표', '6교시', '', '', '', '', ''],
-    ['빈칸', '', '', '', '', '', ''],
-    // ② 방학 기간 (rows 13-25)
-    ['섹션', '② 방학 기간 — 수업 없는 기간 입력 (날짜 형식: 2026-07-21)', '', '', '', '', ''],
-    ['컬럼헤더', '시작일', '종료일', '방학명', '', '', ''],
-    ['방학', '2026-07-21', '2026-08-23', '여름방학', '', '', ''],
-    ['방학', '2026-12-26', '2027-01-19', '겨울방학', '', '', ''],
-    ['방학', '', '', '', '', '', ''],
-    ['방학', '', '', '', '', '', ''],
-    ['방학', '', '', '', '', '', ''],
-    ['방학', '', '', '', '', '', ''],
-    ['방학', '', '', '', '', '', ''],
-    ['방학', '', '', '', '', '', ''],
-    ['방학', '', '', '', '', '', ''],
-    ['방학', '', '', '', '', '', ''],
-    ['빈칸', '', '', '', '', '', ''],
-    // ③ 행사일 (rows 26-38)
-    ['섹션', '③ 행사일 (수업 없는 날) — 날짜 형식: 2026-05-05', '', '', '', '', ''],
-    ['컬럼헤더', '날짜', '행사명', '비고', '', '', ''],
-    ['행사', '', '', '', '', '', ''],
-    ['행사', '', '', '', '', '', ''],
-    ['행사', '', '', '', '', '', ''],
-    ['행사', '', '', '', '', '', ''],
-    ['행사', '', '', '', '', '', ''],
-    ['행사', '', '', '', '', '', ''],
-    ['행사', '', '', '', '', '', ''],
-    ['행사', '', '', '', '', '', ''],
-    ['행사', '', '', '', '', '', ''],
-    ['행사', '', '', '', '', '', ''],
-    ['빈칸', '', '', '', '', '', ''],
-    // ④ 시수계산표 (rows 39-51) — 사이트에서 [시수 계산] 버튼으로 자동 갱신
-    ['섹션', '④ 시수계산표 — 사이트 [📊 시수 계산] 버튼 클릭 시 자동 갱신', '', '', '', '', ''],
-    ['컬럼헤더', '학급', '주당시수', '1학기 예상', '2학기 예상', '연간 합계', '기준년도'],
-    ['시수결과', '(계산 전)', '', '', '', '', ''],
-    ['시수결과', '', '', '', '', '', ''],
-    ['시수결과', '', '', '', '', '', ''],
-    ['시수결과', '', '', '', '', '', ''],
-    ['시수결과', '', '', '', '', '', ''],
-    ['시수결과', '', '', '', '', '', ''],
-    ['시수결과', '', '', '', '', '', ''],
-    ['시수결과', '', '', '', '', '', ''],
-    ['시수결과', '', '', '', '', '', ''],
-    ['시수결과', '', '', '', '', '', ''],
-    ['빈칸', '', '', '', '', '', ''],
-    // ⑤ 담당학급 시간표 (rows 52-53 고정 헤더, 54+는 15개 슬롯)
-    ['섹션', '⑤ 담당학급 시간표 — 학급명을 [ ] 안에 입력 · 시간표는 노란 칸에 입력', '', '', '', '', ''],
-    ['컬럼헤더', '교시', '월', '화', '수', '목', '금'],
-  ];
-
-  // 15개 담당학급 슬롯 추가 (rows 54+)
-  for (let i = 1; i <= 15; i++) {
-    rows.push(['담당학급헤더', '[ 학급' + i + ' ]', '월', '화', '수', '목', '금']);
-    for (let p = 1; p <= 6; p++) {
-      rows.push(['담당학급', p + '교시', '', '', '', '', '']);
-    }
-    rows.push(['빈칸', '', '', '', '', '', '']);
-  }
-
-  s.getRange(1, 1, rows.length, 7).setValues(rows);
-
-  // ── 스타일 적용 ──
-  const COLORS = { purple: '#534AB7', light: '#E8F0FE', lightPurple: '#F0EFFE',
-                   yellow: '#FFFDE7', green: '#E8F5E9' };
-
-  // Row 1: 타이틀
-  s.getRange(1, 2, 1, 6).merge()
-    .setBackground(COLORS.purple).setFontColor('#fff').setFontSize(13)
-    .setFontWeight('bold').setHorizontalAlignment('center').setVerticalAlignment('middle');
-  s.setRowHeight(1, 38);
-
-  // Row 2: 안내
-  s.getRange(2, 2, 1, 6).merge()
-    .setBackground('#FFF9C4').setFontColor('#666').setFontSize(10)
-    .setHorizontalAlignment('center');
-  s.setRowHeight(2, 22);
-
-  // Row 3: 빈칸
-  s.getRange(3, 1, 1, 7).setBackground('#e8e8e8');
-  s.setRowHeight(3, 8);
-
-  // 섹션 헤더 행들: 4, 13, 26, 39, 52
-  [4, 13, 26, 39, 52].forEach(r => {
-    s.getRange(r, 2, 1, 6).merge()
-      .setBackground(COLORS.light).setFontColor('#1A56BD')
-      .setFontWeight('bold').setFontSize(11);
-    s.setRowHeight(r, 28);
-  });
-
-  // 컬럼헤더 행들: 5, 14, 27, 40, 53
-  [5, 14, 27, 40, 53].forEach(r => {
-    s.getRange(r, 2, 1, 6)
-      .setBackground(COLORS.lightPurple).setFontColor(COLORS.purple)
-      .setFontWeight('bold').setHorizontalAlignment('center');
-    s.setRowHeight(r, 24);
-  });
-
-  // 빈칸 구분선 행들: 12, 25, 38, 51
-  [12, 25, 38, 51].forEach(r => {
-    s.getRange(r, 1, 1, 7).setBackground('#e8e8e8');
-    s.setRowHeight(r, 8);
-  });
-
-  // ① 기본시간표 데이터: rows 6-11
-  for (let r = 6; r <= 11; r++) {
-    s.getRange(r, 2).setBackground('#f5f5f5').setFontWeight('bold').setFontColor('#555')
-      .setHorizontalAlignment('center');
-    s.getRange(r, 3, 1, 5).setBackground(COLORS.yellow).setHorizontalAlignment('center')
-      .setNumberFormat('@');
-    s.setRowHeight(r, 26);
-  }
-
-  // ② 방학: rows 15-24
-  s.getRange(15, 2, 10, 3).setBackground(COLORS.yellow);
-  for (let r = 15; r <= 24; r++) s.setRowHeight(r, 22);
-
-  // ③ 행사: rows 28-37
-  s.getRange(28, 2, 10, 3).setBackground(COLORS.yellow);
-  for (let r = 28; r <= 37; r++) s.setRowHeight(r, 22);
-
-  // ④ 시수계산표: rows 41-50 (결과 영역 — 연한 배경)
-  s.getRange(41, 2, 10, 6).setBackground('#F8F9FF').setFontColor('#555')
-    .setHorizontalAlignment('center');
-  s.getRange(41, 2).setFontColor('#888').setFontStyle('italic');
-  for (let r = 41; r <= 50; r++) s.setRowHeight(r, 22);
-
-  // ⑤ 담당학급 섹션 헤더 (초록색)
-  s.getRange(52, 2, 1, 6).merge()
-    .setBackground(COLORS.green).setFontColor('#2E7D32')
-    .setFontWeight('bold').setFontSize(11);
-  s.getRange(53, 2, 1, 6)
-    .setBackground('#F1F8E9').setFontColor('#2E7D32')
-    .setFontWeight('bold').setHorizontalAlignment('center');
-
-  // ⑤ 담당학급 15개 슬롯 스타일: rows 54+
-  for (let i = 0; i < 15; i++) {
-    const base = 54 + i * 8;
-    // 헤더행
-    s.getRange(base, 2).setBackground(COLORS.green).setFontColor('#2E7D32').setFontWeight('bold');
-    s.getRange(base, 3, 1, 5).setBackground(COLORS.green).setFontColor('#2E7D32')
-      .setFontWeight('bold').setHorizontalAlignment('center');
-    s.setRowHeight(base, 24);
-    // 교시행 × 6
-    for (let p = 0; p < 6; p++) {
-      const r = base + 1 + p;
-      s.getRange(r, 2).setBackground('#f5f5f5').setFontWeight('bold').setFontColor('#666')
-        .setHorizontalAlignment('center');
-      s.getRange(r, 3, 1, 5).setBackground(COLORS.yellow).setHorizontalAlignment('center')
-        .setNumberFormat('@');
-      s.setRowHeight(r, 24);
-    }
-    // 구분 빈칸행
-    s.getRange(base + 7, 1, 1, 7).setBackground('#e8e8e8');
-    s.setRowHeight(base + 7, 6);
-  }
-
-  // 열 너비 설정
-  s.setColumnWidth(1, 20);   // A: 숨김 타입마커
-  s.setColumnWidth(2, 120);  // B
-  s.setColumnWidth(3, 110);  // C
-  s.setColumnWidth(4, 110);  // D
-  s.setColumnWidth(5, 110);  // E
-  s.setColumnWidth(6, 110);  // F
-  s.setColumnWidth(7, 110);  // G
-
-  s.hideColumns(1);
-  s.setFrozenRows(2);
 }
 
 function jm_syllabusSheet() {
@@ -573,25 +386,7 @@ function jm_syllabusSheet() {
         ];
       });
     } else {
-      // 구형: A=과목, B=기간, C=단원명, D=차시, E=학습주제, F=준비물, G=상태, H=링크
-      const subjectSeq = {};
-      newData = oldData.filter(r => r[0]).map(r => {
-        const subj = String(r[0]);
-        subjectSeq[subj] = (subjectSeq[subj] || 0) + 1;
-        const isDone = String(r[6]).toLowerCase() === 'done' || String(r[6]) === '완료';
-        const linkIdx = headers.indexOf('링크');
-        return [
-          isDone ? '완료' : '할일',              // A=완료
-          subj,                                   // B=과목
-          subjectSeq[subj],                       // C=순서
-          String(r[1]||''),                       // D=기간 (old B)
-          String(r[3]||''),                       // E=차시 (old D)
-          String(r[2]||''),                       // F=단원 (old C=단원명)
-          String(r[4]||''),                       // G=학습주제 (old E)
-          String(r[5]||''),                       // H=준비물 (old F)
-          linkIdx >= 0 ? String(r[linkIdx]||'') : ''  // I=메모
-        ];
-      });
+      newData = [];
     }
 
     s.clearContents();
@@ -738,9 +533,7 @@ function loadAllTimetables(userId) {
   const s = jm_timetableSheet();
   const lastRow = s.getLastRow();
   if (lastRow < 1) return { success:true, myTT:{}, classTTList:[], timetableEvents:{}, vacationPeriods:[], subjectHoursData:{}, fullTimetable:{s1:[],s2:[]}, subjectHoursClasses:[] };
-  const a1 = String(s.getRange(1,1).getValue()||'').trim();
-  if (a1 === '[내시간표]') return loadAllTimetables_new(s, lastRow);
-  return loadAllTimetables_legacy(s, lastRow);
+  return loadAllTimetables_new(s, lastRow);
 }
 
 function loadAllTimetables_new(s, lastRow) {
@@ -856,48 +649,6 @@ function loadAllTimetables_new(s, lastRow) {
     .map(n => ({ name: n, tt: classTTMap[n] }));
   return { success:true, myTT, classTTList, timetableEvents:{}, vacationPeriods:[],
            subjectHoursData, fullTimetable, subjectHoursClasses };
-}
-
-function loadAllTimetables_legacy(s, lastRow) {
-  const readLen = Math.max(lastRow, 53);
-  const allData = s.getRange(1, 1, readLen, 7).getValues();
-  const myTT = {}, classTTMap = {}, timetableEvents = {}, vacationPeriods = [], subjectHoursData = {};
-  let currentClassKey = '';
-  for (let i = 0; i < allData.length; i++) {
-    const type = String(allData[i][0]||'').trim();
-    if (!type || type === '타이틀' || type === '안내' || type === '빈칸' ||
-        type === '섹션' || type === '컬럼헤더' || type === '시수결과') continue;
-    if (type === '내시간표') {
-      const m = String(allData[i][1]||'').trim().match(/^(\d+)/);
-      if (m) myTT[parseInt(m[1])] = [2,3,4,5,6].map(c => String(allData[i][c]||''));
-    } else if (type === '방학') {
-      const toStr = v => v instanceof Date ? Utilities.formatDate(v,'Asia/Seoul','yyyy-MM-dd') : String(v).trim();
-      const s1 = toStr(allData[i][1]), e1 = toStr(allData[i][2]);
-      if (/\d{4}-\d{2}-\d{2}/.test(s1) && /\d{4}-\d{2}-\d{2}/.test(e1))
-        vacationPeriods.push({ start:s1, end:e1, label: String(allData[i][3]||'방학').trim() });
-    } else if (type === '행사') {
-      const toStr = v => v instanceof Date ? Utilities.formatDate(v,'Asia/Seoul','yyyy-MM-dd') : String(v).trim();
-      const d = toStr(allData[i][1]), nm = String(allData[i][2]||'').trim();
-      if (/\d{4}-\d{2}-\d{2}/.test(d) && nm) timetableEvents[d] = nm;
-    } else if (type === '담당학급헤더') {
-      const m = String(allData[i][1]||'').trim().match(/\[\s*(.+?)\s*\]/);
-      currentClassKey = m ? m[1].trim() : String(allData[i][1]||'').trim();
-    } else if (type === '담당학급') {
-      const label = String(allData[i][1]||'').trim();
-      const legacyM = label.match(/^(.+)-(\d+)교시$/);
-      let cls, p;
-      if (legacyM) { cls = legacyM[1]; p = parseInt(legacyM[2])-1; currentClassKey = cls; }
-      else { const pm = label.match(/^(\d+)교시$/); if (!pm) continue; cls = currentClassKey; p = parseInt(pm[1])-1; }
-      if (!cls) continue;
-      if (!classTTMap[cls]) classTTMap[cls] = Array.from({length:6},()=>['','','','','']);
-      if (p >= 0 && p < 6) classTTMap[cls][p] = [2,3,4,5,6].map(c => String(allData[i][c]||''));
-    }
-  }
-  const classTTList = Object.keys(classTTMap).sort()
-    .filter(n => classTTMap[n].some(p => p.some(v => v !== '')))
-    .map(n => ({ name:n, tt:classTTMap[n] }));
-  return { success:true, myTT, classTTList, timetableEvents, vacationPeriods, subjectHoursData,
-           fullTimetable:{s1:[],s2:[]}, subjectHoursClasses:[] };
 }
 
 // ==================== 시간표 시트 4구역 신양식 생성 ====================
