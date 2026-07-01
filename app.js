@@ -640,10 +640,11 @@ function buildFullTimetable() {
     return;
   }
   const DAYS = ['월','화','수','목','금'];
+  const noteW = parseInt(localStorage.getItem('fulltt_note_w') || '150');
   let html = '<div class="full-tt-wrap"><table class="full-tt"><thead>';
   html += '<tr><th rowspan="2">주</th><th rowspan="2" class="date-cell">기간</th>';
   DAYS.forEach(d => html += `<th colspan="6" class="day-header">${d}</th>`);
-  html += '<th rowspan="2" class="day-header">비고</th></tr><tr>';
+  html += `<th rowspan="2" class="day-header note-col-th" style="position:relative;min-width:${noteW}px;width:${noteW}px;">비고<span class="syl-col-resizer" onmousedown="startNoteColResize(event,this)" onclick="event.stopPropagation()"></span></th></tr><tr>`;
   DAYS.forEach(() => { for (let p=1;p<=6;p++) html += `<th class="period-header">${p}</th>`; });
   html += '</tr></thead><tbody>';
   rows.forEach(w => {
@@ -657,6 +658,24 @@ function buildFullTimetable() {
   html += '</tbody></table></div>';
   el.innerHTML = html;
 }
+
+window.startNoteColResize = (e, handle) => {
+  e.preventDefault();
+  e.stopPropagation();
+  const th = handle.parentElement;
+  const startX = e.pageX;
+  const startW = th.offsetWidth;
+  document.body.style.cursor = 'col-resize';
+  const onMove = ev => { th.style.width = Math.max(60, startW + (ev.pageX - startX)) + 'px'; };
+  const onUp = ev => {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    document.body.style.cursor = '';
+    localStorage.setItem('fulltt_note_w', String(Math.max(60, startW + (ev.pageX - startX))));
+  };
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+};
 
 window.toggleTTSem = () => {
   fullTTSem = fullTTSem === 's1' ? 's2' : 's1';
@@ -1603,7 +1622,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v66';
+const APP_VERSION = 'v67';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');
