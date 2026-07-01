@@ -5,6 +5,8 @@
  *
  * [수정사항] writeKaoSheet에서 시트 전체를 지우던 것을 A~J열까지만 지우도록 변경
  *           → L열 이후 메모 영역은 더 이상 삭제되지 않음
+ * GAS v81: jm_syllabusSheet 헤더/마이그레이션을 A=완료,B=과목 순서로 수정
+ *          (saveSyllabus/loadAll과 컬럼 순서 불일치 → 구글시트연동 결과 이상 버그 수정)
  */
 
 function generateFullTimetableMenu() {
@@ -530,51 +532,74 @@ function setupTimetableTemplate(s) {
 function jm_syllabusSheet() {
   const ss = jm_getSpreadsheet();
   let s = ss.getSheetByName('진도표');
-  const NEW_HEADERS = ['과목','수업완료','순서','기간','단원명','차시','학습주제','준비물','메모'];
+  // 정규 컬럼: A=완료, B=과목, C=순서, D=기간, E=차시, F=단원, G=학습주제, H=준비물, I=메모
+  // (saveSyllabus/loadAll/loadSyllabus 모두 이 순서 기준)
+  const CORRECT_HEADERS = ['완료','과목','순서','기간','차시','단원','학습주제','준비물','메모'];
 
   if (!s) {
     s = ss.insertSheet('진도표');
-    s.getRange(1,1,1,9).setValues([NEW_HEADERS]);
+    s.getRange(1,1,1,9).setValues([CORRECT_HEADERS]);
     s.getRange(1,1,1,9).setFontWeight('bold').setBackground('#FBBC04').setFontColor('white');
     s.setFrozenRows(1);
-    s.hideColumns(1);
-    s.setColumnWidths(2, 8, 110);
+    s.setColumnWidths(1, 9, 110);
     s.setColumnWidth(9, 250);
     return s;
   }
 
-  // 헤더 확인 — 구형(기간이 2번째 컬럼)이면 마이그레이션
-  const lastCol = Math.max(s.getLastColumn(), 8);
+  // A1이 '완료'가 아니면 마이그레이션
+  const lastCol = Math.max(s.getLastColumn(), 9);
   const headers = s.getRange(1, 1, 1, lastCol).getValues()[0].map(String);
-  if (headers[1] !== '수업완료') {
-    // 구형: [과목, 기간, 단원명, 차시, 학습주제, 준비물, 상태, 링크]
+  if (headers[0] !== '완료') {
     const lastRow = s.getLastRow();
     const oldData = lastRow > 1 ? s.getRange(2, 1, lastRow - 1, lastCol).getValues() : [];
-    const subjectSeq = {};
-    const newData = oldData.filter(r => r[0]).map(r => {
-      const subj = String(r[0]);
-      subjectSeq[subj] = (subjectSeq[subj] || 0) + 1;
-      const isDone = String(r[6]).toLowerCase() === 'done' || String(r[6]) === '완료';
-      const linkIdx = headers.indexOf('링크');
-      return [
-        subj,
-        isDone ? '완료' : '할일',
-        subjectSeq[subj],
-        String(r[1]||''),
-        String(r[2]||''),
-        String(r[3]||''),
-        String(r[4]||''),
-        String(r[5]||''),
-        linkIdx >= 0 ? String(r[linkIdx]||'') : ''
-      ];
-    });
+    let newData;
+
+    if (headers[1] === '수업완료') {
+      // 버그 양식: A=과목명, B=완료상태, C=순서, D=기간, E=단원명, F=차시, G=학습주제, H=준비물, I=메모
+      const subjectSeq = {};
+      newData = oldData.filter(r => r[0]).map(r => {
+        const subj = String(r[0]);
+        subjectSeq[subj] = (subjectSeq[subj] || 0) + 1;
+        return [
+          String(r[1]||'').trim() || '할일',  // A=완료 (old B=수업완료)
+          subj,                                 // B=과목 (old A=과목명)
+          subjectSeq[subj],                    // C=순서
+          String(r[3]||''),                    // D=기간
+          String(r[5]||''),                    // E=차시 (old F=차시)
+          String(r[4]||''),                    // F=단원 (old E=단원명)
+          String(r[6]||''),                    // G=학습주제
+          String(r[7]||''),                    // H=준비물
+          String(r[8]||'')                     // I=메모
+        ];
+      });
+    } else {
+      // 구형: A=과목, B=기간, C=단원명, D=차시, E=학습주제, F=준비물, G=상태, H=링크
+      const subjectSeq = {};
+      newData = oldData.filter(r => r[0]).map(r => {
+        const subj = String(r[0]);
+        subjectSeq[subj] = (subjectSeq[subj] || 0) + 1;
+        const isDone = String(r[6]).toLowerCase() === 'done' || String(r[6]) === '완료';
+        const linkIdx = headers.indexOf('링크');
+        return [
+          isDone ? '완료' : '할일',              // A=완료
+          subj,                                   // B=과목
+          subjectSeq[subj],                       // C=순서
+          String(r[1]||''),                       // D=기간 (old B)
+          String(r[3]||''),                       // E=차시 (old D)
+          String(r[2]||''),                       // F=단원 (old C=단원명)
+          String(r[4]||''),                       // G=학습주제 (old E)
+          String(r[5]||''),                       // H=준비물 (old F)
+          linkIdx >= 0 ? String(r[linkIdx]||'') : ''  // I=메모
+        ];
+      });
+    }
+
     s.clearContents();
-    s.getRange(1,1,1,9).setValues([NEW_HEADERS]);
+    s.getRange(1,1,1,9).setValues([CORRECT_HEADERS]);
     if (newData.length) s.getRange(2,1,newData.length,9).setValues(newData);
     s.getRange(1,1,1,9).setFontWeight('bold').setBackground('#FBBC04').setFontColor('white');
     s.setFrozenRows(1);
-    s.hideColumns(1);
-    s.setColumnWidths(2, 8, 110);
+    s.setColumnWidths(1, 9, 110);
     s.setColumnWidth(9, 250);
   }
 
