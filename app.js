@@ -680,13 +680,20 @@ function buildFullTimetable() {
     return;
   }
   const DAYS = ['월','화','수','목','금'];
-  const noteW = parseInt(localStorage.getItem('fulltt_note_w') || '150');
-  const dateW = parseInt(localStorage.getItem('fulltt_date_w') || '90');
-  let html = '<div class="full-tt-wrap"><table class="full-tt"><thead>';
-  html += `<tr><th rowspan="2">주</th><th rowspan="2" class="date-cell" style="position:relative;min-width:${dateW}px;width:${dateW}px;">기간<span class="syl-col-resizer" onmousedown="startTTColResize(event,this,'fulltt_date_w')" onclick="event.stopPropagation()"></span></th>`;
+  // col 0=주, 1=기간, 2~31=교시(5일×6교시), 32=비고
+  const defaultW = [32, 90, ...Array(30).fill(36), 150];
+  const colW = defaultW.map((def, i) => parseInt(localStorage.getItem(`fulltt_c_${i}`) || def));
+  let html = '<div class="full-tt-wrap"><table class="full-tt" style="table-layout:fixed;"><colgroup>';
+  colW.forEach(w => html += `<col style="width:${w}px;">`);
+  html += '</colgroup><thead>';
+  html += `<tr><th rowspan="2" style="position:relative;">주<span class="syl-col-resizer" onmousedown="startTTColResize(event,0)" onclick="event.stopPropagation()"></span></th>`;
+  html += `<th rowspan="2" class="date-cell" style="position:relative;">기간<span class="syl-col-resizer" onmousedown="startTTColResize(event,1)" onclick="event.stopPropagation()"></span></th>`;
   DAYS.forEach(d => html += `<th colspan="6" class="day-header">${d}</th>`);
-  html += `<th rowspan="2" class="day-header note-col-th" style="position:relative;min-width:${noteW}px;width:${noteW}px;">비고<span class="syl-col-resizer" onmousedown="startNoteColResize(event,this)" onclick="event.stopPropagation()"></span></th></tr><tr>`;
-  DAYS.forEach(() => { for (let p=1;p<=6;p++) html += `<th class="period-header">${p}</th>`; });
+  html += `<th rowspan="2" class="day-header note-col-th" style="position:relative;">비고<span class="syl-col-resizer" onmousedown="startTTColResize(event,32)" onclick="event.stopPropagation()"></span></th></tr><tr>`;
+  for (let d=0;d<5;d++) for (let p=0;p<6;p++) {
+    const ci = 2 + d*6 + p;
+    html += `<th class="period-header" style="position:relative;">${p+1}<span class="syl-col-resizer" onmousedown="startTTColResize(event,${ci})" onclick="event.stopPropagation()"></span></th>`;
+  }
   html += '</tr></thead><tbody>';
   rows.forEach(w => {
     html += `<tr><td class="week-num">${w.week}</td><td class="date-cell">${w.period||''}</td>`;
@@ -700,19 +707,22 @@ function buildFullTimetable() {
   el.innerHTML = html;
 }
 
-window.startTTColResize = (e, handle, storageKey) => {
+window.startTTColResize = (e, colIdx) => {
   e.preventDefault();
   e.stopPropagation();
-  const th = handle.parentElement;
+  const table = document.querySelector('#full-timetable .full-tt');
+  if (!table) return;
+  const col = table.querySelectorAll('col')[colIdx];
+  if (!col) return;
   const startX = e.pageX;
-  const startW = th.offsetWidth;
+  const startW = parseInt(col.style.width) || 36;
   document.body.style.cursor = 'col-resize';
-  const onMove = ev => { th.style.width = Math.max(40, startW + (ev.pageX - startX)) + 'px'; };
+  const onMove = ev => { col.style.width = Math.max(20, startW + (ev.pageX - startX)) + 'px'; };
   const onUp = ev => {
     document.removeEventListener('mousemove', onMove);
     document.removeEventListener('mouseup', onUp);
     document.body.style.cursor = '';
-    localStorage.setItem(storageKey, String(Math.max(40, startW + (ev.pageX - startX))));
+    localStorage.setItem(`fulltt_c_${colIdx}`, String(Math.max(20, startW + (ev.pageX - startX))));
   };
   document.addEventListener('mousemove', onMove);
   document.addEventListener('mouseup', onUp);
@@ -1685,7 +1695,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v70';
+const APP_VERSION = 'v71';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');
