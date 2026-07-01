@@ -675,8 +675,21 @@ window.updateClsTT = (name, p, d, val) => {
   cls.tt[p][d] = val;
 };
 
-window.syncFromGAS = async () => {
-  const btn = document.querySelector('[onclick="syncFromGAS()"]');
+function showToast(msg, type = 'success') {
+  let toast = document.getElementById('app-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'app-toast';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = msg;
+  toast.className = 'app-toast show' + (type === 'error' ? ' error' : '');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => toast.classList.remove('show'), 2500);
+}
+
+window.syncFromGAS = async (btn) => {
+  if (!btn) btn = document.querySelector('[onclick^="syncFromGAS"]');
   const origText = btn ? btn.textContent : '';
   if (btn) { btn.disabled = true; btn.textContent = '불러오는 중...'; }
   try {
@@ -696,13 +709,16 @@ window.syncFromGAS = async () => {
         vacationPeriods, subjectHoursData, fullTimetable: fullTimetableData, subjectHoursClasses
       }));
       buildMyTT(); renderClassTTs(); buildFullTimetable(); buildSyllabus(); filterJournal(); buildSubjectHoursFromGAS();
-      if (btn) { btn.textContent = '연동 완료 ✓'; setTimeout(() => { btn.disabled = false; btn.textContent = origText; }, 2000); }
+      if (btn) { btn.disabled = false; btn.textContent = origText; }
+      showToast('구글시트 연동 완료 ✓');
     } else {
-      if (btn) { btn.textContent = '실패'; setTimeout(() => { btn.disabled = false; btn.textContent = origText; }, 2000); }
+      if (btn) { btn.disabled = false; btn.textContent = origText; }
+      showToast('연동 실패: ' + (d.message || ''), 'error');
     }
   } catch(e) {
     console.error('연동 오류:', e);
-    if (btn) { btn.textContent = '오류'; setTimeout(() => { btn.disabled = false; btn.textContent = origText; }, 2000); }
+    if (btn) { btn.disabled = false; btn.textContent = origText; }
+    showToast('연동 오류가 발생했습니다', 'error');
   }
 };
 
@@ -771,8 +787,8 @@ function sylCell(val, field, r, idx, subjectEsc) {
   // 줄바꿈 분리 (Google Sheets 셀 내 Alt+Enter)
   const lines = strVal.split('\n').map(l => l.trim()).filter(l => l);
 
+  // 멀티라인이거나 runs 여러 개 → 줄별 텍스트/링크 표시
   if (lines.length > 1 || (runs && runs.length > 1)) {
-    // runs가 여러 개면 runs 기준, 아니면 lines 기준
     const useRuns = runs && runs.length > 1;
     const items = useRuns ? runs.map(rn => rn.text) : lines;
     return `<div class="syl-multiline">${items.map((line, li) => {
@@ -787,14 +803,16 @@ function sylCell(val, field, r, idx, subjectEsc) {
     }).join('')}</div>`;
   }
 
+  // 단일값: 링크 있으면 보라색 클릭 링크, 없으면 텍스트처럼 보이는 textarea
   const url = (runs && runs[0] && runs[0].url) ||
-              (field === 'memo' && strVal.startsWith('http') ? strVal : '');
-  // 자동 높이 textarea: 짧으면 한 줄, 길면 자동 줄바꿈+높이 증가
+              (strVal.startsWith('http') ? strVal : '');
+  if (url) {
+    const safeUrl = url.replace(/"/g,'&quot;');
+    const safeText = strVal.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return `<a href="${safeUrl}" target="_blank" rel="noopener" class="syl-text-link" onclick="event.stopPropagation()">${safeText}</a>`;
+  }
   const taEsc = strVal.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  const inp = `<textarea rows="1" class="syl-cell-input" oninput="autoGrowSyl(this)" onchange="updateSylField('${subjectEsc}',${idx},'${field}',this.value)">${taEsc}</textarea>`;
-  if (!url) return inp;
-  const safeText2 = strVal.replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  return `<a href="${url.replace(/"/g,'&quot;')}" target="_blank" rel="noopener" class="syl-text-link" onclick="event.stopPropagation()">${safeText2}</a>`;
+  return `<textarea rows="1" class="syl-cell-input" oninput="autoGrowSyl(this)" onchange="updateSylField('${subjectEsc}',${idx},'${field}',this.value)">${taEsc}</textarea>`;
 }
 
 const CONCEPT_ICONS = [
@@ -1588,7 +1606,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v53';
+const APP_VERSION = 'v54';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');

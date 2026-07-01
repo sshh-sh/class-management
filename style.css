@@ -187,6 +187,16 @@ body{font-family:'Noto Sans KR',sans-serif;font-size:17px;background:#f5f5f5;col
 .syl-multiline{display:flex;flex-direction:column;gap:5px;}
 .syl-cell-line{display:flex;align-items:center;gap:4px;}
 .syl-line-text{flex:1;font-size:inherit;color:inherit;word-break:break-word;line-height:1.4;}
+/* 진도표 셀 textarea — 테두리·배경 없이 일반 텍스트처럼 표시 */
+.syl-cell-input{border:none;background:transparent;resize:none;padding:0;margin:0;width:100%;font-size:inherit;font-family:inherit;color:inherit;line-height:1.5;overflow:hidden;outline:none;min-height:1.5em;}
+.syl-cell-input:focus{background:#f5f3ff;border-radius:3px;outline:none;}
+/* 링크 있는 셀 — 보라색 */
+.syl-text-link{color:#534AB7;text-decoration:underline;word-break:break-all;cursor:pointer;}
+.syl-text-link:hover{color:#3C3489;}
+/* 토스트 알림 */
+.app-toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);background:#323232;color:#fff;padding:10px 22px;border-radius:22px;font-size:14px;opacity:0;pointer-events:none;transition:opacity 0.25s,transform 0.25s;z-index:9999;white-space:nowrap;}
+.app-toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.app-toast.error{background:#c0392b;}
 .upload-box{border:1px dashed #ddd;border-radius:8px;padding:14px;text-align:center;cursor:pointer;margin-top:10px;font-size:17px;color:#aaa;}
 .upload-box:hover{background:#fafafa;}
 
