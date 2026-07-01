@@ -784,23 +784,25 @@ function loadAllTimetables_new(s, lastRow) {
     }
     else if (currentSection === 'hours') {
       if (type === '시수학급') {
-        subjectHoursClasses = allData[i].slice(1).map(v =>
+        // A=마커, B=행레이블, C열~=학급명
+        subjectHoursClasses = allData[i].slice(2).map(v =>
           v instanceof Date ? (v.getMonth()+1)+'-'+v.getDate() : String(v||'').trim()
-        ).filter(Boolean);
+        ).filter(v => v && v !== '시수체크');
       } else if (type === '시수주당1') {
         subjectHoursClasses.forEach((cls, ci) => {
           if (!subjectHoursData[cls]) subjectHoursData[cls] = {};
-          subjectHoursData[cls].s1weekly = parseInt(allData[i][ci+1]) || 0;
+          subjectHoursData[cls].s1weekly = parseInt(allData[i][ci+2]) || 0;
         });
       } else if (type === '시수주당2') {
         subjectHoursClasses.forEach((cls, ci) => {
           if (!subjectHoursData[cls]) subjectHoursData[cls] = {};
-          subjectHoursData[cls].s2weekly = parseInt(allData[i][ci+1]) || 0;
+          subjectHoursData[cls].s2weekly = parseInt(allData[i][ci+2]) || 0;
         });
       }
     }
   }
 
+  // 실제수업 계산
   subjectHoursClasses.forEach(cls => {
     if (!subjectHoursData[cls]) subjectHoursData[cls] = {};
     const d = subjectHoursData[cls];
@@ -810,6 +812,20 @@ function loadAllTimetables_new(s, lastRow) {
     d.s1actual = s1count; d.s2actual = s2count;
     d.s1total17 = (d.s1weekly||0)*17; d.s2total17 = (d.s2weekly||0)*17;
   });
+
+  // 실제수업 시트에 write-back
+  if (subjectHoursClasses.length) {
+    for (let i = 0; i < allData.length; i++) {
+      const t = String(allData[i][0]||'').trim();
+      if (t === '시수실제1' || t === '시수실제2') {
+        const actKey = t === '시수실제1' ? 's1actual' : 's2actual';
+        subjectHoursClasses.forEach((cls, ci) => {
+          const val = (subjectHoursData[cls] && subjectHoursData[cls][actKey]) || 0;
+          s.getRange(i+1, ci+3).setValue(val);
+        });
+      }
+    }
+  }
 
   const classTTList = Object.keys(classTTMap).sort()
     .filter(n => classTTMap[n].some(p => p.some(v => v !== '')))
@@ -930,24 +946,64 @@ function setupNewTimetableSheet() {
   writeSem(yr+'학년도 2학기');
 
   // ── 구역4: 시수계산표 ──
-  s.getRange(row,1,1,7).merge().setValue('[시수계산표] B열에 학급명, C열~에 주당시수 입력 (노란칸)');
-  s.getRange(row,1,1,7).setBackground(BLUE).setFontColor('#fff').setFontWeight('bold');
+  // 구조: A=마커, B=행레이블, C~N=학급12개(노란칸), O=시수체크(합계)
+  var NC = 12; // 학급 최대 개수
+  var CL = function(n) { return String.fromCharCode(64+n); }; // 열번호→문자 (1=A, 3=C...)
+
+  s.getRange(row,1,1,NC+3).merge().setValue('[시수계산표] C열~에 학급명 입력, 노란칸에 주당시수 입력');
+  s.getRange(row,1,1,NC+3).setBackground(BLUE).setFontColor('#fff').setFontWeight('bold');
   row++;
-  s.getRange(row,1,1,7).setValues([['시수학급','학급1','학급2','학급3','학급4','학급5','학급6']]);
-  s.getRange(row,1,1,7).setBackground(GRAY).setFontWeight('bold');
-  row++;
-  s.getRange(row,1,1,7).setValues([['시수주당1','1학기 주당','','','','','']]);
-  s.getRange(row,2,1,6).setBackground(YELLOW);
-  row++;
-  s.getRange(row,1,1,7).setValues([['시수주당2','2학기 주당','','','','','']]);
-  s.getRange(row,2,1,6).setBackground(YELLOW);
+
+  // 학급명 행 (C열~N열 노란칸 직접 입력)
+  var hdr = ['시수학급','학급명']; for(var i=0;i<NC;i++) hdr.push(''); hdr.push('시수체크');
+  s.getRange(row,1,1,NC+3).setValues([hdr]);
+  s.getRange(row,3,1,NC).setBackground(YELLOW);
+  s.getRange(row,NC+3).setValue('시수체크').setBackground(GRAY).setFontWeight('bold').setHorizontalAlignment('center');
+  s.getRange(row,1,1,NC+3).setFontWeight('bold');
+  var r_cls = row; row++;
+
+  // 1학기 주당 (노란칸)
+  s.getRange(row,1).setValue('시수주당1'); s.getRange(row,2).setValue('주당(1학기)');
+  s.getRange(row,3,1,NC).setBackground(YELLOW);
+  s.getRange(row,NC+3).setFormula('=SUM('+CL(3)+row+':'+CL(NC+2)+row+')');
+  var r_w1 = row; row++;
+
+  // 1학기 17주 (자동: 주당×17)
+  s.getRange(row,1).setValue('시수17주1'); s.getRange(row,2).setValue('1학기 17주');
+  for(var c=3;c<=NC+2;c++) s.getRange(row,c).setFormula('='+CL(c)+r_w1+'*17');
+  s.getRange(row,NC+3).setFormula('=SUM('+CL(3)+row+':'+CL(NC+2)+row+')');
+  s.getRange(row,1,1,NC+3).setBackground(GRAY);
+  var r_a1 = row; row++;
+
+  // 1학기 실제수업 (자동: 전체시간표 카운트, GAS가 채움)
+  s.getRange(row,1).setValue('시수실제1'); s.getRange(row,2).setValue('실제수업');
+  s.getRange(row,NC+3).setFormula('=SUM('+CL(3)+row+':'+CL(NC+2)+row+')');
+  s.getRange(row,1,1,NC+3).setBackground(GRAY);
+  var r_r1 = row; row++;
+
+  // 2학기 주당 (노란칸)
+  s.getRange(row,1).setValue('시수주당2'); s.getRange(row,2).setValue('주당(2학기)');
+  s.getRange(row,3,1,NC).setBackground(YELLOW);
+  s.getRange(row,NC+3).setFormula('=SUM('+CL(3)+row+':'+CL(NC+2)+row+')');
+  var r_w2 = row; row++;
+
+  // 2학기 17주 (자동)
+  s.getRange(row,1).setValue('시수17주2'); s.getRange(row,2).setValue('2학기 17주');
+  for(var c2=3;c2<=NC+2;c2++) s.getRange(row,c2).setFormula('='+CL(c2)+r_w2+'*17');
+  s.getRange(row,NC+3).setFormula('=SUM('+CL(3)+row+':'+CL(NC+2)+row+')');
+  s.getRange(row,1,1,NC+3).setBackground(GRAY);
+  var r_a2 = row; row++;
+
+  // 2학기 실제수업 (자동, GAS가 채움)
+  s.getRange(row,1).setValue('시수실제2'); s.getRange(row,2).setValue('실제수업');
+  s.getRange(row,NC+3).setFormula('=SUM('+CL(3)+row+':'+CL(NC+2)+row+')');
+  s.getRange(row,1,1,NC+3).setBackground(GRAY);
 
   // 열 너비
-  s.setColumnWidth(1, 90);
-  s.setColumnWidth(2, 40);
-  s.setColumnWidth(3, 80);
-  for(var ci=4;ci<=33;ci++) s.setColumnWidth(ci, 36);
-  s.setColumnWidth(34, 70);
+  s.setColumnWidth(1, 90);   // A 마커(숨김)
+  s.setColumnWidth(2, 80);   // B 행레이블
+  for(var ci=3;ci<=NC+2;ci++) s.setColumnWidth(ci, 55); // 학급열
+  s.setColumnWidth(NC+3, 70); // 시수체크
   s.hideColumns(1);
 
   SpreadsheetApp.getActiveSpreadsheet().toast('시간표 탭이 4구역 신양식으로 생성되었습니다!', '✅', 5);
