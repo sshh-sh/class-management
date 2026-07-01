@@ -343,7 +343,7 @@ function renderWeek(d, dow) {
 }
 
 function getSyllabusCurrent(cls) {
-  const grade = cls.split('-')[0];
+  const grade = (cls.match(/\((\d+)-/) || [])[1] || cls.split('-')[0];
   for (const subject in syllabusData) {
     const subjGrade = (subject.match(/^(\d+)/) || [])[1];
     if (subjGrade !== grade) continue;
@@ -792,20 +792,25 @@ function sylCell(val, field, r, idx, subjectEsc) {
   // 줄바꿈 분리 (Google Sheets 셀 내 Alt+Enter)
   const lines = strVal.split('\n').map(l => l.trim()).filter(l => l);
 
-  // 멀티라인이거나 runs 여러 개 → 줄별 텍스트/링크 표시
+  // 멀티라인: URL 섞인 경우만 기존 div 방식, 순수 텍스트 멀티라인은 textarea
   if (lines.length > 1 || (runs && runs.length > 1)) {
-    const useRuns = runs && runs.length > 1;
-    const items = useRuns ? runs.map(rn => rn.text) : lines;
-    return `<div class="syl-multiline">${items.map((line, li) => {
-      const run = useRuns ? runs[li] : (runs && runs[li]);
-      const url = (run && run.url) || (line.startsWith('http') ? line : '');
-      const safeUrl = url ? url.replace(/"/g,'&quot;') : '';
-      const safeText = line.replace(/</g,'&lt;').replace(/>/g,'&gt;');
-      if (url) {
-        return `<div class="syl-cell-line"><a href="${safeUrl}" target="_blank" rel="noopener" class="syl-text-link" onclick="event.stopPropagation()">${safeText}</a></div>`;
-      }
-      return `<div class="syl-cell-line"><span class="syl-line-text">${safeText}</span></div>`;
-    }).join('')}</div>`;
+    const hasUrls = (runs && runs.some(rn => rn.url)) || lines.some(l => l.startsWith('http'));
+    if (hasUrls) {
+      const useRuns = runs && runs.length > 1;
+      const items = useRuns ? runs.map(rn => rn.text) : lines;
+      return `<div class="syl-multiline">${items.map((line, li) => {
+        const run = useRuns ? runs[li] : (runs && runs[li]);
+        const url = (run && run.url) || (line.startsWith('http') ? line : '');
+        const safeUrl = url ? url.replace(/"/g,'&quot;') : '';
+        const safeText = line.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        if (url) return `<div class="syl-cell-line"><a href="${safeUrl}" target="_blank" rel="noopener" class="syl-text-link" onclick="event.stopPropagation()">${safeText}</a></div>`;
+        return `<div class="syl-cell-line"><span class="syl-line-text">${safeText}</span></div>`;
+      }).join('')}</div>`;
+    }
+    // URL 없는 멀티라인 → textarea로 편집 가능
+    const joined = lines.join('\n');
+    const taEsc = joined.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return `<textarea rows="${Math.min(lines.length, 5)}" class="syl-cell-input" oninput="autoGrowSyl(this)" onchange="this.classList.add('syl-dirty');updateSylField('${subjectEsc}',${idx},'${field}',this.value)">${taEsc}</textarea>`;
   }
 
   // 단일값: 링크 있으면 보라색 클릭 링크, 없으면 텍스트처럼 보이는 textarea
@@ -930,8 +935,8 @@ function buildSyllabus() {
             </td>
             <td>${sylCell(r.period,'period',r,idx,se)}</td>
             <td style="text-align:center;">${sylCell(r.ch,'ch',r,idx,se)}</td>
-            <td>${r.unitUrl ? `<div style="display:flex;align-items:center;gap:3px;"><a href="${r.unitUrl.replace(/"/g,'&quot;')}" target="_blank" class="syl-link-mini-btn" onclick="event.stopPropagation()" title="링크 열기">🔗</a>${sylCell(r.unit,'unit',r,idx,se)}</div>` : sylCell(r.unit,'unit',r,idx,se)}</td>
-            <td>${r.topicUrl ? `<div style="display:flex;align-items:center;gap:3px;"><a href="${r.topicUrl.replace(/"/g,'&quot;')}" target="_blank" class="syl-link-mini-btn" onclick="event.stopPropagation()" title="링크 열기">🔗</a>${sylCell(r.topic,'topic',r,idx,se)}</div>` : sylCell(r.topic,'topic',r,idx,se)}</td>
+            <td>${r.unitUrl ? `<span class="syl-unit-link" onclick="event.stopPropagation();window.open('${r.unitUrl.replace(/'/g,"\\'").replace(/"/g,'&quot;')}','_blank')">${r.unit||''}</span>` : sylCell(r.unit,'unit',r,idx,se)}</td>
+            <td>${r.topicUrl ? `<span class="syl-unit-link" onclick="event.stopPropagation();window.open('${r.topicUrl.replace(/'/g,"\\'").replace(/"/g,'&quot;')}','_blank')">${r.topic||''}</span>` : sylCell(r.topic,'topic',r,idx,se)}</td>
             <td>${sylCell(r.prep,'prep',r,idx,se)}</td>
             <td>${sylCell(r.memo,'memo',r,idx,se)}</td>
           </tr>`;
@@ -1572,7 +1577,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v64';
+const APP_VERSION = 'v65';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');
