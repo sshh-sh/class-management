@@ -30,6 +30,7 @@ let syllabusData = {};
 let conceptLinksData = {};
 let journalData = [];
 let progressData = [];
+let progSem = 1;
 let sheetsUrl = '';
 let semYear = 2026;
 let timetableEvents = {};
@@ -208,15 +209,6 @@ async function loadUserData() {
     }
   }
 
-  if (!progressData.length) {
-    progressData = [
-      {n:'3학년 과학', done:0, total:50, color:'#B5D4F4', warn:false},
-      {n:'4학년 과학', done:0, total:51, color:'#B5D4F4', warn:false},
-      {n:'5학년 과학', done:0, total:50, color:'#B5D4F4', warn:false},
-      {n:'6학년 과학', done:0, total:51, color:'#F09595', warn:false},
-      {n:'2학년 놀이', done:0, total:50, color:'#C0DD97', warn:false}
-    ];
-  }
 }
 
 async function saveUserData() {
@@ -384,24 +376,75 @@ function getSyllabusCurrent(cls) {
 }
 
 // ==================== 시수 현황 ====================
-function buildProgress() {
-  const card = document.getElementById('prog-card');
-  if (!progressData.length) { card.innerHTML = '<div class="no-lesson">설정에서 시수를 입력하세요</div>'; return; }
-  card.innerHTML = progressData.map(p => {
-    const pct = Math.round(p.done / p.total * 100);
+const SUBJ_KR = { 즐:'놀이', 과:'과학', 국:'국어', 수:'수학', 영:'영어', 도:'도덕', 사:'사회', 체:'체육', 음:'음악', 미:'미술', 실:'실과', 바:'바른생활', 슬:'슬기로운생활' };
+
+function clsDisplayName(cls) {
+  const m = cls.match(/^(.+)\((\d+)-(\d+)\)$/);
+  if (!m) return cls;
+  const subj = m[1].trim(), grade = m[2], classNum = m[3];
+  const kr = SUBJ_KR[subj] || subj;
+  if (subj === '즐') return `${grade}학년 ${classNum}반 ${kr}`;
+  return `${grade}학년 ${kr}`;
+}
+
+function countActualHours(cls, sem) {
+  const today = new Date();
+  today.setHours(23, 59, 59, 999);
+  const weeks = (sem === 1 ? fullTimetableData.s1 : fullTimetableData.s2) || [];
+  let count = 0;
+  for (const w of weeks) {
+    const pm = String(w.period || '').match(/(\d+)[./](\d+)/);
+    if (!pm) continue;
+    const wDate = new Date(semYear, parseInt(pm[1]) - 1, parseInt(pm[2]));
+    if (wDate > today) continue;
+    for (const day of w.days) for (const p of day) if (p === cls) count++;
+  }
+  return count;
+}
+
+window.toggleProgSem = (sem) => {
+  progSem = sem;
+  document.querySelectorAll('.prog-sem-btn').forEach(b => b.classList.toggle('active', parseInt(b.dataset.sem) === sem));
+  renderProgressRows();
+};
+
+function renderProgressRows() {
+  const body = document.getElementById('prog-rows');
+  if (!body) return;
+  const semKey = progSem === 1 ? 's1base' : 's2base';
+  const classes = subjectHoursClasses.length ? subjectHoursClasses : [];
+  if (!classes.length) { body.innerHTML = '<div class="no-lesson">구글시트 연동 후 시수 데이터를 불러오세요</div>'; return; }
+  body.innerHTML = classes.map(cls => {
+    const d = subjectHoursData[cls] || {};
+    const total = d[semKey] || 0;
+    const done = countActualHours(cls, progSem);
+    const pct = total ? Math.min(100, Math.round(done / total * 100)) : 0;
+    const over = done > total && total > 0;
+    const color = over ? '#F09595' : '#B5D4F4';
     return `<div class="prog-row">
-      <div class="prog-name">${p.n}</div>
+      <div class="prog-name">${clsDisplayName(cls)}</div>
       <div class="prog-track">
-        <div class="prog-fill" style="width:${pct}%;background:${p.color};">
+        <div class="prog-fill" style="width:${pct}%;background:${color};">
           <div class="prog-runner"><img src="images/hwanayong.jpg" alt="화나용"></div>
         </div>
       </div>
       <div class="prog-info">
-        <div class="prog-num">${p.done}/${p.total}h</div>
-        ${p.warn || pct > 80 ? '<div class="prog-warn">시수주의</div>' : ''}
+        <div class="prog-num">${done}/${total}h</div>
+        ${over ? '<div class="prog-warn">초과</div>' : ''}
       </div>
     </div>`;
   }).join('');
+}
+
+function buildProgress() {
+  const card = document.getElementById('prog-card');
+  card.innerHTML = `
+    <div class="prog-sem-bar">
+      <button class="prog-sem-btn active" data-sem="1" onclick="toggleProgSem(1)">1학기</button>
+      <button class="prog-sem-btn" data-sem="2" onclick="toggleProgSem(2)">2학기</button>
+    </div>
+    <div id="prog-rows"></div>`;
+  renderProgressRows();
 }
 
 // ==================== 수업일지 팝업 ====================
@@ -1626,7 +1669,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v68';
+const APP_VERSION = 'v69';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');
