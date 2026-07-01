@@ -940,11 +940,18 @@ function loadSyllabus(userId, subject) {
 function saveSyllabus(userId, subject, sylData) {
   const s = jm_syllabusSheet();
   const data = s.getDataRange().getValues();
-  for (let i = data.length - 1; i >= 1; i--) {
-    if (String(data[i][1]||'').trim() === subject) s.deleteRow(i + 1);
+
+  // 과목+순서로 기존 행 위치 맵 생성 (순서 C열=index 2)
+  const rowMap = {}; // 순서번호 → sheet row번호(1-based)
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][1]||'').trim() !== subject) continue;
+    const ord = String(data[i][2]||'').trim();
+    if (ord) rowMap[ord] = i + 1;
   }
+
   sylData.forEach((item, idx) => {
-    s.appendRow([
+    const ord = String(idx + 1);
+    const values = [
       item.done ? '완료' : '할일',
       subject,
       idx + 1,
@@ -954,7 +961,25 @@ function saveSyllabus(userId, subject, sylData) {
       item.topic || '',
       item.prep || '',
       item.memo || ''
-    ]);
+    ];
+
+    if (rowMap[ord]) {
+      // 기존 행 A~I열만 덮어쓰기 (J열 이후 K~N 보존)
+      s.getRange(rowMap[ord], 1, 1, 9).setValues([values]);
+      // F열(단원) 하이퍼링크 복원
+      if (item.unitUrl) {
+        const rtv = SpreadsheetApp.newRichTextValue()
+          .setText(item.unit || '')
+          .setLinkUrl(item.unitUrl)
+          .build();
+        s.getRange(rowMap[ord], 6).setRichTextValue(rtv);
+      }
+    }
+    // 시트에 없는 행이면 추가 (신규)
+    else {
+      s.appendRow(values);
+    }
   });
+
   return {success:true};
 }
