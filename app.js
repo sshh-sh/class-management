@@ -14,7 +14,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
 // GAS API URL
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbydLUJ4k9vXicJxIxzM5WanCx3iB09Nu4M5Couu7H4CaNLP9Vc5scyQPhCQ9PGzy0-y/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzV_ZMhbMwDrsGQxWk9UEdxmz_1KTW5laleZLX1_DOfhbFMk0r0zaskAgYQIJwOOy3-/exec';
 
 const TIMES = ['09:00~09:40','09:50~10:30','10:40~11:20','11:30~12:10','13:00~13:40','13:50~14:30'];
 const DAY_NAMES = ['일','월','화','수','목','금','토'];
@@ -123,6 +123,7 @@ async function initApp() {
   renderClassTTs();
   buildFullTimetable();
   buildSyllabus();
+  buildSubjectHoursFromGAS();
   filterJournal();
   updateJournalFilter();
 
@@ -318,8 +319,10 @@ function renderWeek(d, dow) {
   }
   const wc = document.getElementById('week-content');
   if (!slots.length) { wc.innerHTML = '<div class="no-lesson">수업이 없습니다</div>'; return; }
-  wc.innerHTML = slots.map(s => {
+  wc.innerHTML = slots.map((s, idx) => {
+    const isLast = idx === slots.length - 1;
     const syl = getSyllabusCurrent(s.cls);
+    const nextSyl = isLast ? getSyllabusNext(s.cls) : null;
     const linkHtml = syl && syl.links ? syl.links.split('|').map(pair => {
       const ci = pair.indexOf(',');
       if (ci < 0) return '';
@@ -327,7 +330,11 @@ function renderWeek(d, dow) {
       if (!url) return '';
       return `<a href="${url.replace(/"/g,'&quot;')}" target="_blank" class="lesson-link-btn">${text || url}</a>`;
     }).filter(Boolean).join('') : '';
-    return `<div class="lesson-item">
+    const nextHtml = nextSyl ? `<div class="lesson-next">
+      <div class="next-topic">${nextSyl.topic || ''}</div>
+      <div class="next-prep">${[nextSyl.prep ? '준비물: ' + nextSyl.prep : '', nextSyl.memo].filter(Boolean).join(' | ')}</div>
+    </div>` : '';
+    return `<div class="lesson-item${isLast && nextSyl ? ' has-next' : ''}">
       <div class="lesson-left">
         <div class="lesson-period">${s.p}교시</div>
         <div class="lesson-time">${TIMES[s.p-1].replace('~','~<br>')}</div>
@@ -338,8 +345,27 @@ function renderWeek(d, dow) {
         <div class="lesson-prep">${syl && (syl.prep || syl.memo) ? [syl.prep ? '준비물: ' + syl.prep : '', syl.memo].filter(Boolean).join(' | ') : ''}</div>
         ${linkHtml ? `<div class="lesson-links">${linkHtml}</div>` : ''}
       </div>
+      ${nextHtml}
     </div>`;
   }).join('');
+}
+
+function getSyllabusNext(cls) {
+  const grade = (cls.match(/\((\d+)-/) || [])[1] || cls.split('-')[0];
+  for (const subject in syllabusData) {
+    const subjGrade = (subject.match(/^(\d+)/) || [])[1];
+    if (subjGrade !== grade) continue;
+    const items = syllabusData[subject];
+    if (!items || !items.length) continue;
+    let foundFirst = false;
+    for (const item of items) {
+      if (!isDone(item)) {
+        if (foundFirst) return { topic: item.topic || '', prep: item.prep || '', memo: item.memo || '' };
+        foundFirst = true;
+      }
+    }
+  }
+  return null;
 }
 
 function getSyllabusCurrent(cls) {
@@ -1577,7 +1603,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v65';
+const APP_VERSION = 'v66';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');

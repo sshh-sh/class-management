@@ -5,6 +5,7 @@
  *
  * [수정사항] writeKaoSheet에서 시트 전체를 지우던 것을 A~J열까지만 지우도록 변경
  *           → L열 이후 메모 영역은 더 이상 삭제되지 않음
+ * GAS v87: [학급시간표]/[시수계산표] 섹션 헤더 startsWith 매칭 수정, saveDoneFlag 추가
  * GAS v82: setupTimetableTemplate/loadAllTimetables_legacy 구양식 코드 삭제
  * GAS v81: jm_syllabusSheet 헤더/마이그레이션을 A=완료,B=과목 순서로 수정
  *          (saveSyllabus/loadAll과 컬럼 순서 불일치 → 구글시트연동 결과 이상 버그 수정)
@@ -53,6 +54,8 @@ function doPost(e) {
         result = loadSyllabus(userId, data.subject);
       } else if (action === 'saveSyllabus') {
         result = saveSyllabus(userId, data.subject, data.sylData);
+      } else if (action === 'saveDoneFlag') {
+        result = saveDoneFlag(userId, data.subject, data.index, data.done);
       } else if (action === 'setupTimetableSheet') {
         const ss2 = jm_getSpreadsheet();
         const ts = ss2.getSheetByName('시간표') || ss2.insertSheet('시간표');
@@ -555,13 +558,13 @@ function loadAllTimetables_new(s, lastRow) {
     if (!type) continue;
 
     if (type === '[내시간표]') { currentSection = 'mytt'; continue; }
-    if (type === '[학급시간표]') { currentSection = 'classtt'; continue; }
+    if (type.startsWith('[학급시간표]')) { currentSection = 'classtt'; continue; }
     if (type.startsWith('[전체시간표]')) {
       currentSection = 'fulltt';
       currentSemKey = type.includes('2학기') ? 's2' : 's1';
       continue;
     }
-    if (type === '[시수계산표]') { currentSection = 'hours'; continue; }
+    if (type.startsWith('[시수계산표]')) { currentSection = 'hours'; continue; }
 
     if (currentSection === 'mytt') {
       if (type !== '내시간표') continue;
@@ -626,6 +629,7 @@ function loadAllTimetables_new(s, lastRow) {
     fullTimetable.s2.forEach(w => { if (w.days.some(day => day.some(p => p === cls))) s2count++; });
     d.s1actual = s1count; d.s2actual = s2count;
     d.s1total17 = (d.s1weekly||0)*17; d.s2total17 = (d.s2weekly||0)*17;
+    d.check = d.s1total17 + d.s2total17;
   });
 
   // 실제수업 시트에 write-back
@@ -940,6 +944,21 @@ function loadSyllabus(userId, subject) {
     });
   }
   return {success:true, items};
+}
+
+function saveDoneFlag(userId, subject, index, done) {
+  const s = jm_syllabusSheet();
+  const data = s.getDataRange().getValues();
+  let count = 0;
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][1]||'').trim() !== subject) continue;
+    if (count === index) {
+      s.getRange(i + 1, 1).setValue(done ? '완료' : '할일');
+      return { success: true };
+    }
+    count++;
+  }
+  return { success: false, message: '행을 찾을 수 없습니다' };
 }
 
 function saveSyllabus(userId, subject, sylData) {
