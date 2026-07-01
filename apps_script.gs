@@ -860,6 +860,100 @@ function loadAllTimetables_legacy(s, lastRow) {
            fullTimetable:{s1:[],s2:[]}, subjectHoursClasses:[] };
 }
 
+// ==================== 시간표 시트 4구역 신양식 생성 ====================
+function setupNewTimetableSheet() {
+  const ss = jm_getSpreadsheet();
+  let s = ss.getSheetByName('시간표');
+  if (s) ss.deleteSheet(s);
+  s = ss.insertSheet('시간표');
+  const BLUE = '#185FA5', BLUE_L = '#E6F1FB', YELLOW = '#FAEEDA', GRAY = '#F5F5F5';
+  const yr = new Date().getFullYear();
+  let row = 1;
+  const DAYS = ['월','화','수','목','금'];
+
+  // ── 구역1: 내 시간표 ──
+  s.getRange(row,1,1,7).setValues([['[내시간표]','교시','월','화','수','목','금']]);
+  s.getRange(row,1,1,7).setBackground(BLUE).setFontColor('#fff').setFontWeight('bold');
+  row++;
+  for (var p=1;p<=6;p++) {
+    s.getRange(row,1,1,7).setValues([['내시간표',p+'교시','','','','','']]);
+    s.getRange(row,3,1,5).setBackground(YELLOW);
+    row++;
+  }
+  row += 2;
+
+  // ── 구역2: 학급시간표 ──
+  s.getRange(row,1,1,7).merge().setValue('[학급시간표] [학급] 행의 B열에 학급명 입력, 노란칸에 시간표 입력');
+  s.getRange(row,1,1,7).setBackground(BLUE).setFontColor('#fff').setFontWeight('bold');
+  row++;
+  ['3-1','4-1'].forEach(function(cls) {
+    s.getRange(row,1,1,7).setValues([['[학급]',cls,'월','화','수','목','금']]);
+    s.getRange(row,1,1,7).setBackground(BLUE_L).setFontColor(BLUE).setFontWeight('bold');
+    row++;
+    for (var p2=1;p2<=6;p2++) {
+      s.getRange(row,1,1,7).setValues([['학급행',p2+'교시','','','','','']]);
+      s.getRange(row,3,1,5).setBackground(YELLOW);
+      row++;
+    }
+    row++;
+  });
+  row++;
+
+  // ── 구역3: 전체시간표 (1학기) ──
+  var h1 = ['전체헤더','주','기간'];
+  DAYS.forEach(function(d){h1.push(d);for(var i=0;i<5;i++)h1.push('');});
+  h1.push('비고');
+  var h2 = ['전체헤더2','',''];
+  for(var d2=0;d2<5;d2++) for(var p3=1;p3<=6;p3++) h2.push(String(p3));
+  h2.push('');
+
+  function writeSem(semLabel) {
+    s.getRange(row,1,1,34).merge().setValue('[전체시간표] '+semLabel);
+    s.getRange(row,1,1,34).setBackground(BLUE).setFontColor('#fff').setFontWeight('bold');
+    row++;
+    s.getRange(row,1,1,34).setValues([h1]);
+    for(var d=0;d<5;d++) s.getRange(row,4+d*6,1,6).merge();
+    s.getRange(row,1,1,34).setBackground(BLUE_L).setFontColor(BLUE).setFontWeight('bold').setHorizontalAlignment('center');
+    row++;
+    s.getRange(row,1,1,34).setValues([h2]);
+    s.getRange(row,1,1,34).setBackground(BLUE_L).setFontColor(BLUE).setHorizontalAlignment('center');
+    row++;
+    for(var w=1;w<=20;w++) {
+      var rd = [String(w), w, ''].concat(Array(30).fill('')).concat(['']);
+      s.getRange(row,1,1,34).setValues([rd]);
+      s.getRange(row,3,1,31).setBackground(YELLOW);
+      row++;
+    }
+    row += 3;
+  }
+  writeSem(yr+'학년도 1학기');
+  writeSem(yr+'학년도 2학기');
+
+  // ── 구역4: 시수계산표 ──
+  s.getRange(row,1,1,7).merge().setValue('[시수계산표] B열에 학급명, C열~에 주당시수 입력 (노란칸)');
+  s.getRange(row,1,1,7).setBackground(BLUE).setFontColor('#fff').setFontWeight('bold');
+  row++;
+  s.getRange(row,1,1,7).setValues([['시수학급','학급1','학급2','학급3','학급4','학급5','학급6']]);
+  s.getRange(row,1,1,7).setBackground(GRAY).setFontWeight('bold');
+  row++;
+  s.getRange(row,1,1,7).setValues([['시수주당1','1학기 주당','','','','','']]);
+  s.getRange(row,2,1,6).setBackground(YELLOW);
+  row++;
+  s.getRange(row,1,1,7).setValues([['시수주당2','2학기 주당','','','','','']]);
+  s.getRange(row,2,1,6).setBackground(YELLOW);
+
+  // 열 너비
+  s.setColumnWidth(1, 90);
+  s.setColumnWidth(2, 40);
+  s.setColumnWidth(3, 80);
+  for(var ci=4;ci<=33;ci++) s.setColumnWidth(ci, 36);
+  s.setColumnWidth(34, 70);
+  s.hideColumns(1);
+
+  SpreadsheetApp.getActiveSpreadsheet().toast('시간표 탭이 4구역 신양식으로 생성되었습니다!', '✅', 5);
+  return { success: true };
+}
+
 function saveTimetables(userId, myTT, classTTList, events) {
   const s = jm_timetableSheet();
 
