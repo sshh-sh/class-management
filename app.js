@@ -897,7 +897,7 @@ function buildSyllabus() {
   const tabBar = document.getElementById('syllabus-tabs');
   const content = document.getElementById('syllabus-content');
   tabBar.innerHTML = subjects.map((s, i) =>
-    `<button class="sub-tab${i===0?' active':''}" onclick="switchSyllabus('${s.replace(/'/g,"\\'")}',this)">${s}<span class="sub-tab-x" onclick="event.stopPropagation();deleteSyllabusSubject('${s.replace(/'/g,"\\'")}')">×</span></button>`
+    `<button class="sub-tab${i===0?' active':''}" onclick="switchSyllabus('${s.replace(/'/g,"\\'")}',this)">${s}</button>`
   ).join('');
   if (!subjects.length) {
     content.innerHTML = '<div style="font-size:15px;color:#aaa;padding:20px 0;">위의 <b>+ 과목 추가</b> 버튼으로 과목을 등록하거나, CSV 업로드 또는 구글 시트 연동을 이용하세요.</div>';
@@ -1612,7 +1612,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v57';
+const APP_VERSION = 'v58';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');
