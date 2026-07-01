@@ -5,6 +5,7 @@
  *
  * [수정사항] writeKaoSheet에서 시트 전체를 지우던 것을 A~J열까지만 지우도록 변경
  *           → L열 이후 메모 영역은 더 이상 삭제되지 않음
+ * GAS v88: 시수계산표 기준시수(s1base/s2base) 방식 전환, 실제시수 셀 개수 합산으로 변경
  * GAS v87: [학급시간표]/[시수계산표] 섹션 헤더 startsWith 매칭 수정, saveDoneFlag 추가
  * GAS v82: setupTimetableTemplate/loadAllTimetables_legacy 구양식 코드 삭제
  * GAS v81: jm_syllabusSheet 헤더/마이그레이션을 A=완료,B=과목 순서로 수정
@@ -606,15 +607,15 @@ function loadAllTimetables_new(s, lastRow) {
         subjectHoursClasses = allData[i].slice(2).map(v =>
           v instanceof Date ? (v.getMonth()+1)+'-'+v.getDate() : String(v||'').trim()
         ).filter(v => v && v !== '시수체크');
-      } else if (type === '시수주당1') {
+      } else if (type === '시수기준1') {
         subjectHoursClasses.forEach((cls, ci) => {
           if (!subjectHoursData[cls]) subjectHoursData[cls] = {};
-          subjectHoursData[cls].s1weekly = parseInt(allData[i][ci+2]) || 0;
+          subjectHoursData[cls].s1base = parseInt(allData[i][ci+2]) || 0;
         });
-      } else if (type === '시수주당2') {
+      } else if (type === '시수기준2') {
         subjectHoursClasses.forEach((cls, ci) => {
           if (!subjectHoursData[cls]) subjectHoursData[cls] = {};
-          subjectHoursData[cls].s2weekly = parseInt(allData[i][ci+2]) || 0;
+          subjectHoursData[cls].s2base = parseInt(allData[i][ci+2]) || 0;
         });
       }
     }
@@ -625,11 +626,10 @@ function loadAllTimetables_new(s, lastRow) {
     if (!subjectHoursData[cls]) subjectHoursData[cls] = {};
     const d = subjectHoursData[cls];
     let s1count = 0, s2count = 0;
-    fullTimetable.s1.forEach(w => { if (w.days.some(day => day.some(p => p === cls))) s1count++; });
-    fullTimetable.s2.forEach(w => { if (w.days.some(day => day.some(p => p === cls))) s2count++; });
+    fullTimetable.s1.forEach(w => { w.days.forEach(day => { day.forEach(p => { if (p === cls) s1count++; }); }); });
+    fullTimetable.s2.forEach(w => { w.days.forEach(day => { day.forEach(p => { if (p === cls) s2count++; }); }); });
     d.s1actual = s1count; d.s2actual = s2count;
-    d.s1total17 = (d.s1weekly||0)*17; d.s2total17 = (d.s2weekly||0)*17;
-    d.check = d.s1total17 + d.s2total17;
+    d.check = (d.s1base||0) + (d.s2base||0);
   });
 
   // 실제수업 시트에 write-back

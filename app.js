@@ -14,7 +14,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
 // GAS API URL
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbzV_ZMhbMwDrsGQxWk9UEdxmz_1KTW5laleZLX1_DOfhbFMk0r0zaskAgYQIJwOOy3-/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbwAXsVansP19jNFv5fmmha1j5hD6aZD6KnUqK6tOyP6Sxb8P3j-rCtv9W8NTRkNbCx_/exec';
 
 const TIMES = ['09:00~09:40','09:50~10:30','10:40~11:20','11:30~12:10','13:00~13:40','13:50~14:30'];
 const DAY_NAMES = ['일','월','화','수','목','금','토'];
@@ -793,16 +793,20 @@ function buildSubjectHoursFromGAS() {
   }
   let html = `<table class="tt-hours-table"><thead><tr>
     <th style="text-align:left;">학급</th>
-    <th>1학기 주당</th><th>×17주</th><th>실제수업</th>
-    <th>2학기 주당</th><th>×17주</th><th>실제수업</th>
+    <th>1학기 기준</th><th>1학기 실제</th>
+    <th>2학기 기준</th><th>2학기 실제</th>
     <th>시수체크</th>
   </tr></thead><tbody>`;
   subjectHoursClasses.forEach(cls => {
     const d = subjectHoursData[cls] || {};
+    const s1diff = (d.s1actual||0) - (d.s1base||0);
+    const s2diff = (d.s2actual||0) - (d.s2base||0);
+    const s1color = s1diff < 0 ? 'color:#e53935' : s1diff > 0 ? 'color:#2e7d32' : '';
+    const s2color = s2diff < 0 ? 'color:#e53935' : s2diff > 0 ? 'color:#2e7d32' : '';
     html += `<tr>
       <td class="row-subject">${cls}</td>
-      <td>${d.s1weekly||0}</td><td>${d.s1total17||0}</td><td>${d.s1actual||0}</td>
-      <td>${d.s2weekly||0}</td><td>${d.s2total17||0}</td><td>${d.s2actual||0}</td>
+      <td>${d.s1base||0}</td><td style="${s1color}"><b>${d.s1actual||0}</b></td>
+      <td>${d.s2base||0}</td><td style="${s2color}"><b>${d.s2actual||0}</b></td>
       <td><b>${d.check||0}</b></td>
     </tr>`;
   });
@@ -1622,7 +1626,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v67';
+const APP_VERSION = 'v68';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');
