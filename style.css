@@ -270,9 +270,11 @@ body{font-family:'Noto Sans KR',sans-serif;font-size:17px;background:#f5f5f5;col
 .link-btn:hover{background:#534AB7;color:#fff;border-color:#534AB7;}
 
 /* ==================== 개념 아이콘 바 ==================== */
-.syl-row1{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 0 6px;flex-wrap:wrap;}
+.syl-row1{display:flex;align-items:center;gap:8px;padding:8px 0 6px;flex-wrap:wrap;}
 .syl-row1 .sub-tab-bar{display:flex;gap:6px;flex-wrap:wrap;border:none;margin:0;padding:0;}
-.concept-icons-bar{display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap;padding:4px 0 10px;}
+.concept-icons-bar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:0;}
+.syl-col-resizer{position:absolute;right:-3px;top:0;width:6px;height:100%;cursor:col-resize;z-index:1;background:transparent;}
+.syl-col-resizer:hover{background:rgba(83,74,183,0.25);border-radius:2px;}
 .concept-icon-btn{display:flex;flex-direction:column;align-items:center;gap:4px;cursor:default;position:relative;}
 .concept-icon-circle{width:42px;height:42px;border-radius:50%;border:1px solid transparent;display:flex;align-items:center;justify-content:center;transition:filter 0.15s;}
 .concept-icon-btn:hover .concept-icon-circle{filter:brightness(0.93);}
