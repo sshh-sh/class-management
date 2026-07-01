@@ -1072,7 +1072,13 @@ window.switchSyllabus = (name, el) => {
 window.toggleDone = async (subject, idx, checked) => {
   if (!syllabusData[subject]?.[idx]) return;
   syllabusData[subject][idx].done = checked;
+  const activeTab = document.querySelector('.sub-tab.active');
+  const activeName = activeTab ? activeTab.textContent.replace(/×$/, '').trim() : null;
   buildSyllabus();
+  if (activeName) {
+    const tab = [...document.querySelectorAll('.sub-tab')].find(t => t.textContent.replace(/×$/, '').trim() === activeName);
+    if (tab) switchSyllabus(activeName, tab);
+  }
   if (selectedDate) renderWeek(selectedDate, selectedDow); // 메인 카드 진도 즉시 갱신
   // 완료(A열)만 구글시트에 즉시 반영 — 내용/구조는 안 건드림(안전 경로)
   let synced = false;
@@ -1606,7 +1612,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v56';
+const APP_VERSION = 'v57';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');
