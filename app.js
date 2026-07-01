@@ -778,17 +778,23 @@ function sylCell(val, field, r, idx, subjectEsc) {
     return `<div class="syl-multiline">${items.map((line, li) => {
       const run = useRuns ? runs[li] : (runs && runs[li]);
       const url = (run && run.url) || (line.startsWith('http') ? line : '');
-      const linkBtn = url ? `<a href="${url.replace(/"/g,'&quot;')}" target="_blank" rel="noopener" class="syl-link-btn" title="링크 열기">🔗</a>` : '';
-      return `<div class="syl-cell-line"><span class="syl-line-text">${line.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span>${linkBtn}</div>`;
+      const safeUrl = url ? url.replace(/"/g,'&quot;') : '';
+      const safeText = line.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      if (url) {
+        return `<div class="syl-cell-line"><a href="${safeUrl}" target="_blank" rel="noopener" class="syl-text-link" onclick="event.stopPropagation()">${safeText}</a></div>`;
+      }
+      return `<div class="syl-cell-line"><span class="syl-line-text">${safeText}</span></div>`;
     }).join('')}</div>`;
   }
 
-  const esc = strVal.replace(/"/g,'&quot;');
   const url = (runs && runs[0] && runs[0].url) ||
               (field === 'memo' && strVal.startsWith('http') ? strVal : '');
-  const inp = `<input value="${esc}" style="width:100%;border:none;font-size:inherit;background:transparent;" onchange="updateSylField('${subjectEsc}',${idx},'${field}',this.value)">`;
+  // 자동 높이 textarea: 짧으면 한 줄, 길면 자동 줄바꿈+높이 증가
+  const taEsc = strVal.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const inp = `<textarea rows="1" class="syl-cell-input" oninput="autoGrowSyl(this)" onchange="updateSylField('${subjectEsc}',${idx},'${field}',this.value)">${taEsc}</textarea>`;
   if (!url) return inp;
-  return `<div class="syl-cell-link">${inp}<a href="${url.replace(/"/g,'&quot;')}" target="_blank" rel="noopener" class="syl-link-btn" title="링크 열기">🔗</a></div>`;
+  const safeText2 = strVal.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return `<a href="${url.replace(/"/g,'&quot;')}" target="_blank" rel="noopener" class="syl-text-link" onclick="event.stopPropagation()">${safeText2}</a>`;
 }
 
 const CONCEPT_ICONS = [
@@ -808,69 +814,98 @@ function buildConceptIcons() {
   const bar = document.getElementById('concept-icons-bar');
   if (!bar) return;
   bar.innerHTML = CONCEPT_ICONS.map(c => {
-    const links = conceptLinksData[c.key] || [];
-    const popupRows = links.map(lk => {
-      const safeUrl = lk.url.replace(/"/g,'&quot;');
-      const safeTopic = (lk.topic||lk.url).replace(/</g,'&lt;').replace(/>/g,'&gt;');
-      const safeSubcat = (lk.subcat||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-      return `<div class="concept-popup-row" onclick="window.open('${safeUrl}','_blank')">
-        ${safeSubcat ? `<span class="concept-popup-tag">${safeSubcat}</span>` : ''}
-        <span class="concept-popup-topic">${safeTopic}</span>
-      </div>`;
-    }).join('');
-    const hasLinks = links.length > 0;
-    return `<div class="concept-icon-btn">
+    const hasLinks = (conceptLinksData[c.key] || []).length > 0;
+    const key = c.key.replace(/'/g,"\\'");
+    return `<div class="concept-icon-btn"${hasLinks ? ` onmouseenter="showConceptOverlay('${key}',event)" onmouseleave="scheduleHideConceptOverlay()"` : ''}>
       <div class="concept-icon-circle" style="background:${c.bg};border-color:${c.color}40;">
         <i class="ti ${c.icon}" style="color:${c.color};font-size:18px;" aria-hidden="true"></i>
       </div>
       <span class="concept-icon-label">${c.key}</span>
-      ${hasLinks ? `<div class="concept-popup">${popupRows}</div>` : ''}
     </div>`;
   }).join('');
 }
+
+let _conceptHideTimer = null;
+
+window.showConceptOverlay = (key, ev) => {
+  clearTimeout(_conceptHideTimer);
+  const links = conceptLinksData[key] || [];
+  if (!links.length) return;
+  const overlay = document.getElementById('concept-overlay');
+  const body = document.getElementById('concept-overlay-body');
+  document.getElementById('concept-overlay-title').textContent = key;
+  body.innerHTML = links.map(lk => {
+    const safeUrl = lk.url.replace(/"/g,'&quot;');
+    const safeTopic = (lk.topic||lk.url).replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const safeSubcat = (lk.subcat||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return `<div class="concept-popup-row" onclick="window.open('${safeUrl}','_blank')">
+      ${safeSubcat ? `<span class="concept-popup-tag">${safeSubcat}</span>` : ''}
+      <span class="concept-popup-topic">${safeTopic}</span>
+    </div>`;
+  }).join('');
+  overlay.style.display = 'flex';
+
+  // 호버한 아이콘 바로 아래에 팝업 위치 (화면 밖으로 넘치지 않게 보정)
+  const iconEl = ev && (ev.currentTarget || ev.target);
+  if (iconEl && iconEl.getBoundingClientRect) {
+    const r = iconEl.getBoundingClientRect();
+    const ow = overlay.offsetWidth || 320;
+    let left = r.left;
+    if (left + ow > window.innerWidth - 8) left = window.innerWidth - ow - 8;
+    if (left < 8) left = 8;
+    overlay.style.left = left + 'px';
+    overlay.style.top = (r.bottom + 4) + 'px';
+    overlay.style.transform = 'none';
+  }
+};
+
+window.scheduleHideConceptOverlay = () => {
+  _conceptHideTimer = setTimeout(() => {
+    const overlay = document.getElementById('concept-overlay');
+    if (overlay) overlay.style.display = 'none';
+  }, 200);
+};
+
+window.cancelHideConceptOverlay = () => { clearTimeout(_conceptHideTimer); };
+
+window.hideConceptOverlay = () => {
+  clearTimeout(_conceptHideTimer);
+  const overlay = document.getElementById('concept-overlay');
+  if (overlay) overlay.style.display = 'none';
+};
 
 function buildSyllabus() {
   const subjects = Object.keys(syllabusData);
   const tabBar = document.getElementById('syllabus-tabs');
   const content = document.getElementById('syllabus-content');
-  const activeTabEl = tabBar.querySelector('.sub-tab.active');
-  const activeName = activeTabEl ? activeTabEl.textContent : null;
   tabBar.innerHTML = subjects.map((s, i) =>
-    `<button class="sub-tab${((!activeName && i===0) || s===activeName) ? ' active' : ''}" onclick="switchSyllabus('${s.replace(/'/g,"\\'")}',this)">${s}</button>`
+    `<button class="sub-tab${i===0?' active':''}" onclick="switchSyllabus('${s.replace(/'/g,"\\'")}',this)">${s}<span class="sub-tab-x" onclick="event.stopPropagation();deleteSyllabusSubject('${s.replace(/'/g,"\\'")}')">×</span></button>`
   ).join('');
   if (!subjects.length) {
     content.innerHTML = '<div style="font-size:15px;color:#aaa;padding:20px 0;">위의 <b>+ 과목 추가</b> 버튼으로 과목을 등록하거나, CSV 업로드 또는 구글 시트 연동을 이용하세요.</div>';
     return;
   }
   content.innerHTML = subjects.map((s, i) => {
-    const isActive = (!activeName && i===0) || s===activeName;
     const sId = s.replace(/ /g,'_').replace(/'/g,'');
-    return `<div class="sub-content${isActive ? ' active' : ''}" id="syl-${sId}">
-      <div style="display:flex;justify-content:flex-end;gap:6px;margin-bottom:8px;">
-        <button class="btn-xs" onclick="deleteSyllabusSubject('${s.replace(/'/g,"\\'")}')">🗑 과목 삭제</button>
-      </div>
+    const sAttr = s.replace(/"/g,'&quot;');
+    const sEsc = s.replace(/'/g,"\\'");
+    const ths = SYL_COLS.map((c, ci) =>
+      `<th style="${c.style}position:relative;">${c.label}${ci < SYL_COLS.length-1
+        ? `<span class="syl-col-resizer" onmousedown="startSylColResize(event,this,'${sEsc}',${ci})" onclick="event.stopPropagation()"></span>` : ''}</th>`
+    ).join('');
+    return `<div class="sub-content${i===0?' active':''}" id="syl-${sId}">
       <div class="table-wrap">
-      <table class="syl-table">
-        <thead><tr>
-          <th style="width:44px;text-align:center;">완료</th>
-          <th style="width:44px;text-align:center;">순서</th>
-          <th style="width:80px;">기간</th>
-          <th style="width:52px;text-align:center;">차시</th>
-          <th style="width:22%;">단원</th>
-          <th style="width:20%;">학습주제</th>
-          <th style="width:10%;">준비물</th>
-          <th>메모</th>
-        </tr></thead>
+      <table class="syl-table" data-subject="${sAttr}">
+        <thead><tr>${ths}</tr></thead>
         <tbody>${(syllabusData[s]||[]).map((r,idx) => {
           const done = isDone(r);
           const se = s.replace(/'/g,"\\'");
-          const hasLinks = !!(r.links && r.links.trim());
           const linksEsc = (r.links||'').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
           return `<tr class="${done ? 'syl-done-row' : ''}" onclick="selectSylRow('${se}',${idx},'${linksEsc}')" style="cursor:pointer;">
             <td style="text-align:center;"><input type="checkbox" class="syl-done-check" ${done ? 'checked' : ''} onchange="toggleDone('${se}',${idx},this.checked)" onclick="event.stopPropagation()"></td>
             <td style="text-align:center;" class="syl-seq-cell">
               <span class="syl-seq">${idx+1}</span>
-              ${hasLinks ? `<button class="syl-link-icon" onclick="event.stopPropagation();openSylLinkEditor('${se}',${idx})" title="링크 편집">🔗</button>` : `<button class="syl-link-icon syl-link-empty" onclick="event.stopPropagation();openSylLinkEditor('${se}',${idx})" title="링크 추가">+</button>`}
+              <button class="syl-link-icon syl-link-empty" onclick="event.stopPropagation();openSylLinkEditor('${se}',${idx})" title="링크 추가/편집">+</button>
             </td>
             <td>${sylCell(r.period,'period',r,idx,se)}</td>
             <td style="text-align:center;">${sylCell(r.ch,'ch',r,idx,se)}</td>
@@ -886,12 +921,81 @@ function buildSyllabus() {
       <button class="btn-xs" style="margin-top:8px;" onclick="addSyllabusRow('${s.replace(/'/g,"\\'")}')">+ 행 추가</button>
     </div>`;
   }).join('');
+  applyAllSylColWidths();
+  // 진도표 셀 textarea 초기 높이 맞추기
+  document.querySelectorAll('#syllabus-content .syl-cell-input').forEach(autoGrowSyl);
 }
+
+// 진도표 셀 textarea 자동 높이 조절
+window.autoGrowSyl = (el) => {
+  el.style.height = 'auto';
+  el.style.height = (el.scrollHeight) + 'px';
+};
+
+// 진도표 컬럼 너비 — 과목별 localStorage 저장
+const SYL_COLS = [
+  { label:'완료',   style:'width:44px;text-align:center;' },
+  { label:'순서',   style:'width:44px;text-align:center;' },
+  { label:'기간',   style:'width:80px;' },
+  { label:'차시',   style:'width:52px;text-align:center;' },
+  { label:'단원',   style:'width:22%;' },
+  { label:'학습주제', style:'width:20%;' },
+  { label:'준비물',  style:'width:10%;' },
+  { label:'메모',   style:'' },
+];
+
+function sylColKey(subject){ return 'sylColW_' + subject; }
+
+function applyAllSylColWidths() {
+  document.querySelectorAll('.syl-table[data-subject]').forEach(table => {
+    const subject = table.dataset.subject;
+    let widths = {};
+    try { widths = JSON.parse(localStorage.getItem(sylColKey(subject)) || '{}'); } catch(e) {}
+    const ths = table.querySelectorAll('thead th');
+    ths.forEach((th, i) => { if (widths[i]) th.style.width = widths[i] + 'px'; });
+  });
+}
+
+window.startSylColResize = (e, handle, subject, colIdx) => {
+  e.preventDefault();
+  e.stopPropagation();
+  const th = handle.parentElement;
+  const startX = e.pageX;
+  const startW = th.offsetWidth;
+  document.body.style.cursor = 'col-resize';
+  const onMove = ev => {
+    const w = Math.max(36, startW + (ev.pageX - startX));
+    th.style.width = w + 'px';
+  };
+  const onUp = ev => {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    document.body.style.cursor = '';
+    const w = Math.max(36, startW + (ev.pageX - startX));
+    let widths = {};
+    try { widths = JSON.parse(localStorage.getItem(sylColKey(subject)) || '{}'); } catch(e) {}
+    widths[colIdx] = w;
+    try { localStorage.setItem(sylColKey(subject), JSON.stringify(widths)); } catch(e) {}
+  };
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+};
 
 window.selectSylRow = (subject, idx, linksRaw) => {
   document.querySelectorAll('.syl-table tbody tr').forEach(tr => tr.classList.remove('syl-row-selected'));
   const rows = document.querySelectorAll(`#syl-${subject.replace(/ /g,'_')} tbody tr`);
   if (rows[idx]) rows[idx].classList.add('syl-row-selected');
+};
+
+window.openSylRowLink = (linksRaw) => {
+  const parts = linksRaw.split('|').map(p => {
+    const comma = p.indexOf(',');
+    if (comma < 0) return { url: p.trim() };
+    return { topic: p.slice(0, comma).trim(), url: p.slice(comma + 1).trim() };
+  }).filter(l => l.url);
+  if (!parts.length) return;
+  if (parts.length === 1) { window.open(parts[0].url, '_blank'); return; }
+  parts.forEach(l => window.open(l.url, '_blank'));
 };
 
 // 링크 편집 팝업
@@ -940,21 +1044,41 @@ window.switchSyllabus = (name, el) => {
   document.querySelectorAll('.sub-content').forEach(s => s.classList.remove('active'));
   el.classList.add('active');
   const el2 = document.getElementById('syl-' + name.replace(/ /g,'_'));
-  if (el2) el2.classList.add('active');
-};
-
-window.toggleDone = async (subject, idx, checked) => {
-  if (syllabusData[subject]?.[idx]) {
-    syllabusData[subject][idx].done = checked;
-    await saveUserData();
-    buildSyllabus();
+  if (el2) {
+    el2.classList.add('active');
+    // 숨겨진 탭이었을 때 textarea 높이가 0px로 박제됨 → 보이는 순간 다시 계산(단일행 칸 누락 방지)
+    el2.querySelectorAll('.syl-cell-input').forEach(autoGrowSyl);
   }
 };
 
-window.handleSylUpload = (input) => { input.value = ''; };
+window.toggleDone = async (subject, idx, checked) => {
+  if (!syllabusData[subject]?.[idx]) return;
+  syllabusData[subject][idx].done = checked;
+  buildSyllabus();
+  if (selectedDate) renderWeek(selectedDate, selectedDow); // 메인 카드 진도 즉시 갱신
+  // 완료(A열)만 구글시트에 즉시 반영 — 내용/구조는 안 건드림(안전 경로)
+  let synced = false;
+  try {
+    const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({
+      app: 'journal-management', action: 'saveDoneFlag',
+      userId: currentUser.email, subject, index: idx, done: checked }) });
+    const d = await res.json();
+    synced = !!d.success;
+  } catch(e) {}
+  // 로컬 캐시 갱신(새로고침해도 유지). 시트 반영 실패 시에만 '저장 필요' 표시.
+  try {
+    const ck = `userdata_${currentUser.email}`;
+    const prev = JSON.parse(localStorage.getItem(ck) || '{}');
+    localStorage.setItem(ck, JSON.stringify({ ...prev, syllabusData }));
+  } catch(e) {}
+  apiCache.delete('loadAll_' + currentUser.email);
+  if (!synced) markSylUnsaved();
+};
+
+window.handleSylUpload = (input, subject) => { if (input.files[0]) alert(`"${input.files[0].name}" 업로드 기능은 준비 중입니다.`); };
 
 window.downloadSylTemplate = () => {
-  const csv = '﻿과목,차시,단원,학습주제,준비물,메모,완료\n3학년 과학,1,1. 생물과 환경,먹이 사슬과 먹이 그물,교과서,,\n3학년 과학,2,1. 생물과 환경,생태계 평형,교과서,,\n';
+  const csv = '﻿과목,기간,차시,단원,학습주제,준비물,메모,완료\n3학년 과학,3/2~3/8,1,1. 생물과 환경,먹이 사슬과 먹이 그물,교과서,,\n3학년 과학,3/9~3/15,2,1. 생물과 환경,생태계 평형,교과서,,\n';
   const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = '진도표_양식.csv'; a.click();
 };
@@ -969,13 +1093,13 @@ window.handleSylGlobalUpload = (input) => {
     lines.forEach(row => {
       const cols = row.split(',').map(c => c.trim().replace(/^"|"$/g,''));
       if (cols.length < 4 || !cols[0]) return;
-      const [subject, ch, unit, topic, prep, memo, doneVal] = cols;
+      const [subject, period, ch, unit, topic, prep, memo, doneVal] = cols;
       if (!syllabusData[subject]) syllabusData[subject] = [];
-      syllabusData[subject].push({ch:ch||'', unit:unit||'', topic:topic||'', prep:prep||'', memo:memo||'', done:doneVal==='완료'||doneVal==='TRUE'||doneVal==='true'});
+      syllabusData[subject].push({period:period||'', ch:ch||'', unit:unit||'', topic:topic||'', prep:prep||'', memo:memo||'', done:doneVal==='완료'||doneVal==='TRUE'||doneVal==='true'});
     });
     await saveUserData();
     buildSyllabus();
-
+    alert('업로드 완료!');
   };
   reader.readAsText(file, 'UTF-8');
   input.value = '';
@@ -996,8 +1120,17 @@ window.saveSyllabus = async () => {
         })
       });
     }
+    apiCache.delete('loadAll_' + currentUser.email);
+    // 로컬 캐시도 갱신 — 새로고침해도 방금 저장한 내용 유지
+    try {
+      const ck = `userdata_${currentUser.email}`;
+      const prev = JSON.parse(localStorage.getItem(ck) || '{}');
+      localStorage.setItem(ck, JSON.stringify({ ...prev, syllabusData }));
+    } catch(e) {}
+    clearSylUnsaved();
+    alert('진도표가 저장되었습니다!');
   } catch(e) {
-    console.error('저장 오류:', e);
+    alert('저장 중 오류: ' + e.message);
   }
 };
 
@@ -1455,7 +1588,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v49';
+const APP_VERSION = 'v50';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');
