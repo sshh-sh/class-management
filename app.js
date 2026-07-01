@@ -1103,6 +1103,9 @@ window.toggleDone = async (subject, idx, checked) => {
 };
 
 
+function markSylUnsaved() {}
+function clearSylUnsaved() {}
+
 window.saveSyllabus = async () => {
   const subjects = Object.keys(syllabusData);
   try {
@@ -1567,7 +1570,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v62';
+const APP_VERSION = 'v63';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');
