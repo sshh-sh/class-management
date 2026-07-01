@@ -336,9 +336,8 @@ function jm_timetableSheet() {
     s = ss.insertSheet('시간표');
     setupTimetableTemplate(s);
   } else {
-    // A1이 '타이틀'이 아니면 새 템플릿 미적용 → 초기화
     const a1 = String(s.getRange(1, 1).getValue() || '').trim();
-    if (a1 !== '타이틀') setupTimetableTemplate(s);
+    if (a1 !== '타이틀' && a1 !== '[내시간표]') setupTimetableTemplate(s);
   }
   return s;
 }
