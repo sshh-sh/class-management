@@ -335,8 +335,8 @@ function renderWeek(d, dow) {
         <div class="lesson-time">${TIMES[s.p-1].replace('~','~<br>')}</div>
       </div>
       <div class="lesson-right">
-        <div class="lesson-class">${s.cls}</div>
-        <div class="lesson-detail">${syl ? syl.unit + (syl.ch ? '(' + syl.ch + ')' : '') + ' ' + syl.topic : (finished ? '수업종료' : '진도표 미등록')}</div>
+        <div class="lesson-class">${s.cls}${syl ? ' ' + syl.unit + (syl.ch ? '(' + syl.ch + ')' : '') : ''}</div>
+        <div class="lesson-detail">${syl ? syl.topic : (finished ? '수업종료' : '진도표 미등록')}</div>
         <div class="lesson-prep">${syl && (syl.prep || syl.memo) ? [syl.prep ? '준비물: ' + syl.prep : '', syl.memo].filter(Boolean).join(' | ') : ''}</div>
         ${linkHtml ? `<div class="lesson-links">${linkHtml}</div>` : ''}
       </div>
@@ -755,11 +755,13 @@ window.startTTColResize = (e, colIdx) => {
   const startX = e.pageX;
   const startW = parseInt(col.style.width) || 36;
   document.body.style.cursor = 'col-resize';
+  document.body.style.userSelect = 'none';
   const onMove = ev => { col.style.width = Math.max(20, startW + (ev.pageX - startX)) + 'px'; };
   const onUp = ev => {
     document.removeEventListener('mousemove', onMove);
     document.removeEventListener('mouseup', onUp);
     document.body.style.cursor = '';
+    document.body.style.userSelect = '';
     localStorage.setItem(`fulltt_c_${colIdx}`, String(Math.max(20, startW + (ev.pageX - startX))));
   };
   document.addEventListener('mousemove', onMove);
@@ -1144,6 +1146,7 @@ window.startSylColResize = (e, handle, subject, colIdx) => {
   const startX = e.pageX;
   const startW = th.offsetWidth;
   document.body.style.cursor = 'col-resize';
+  document.body.style.userSelect = 'none';
   const onMove = ev => {
     const w = Math.max(36, startW + (ev.pageX - startX));
     th.style.width = w + 'px';
@@ -1152,6 +1155,7 @@ window.startSylColResize = (e, handle, subject, colIdx) => {
     document.removeEventListener('mousemove', onMove);
     document.removeEventListener('mouseup', onUp);
     document.body.style.cursor = '';
+    document.body.style.userSelect = '';
     const w = Math.max(36, startW + (ev.pageX - startX));
     let widths = {};
     try { widths = JSON.parse(localStorage.getItem(sylColKey(subject)) || '{}'); } catch(e) {}
@@ -1720,7 +1724,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v75';
+const APP_VERSION = 'v76';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');
