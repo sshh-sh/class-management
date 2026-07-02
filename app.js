@@ -35,7 +35,6 @@ let sheetsUrl = '';
 let semYear = 2026;
 let timetableEvents = {};
 // 3번: 방학·시수
-let vacationPeriods = [];
 let holidays = [];
 let semDatesByYear = {};
 let subjectHoursData = {};
@@ -131,7 +130,6 @@ async function initApp() {
   renderClassTTs();
   buildFullTimetable();
   renderSemDateInputs();
-  renderVacations();
   renderHolidays();
   buildSyllabus();
   buildSubjectHoursFromGAS();
@@ -175,7 +173,6 @@ function applyUserData(d) {
   if (d.syllabusData && Object.keys(d.syllabusData).length) syllabusData = d.syllabusData;
   if (d.journals) journalData = d.journals.sort((a, b) => new Date(a.date) - new Date(b.date));
   if (d.timetableEvents) timetableEvents = d.timetableEvents;
-  if (d.vacationPeriods) vacationPeriods = d.vacationPeriods;
   if (d.holidays) holidays = d.holidays;
   if (d.semDatesByYear) semDatesByYear = d.semDatesByYear;
   if (d.subjectHoursData) subjectHoursData = d.subjectHoursData;
@@ -212,7 +209,7 @@ async function loadUserData() {
         apiCache.set('loadAll_' + userId, { ts: now });
         localStorage.setItem(cacheKey, JSON.stringify({
           myTT, classTTList, syllabusData, journals: journalData, timetableEvents,
-          vacationPeriods, holidays, semDatesByYear, subjectHoursData, conceptLinks: conceptLinksData,
+          holidays, semDatesByYear, subjectHoursData, conceptLinks: conceptLinksData,
           fullTimetable: fullTimetableData, subjectHoursClasses
         }));
       }
@@ -231,7 +228,7 @@ async function saveUserData() {
   try {
     localStorage.setItem(cacheKey, JSON.stringify({
       myTT, classTTList, syllabusData, journals: journalData, timetableEvents,
-      vacationPeriods, holidays, semDatesByYear, subjectHoursData
+      holidays, semDatesByYear, subjectHoursData
     }));
     localStorage.setItem(tsKey, String(Date.now()));
   } catch(e) {}
@@ -346,7 +343,7 @@ function renderWeek(d, dow) {
   const dayName = DAY_NAMES[dateObj.getDay()];
   document.getElementById('week-title').textContent = `${currentMonth + 1}월 ${d}일 (${dayName})`;
   const wc = document.getElementById('week-content');
-  if (isNonSchoolDate(fmtDateStr(dateObj))) {
+  if (isNonSchoolDate(dateObj, fmtDateStr(dateObj))) {
     wc.classList.remove('lesson-compact');
     wc.innerHTML = '<div class="no-lesson">수업이 없습니다</div>';
     return;
@@ -912,7 +909,7 @@ window.syncFromGAS = async (btn) => {
       localStorage.setItem(`userdata_${userId}_ts`, String(Date.now()));
       localStorage.setItem(`userdata_${userId}`, JSON.stringify({
         myTT, classTTList, syllabusData, journals: journalData, timetableEvents,
-        vacationPeriods, subjectHoursData, fullTimetable: fullTimetableData, subjectHoursClasses
+        holidays, semDatesByYear, subjectHoursData, fullTimetable: fullTimetableData, subjectHoursClasses
       }));
       buildMyTT(); renderClassTTs(); buildFullTimetable(); buildSyllabus(); filterJournal(); buildSubjectHoursFromGAS();
       if (btn) { btn.disabled = false; btn.textContent = origText; }
@@ -1527,50 +1524,6 @@ window.switchTab = (name, el) => {
   if (name === 'journal') loadJournal();
 };
 
-// ==================== 3번: 방학 기간 ====================
-window.addVacation = () => {
-  vacationPeriods.push({ label: '방학', start: '', end: '' });
-  renderVacations();
-};
-
-window.removeVacation = (idx) => {
-  vacationPeriods.splice(idx, 1);
-  renderVacations();
-  buildFullTimetable();
-  saveVacationAndHours();
-};
-
-// 방학 필드 업데이트 - ES모듈 전역변수 문제 해결
-window.setVacField = (idx, field, val) => {
-  if (vacationPeriods[idx]) vacationPeriods[idx][field] = val;
-  if (field === 'start' || field === 'end') buildFullTimetable();
-  saveVacationAndHours();
-};
-
-function renderVacations() {
-  const el = document.getElementById('vacation-list');
-  if (!el) return;
-  if (!vacationPeriods.length) {
-    el.innerHTML = '<div class="vacation-empty">방학 기간이 없습니다. + 방학 추가 버튼으로 입력하세요.</div>';
-    return;
-  }
-  el.innerHTML = vacationPeriods.map((v, i) => `
-    <div class="vacation-row">
-      <input type="text" class="vacation-input-label" value="${v.label||''}" placeholder="방학 이름 (예: 여름방학)"
-        onchange="setVacField(${i},'label',this.value)">
-      <input type="date" class="vacation-input-date" value="${v.start||''}"
-        onchange="setVacField(${i},'start',this.value)">
-      <span style="font-size:13px;color:#aaa;">~</span>
-      <input type="date" class="vacation-input-date" value="${v.end||''}"
-        onchange="setVacField(${i},'end',this.value)">
-      <button class="btn-xs" onclick="removeVacation(${i})" style="color:#E24B4A;border-color:#E24B4A;">삭제</button>
-    </div>`).join('');
-}
-
-function isVacationDate(dateStr) {
-  return vacationPeriods.some(v => v.start && v.end && dateStr >= v.start && dateStr <= v.end);
-}
-
 // ==================== 공휴일 ====================
 window.addHoliday = () => {
   holidays.push({ label: '공휴일', start: '', end: '' });
@@ -1612,8 +1565,11 @@ function isHolidayDate(dateStr) {
   return holidays.some(v => v.start && v.end && dateStr >= v.start && dateStr <= v.end);
 }
 
-function isNonSchoolDate(dateStr) {
-  return isVacationDate(dateStr) || isHolidayDate(dateStr);
+function isNonSchoolDate(dateObj, dateStr) {
+  const s1 = getSemDates(semYear, 1), s2 = getSemDates(semYear, 2);
+  const inSemester = (dateObj >= s1.start && dateObj <= s1.end) || (dateObj >= s2.start && dateObj <= s2.end);
+  if (!inSemester) return true; // 학기 범위 밖 = 자동 방학
+  return isHolidayDate(dateStr);
 }
 
 // ==================== 학기 시작/종료일 ====================
@@ -1689,7 +1645,7 @@ async function saveVacationAndHours() {
   try {
     const cached = localStorage.getItem(cacheKey);
     const prev = cached ? JSON.parse(cached) : {};
-    localStorage.setItem(cacheKey, JSON.stringify({ ...prev, vacationPeriods, holidays, semDatesByYear, subjectHoursData }));
+    localStorage.setItem(cacheKey, JSON.stringify({ ...prev, holidays, semDatesByYear, subjectHoursData }));
   } catch(e) {}
 }
 
@@ -1723,7 +1679,7 @@ window.generateAnnualTT = () => {
         const mKey = `${cur.getFullYear()}년 ${cur.getMonth()+1}월`;
         const dow = cur.getDay() - 1;
         const daySchedule = [];
-        if (!isVacationDate(dateStr)) {
+        if (!isHolidayDate(dateStr)) {
           for (let p = 1; p <= 5; p++) {
             const cls = myTT[p]?.[dow] || '';
             if (cls) {
@@ -1738,9 +1694,9 @@ window.generateAnnualTT = () => {
         if (!byMonth[mKey]) byMonth[mKey] = [];
         const last = byMonth[mKey][byMonth[mKey].length - 1];
         if (!last || last.fri) {
-          byMonth[mKey].push({ mon: fmtDisp(cur), days: [{ dow, dateStr, schedule: daySchedule, vacation: isVacationDate(dateStr) }] });
+          byMonth[mKey].push({ mon: fmtDisp(cur), days: [{ dow, dateStr, schedule: daySchedule, vacation: isHolidayDate(dateStr) }] });
         } else {
-          last.days.push({ dow, dateStr, schedule: daySchedule, vacation: isVacationDate(dateStr) });
+          last.days.push({ dow, dateStr, schedule: daySchedule, vacation: isHolidayDate(dateStr) });
           if (dow === 4) last.fri = fmtDisp(cur);
         }
       }
@@ -1793,7 +1749,7 @@ window.refreshFromSheets = async () => {
       localStorage.setItem(`userdata_${userId}_ts`, String(Date.now()));
       localStorage.setItem(`userdata_${userId}`, JSON.stringify({
         myTT, classTTList, syllabusData, journals: journalData, timetableEvents,
-        vacationPeriods, subjectHoursData
+        holidays, semDatesByYear, subjectHoursData
       }));
       buildMyTT();
       renderClassTTs();
@@ -1837,7 +1793,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v78';
+const APP_VERSION = 'v79';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');

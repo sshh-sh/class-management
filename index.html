@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>일해용! 전담</title>
-  <link rel="stylesheet" href="style.css?v=78">
+  <link rel="stylesheet" href="style.css?v=79">
   <link rel="icon" href="images/ilhaeyong.jpg" type="image/jpeg">
   <!-- 【6번】외부 도메인 preconnect: 첫 연결 레이턴시 단축 -->
   <link rel="preconnect" href="https://www.gstatic.com">
@@ -154,33 +154,29 @@
         <div class="section-header">
           <span class="section-title">학사일정</span>
         </div>
-        <div class="vacation-block">
-          <div class="sem-date-row">
-            <span class="sem-date-label">1학기</span>
-            <input type="date" class="vacation-input-date" id="sem1-start" onchange="setSemDateField(1,'start',this.value)">
-            <span style="font-size:13px;color:#aaa;">~</span>
-            <input type="date" class="vacation-input-date" id="sem1-end" onchange="setSemDateField(1,'end',this.value)">
+        <div class="academic-cal-grid">
+          <div class="vacation-block">
+            <div class="sem-date-row">
+              <span class="sem-date-label">1학기</span>
+              <input type="date" class="vacation-input-date" id="sem1-start" onchange="setSemDateField(1,'start',this.value)">
+              <span style="font-size:13px;color:#aaa;">~</span>
+              <input type="date" class="vacation-input-date" id="sem1-end" onchange="setSemDateField(1,'end',this.value)">
+            </div>
+            <div class="sem-date-row">
+              <span class="sem-date-label">2학기</span>
+              <input type="date" class="vacation-input-date" id="sem2-start" onchange="setSemDateField(2,'start',this.value)">
+              <span style="font-size:13px;color:#aaa;">~</span>
+              <input type="date" class="vacation-input-date" id="sem2-end" onchange="setSemDateField(2,'end',this.value)">
+            </div>
+            <div style="font-size:12px;color:#aaa;margin-top:4px;">학기 사이 기간은 자동으로 방학으로 처리됩니다.</div>
           </div>
-          <div class="sem-date-row">
-            <span class="sem-date-label">2학기</span>
-            <input type="date" class="vacation-input-date" id="sem2-start" onchange="setSemDateField(2,'start',this.value)">
-            <span style="font-size:13px;color:#aaa;">~</span>
-            <input type="date" class="vacation-input-date" id="sem2-end" onchange="setSemDateField(2,'end',this.value)">
+          <div class="vacation-block">
+            <div class="section-header" style="margin-bottom:6px;">
+              <span class="section-title" style="font-size:15px;">공휴일</span>
+              <button class="btn-xs" onclick="addHoliday()">+ 공휴일 추가</button>
+            </div>
+            <div id="holiday-list"></div>
           </div>
-        </div>
-        <div class="vacation-block" style="margin-top:10px;">
-          <div class="section-header" style="margin-bottom:6px;">
-            <span class="section-title" style="font-size:15px;">방학</span>
-            <button class="btn-xs" onclick="addVacation()">+ 방학 추가</button>
-          </div>
-          <div id="vacation-list"></div>
-        </div>
-        <div class="vacation-block" style="margin-top:10px;">
-          <div class="section-header" style="margin-bottom:6px;">
-            <span class="section-title" style="font-size:15px;">공휴일</span>
-            <button class="btn-xs" onclick="addHoliday()">+ 공휴일 추가</button>
-          </div>
-          <div id="holiday-list"></div>
         </div>
       </div>
       <!-- 전체 시간표 -->
@@ -244,7 +240,7 @@
 
   <footer class="app-footer">
     © 2026 일해용!전담 · 개발 최송희. 무단 복제 및 배포를 금지합니다.
-    <span class="version-badge" id="app-version">v78</span>
+    <span class="version-badge" id="app-version">v79</span>
   </footer>
 </div>
 
@@ -342,6 +338,6 @@
   </div>
 </div>
 
-<script type="module" src="app.js?v=78"></script>
+<script type="module" src="app.js?v=79"></script>
 </body>
 </html>
