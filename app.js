@@ -36,6 +36,8 @@ let semYear = 2026;
 let timetableEvents = {};
 // 3번: 방학·시수
 let vacationPeriods = [];
+let holidays = [];
+let semDatesByYear = {};
 let subjectHoursData = {};
 let fullTimetableData = {s1:[], s2:[]};
 let fullTTSem = (new Date().getMonth() + 1) >= 8 ? 's2' : 's1';
@@ -47,6 +49,10 @@ const API_CACHE_TTL = 5 * 60 * 1000; // 5분
 let sylAutoSaveTimer = null;
 
 function getSemDates(year, half) {
+  const custom = semDatesByYear[year] && semDatesByYear[year][half === 1 ? 's1' : 's2'];
+  if (custom && custom.start && custom.end) {
+    return { label: `${year}학년도 ${half}학기`, start: new Date(custom.start), end: new Date(custom.end) };
+  }
   if (half === 1) {
     return { label: `${year}학년도 1학기`, start: new Date(year, 2, 2), end: new Date(year, 6, 18) };
   } else {
@@ -79,6 +85,7 @@ window.changeSemYear = async () => {
   buildCalendar();
   buildProgress();
   buildFullTimetable();
+  renderSemDateInputs();
   buildSyllabus();
   buildConceptIcons();
   renderWeek(1, 1);
@@ -123,6 +130,9 @@ async function initApp() {
   buildMyTT();
   renderClassTTs();
   buildFullTimetable();
+  renderSemDateInputs();
+  renderVacations();
+  renderHolidays();
   buildSyllabus();
   buildSubjectHoursFromGAS();
   filterJournal();
@@ -166,6 +176,8 @@ function applyUserData(d) {
   if (d.journals) journalData = d.journals.sort((a, b) => new Date(a.date) - new Date(b.date));
   if (d.timetableEvents) timetableEvents = d.timetableEvents;
   if (d.vacationPeriods) vacationPeriods = d.vacationPeriods;
+  if (d.holidays) holidays = d.holidays;
+  if (d.semDatesByYear) semDatesByYear = d.semDatesByYear;
   if (d.subjectHoursData) subjectHoursData = d.subjectHoursData;
   if (d.conceptLinks) { conceptLinksData = d.conceptLinks; buildConceptIcons(); }
   if (d.fullTimetable) fullTimetableData = d.fullTimetable;
@@ -200,7 +212,7 @@ async function loadUserData() {
         apiCache.set('loadAll_' + userId, { ts: now });
         localStorage.setItem(cacheKey, JSON.stringify({
           myTT, classTTList, syllabusData, journals: journalData, timetableEvents,
-          vacationPeriods, subjectHoursData, conceptLinks: conceptLinksData,
+          vacationPeriods, holidays, semDatesByYear, subjectHoursData, conceptLinks: conceptLinksData,
           fullTimetable: fullTimetableData, subjectHoursClasses
         }));
       }
@@ -219,7 +231,7 @@ async function saveUserData() {
   try {
     localStorage.setItem(cacheKey, JSON.stringify({
       myTT, classTTList, syllabusData, journals: journalData, timetableEvents,
-      vacationPeriods, subjectHoursData
+      vacationPeriods, holidays, semDatesByYear, subjectHoursData
     }));
     localStorage.setItem(tsKey, String(Date.now()));
   } catch(e) {}
@@ -325,17 +337,26 @@ function getFullTTDaySlots(dateObj) {
   return null;
 }
 
+function fmtDateStr(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
 function renderWeek(d, dow) {
   const dateObj = new Date(currentYear, currentMonth, d);
   const dayName = DAY_NAMES[dateObj.getDay()];
   document.getElementById('week-title').textContent = `${currentMonth + 1}월 ${d}일 (${dayName})`;
+  const wc = document.getElementById('week-content');
+  if (isNonSchoolDate(fmtDateStr(dateObj))) {
+    wc.classList.remove('lesson-compact');
+    wc.innerHTML = '<div class="no-lesson">수업이 없습니다</div>';
+    return;
+  }
   const fullSlots = getFullTTDaySlots(dateObj);
   const slots = [];
   for (let p = 1; p <= 6; p++) {
     const cls = fullSlots ? (fullSlots[p - 1] || null) : (myTT[p] && myTT[p][dow - 1] ? myTT[p][dow - 1] : null);
     if (cls) slots.push({ p, cls });
   }
-  const wc = document.getElementById('week-content');
   wc.classList.toggle('lesson-compact', slots.length >= 5);
   if (!slots.length) { wc.innerHTML = '<div class="no-lesson">수업이 없습니다</div>'; return; }
   wc.innerHTML = slots.map((s, idx) => {
@@ -1550,6 +1571,72 @@ function isVacationDate(dateStr) {
   return vacationPeriods.some(v => v.start && v.end && dateStr >= v.start && dateStr <= v.end);
 }
 
+// ==================== 공휴일 ====================
+window.addHoliday = () => {
+  holidays.push({ label: '공휴일', start: '', end: '' });
+  renderHolidays();
+};
+
+window.removeHoliday = (idx) => {
+  holidays.splice(idx, 1);
+  renderHolidays();
+  saveVacationAndHours();
+};
+
+window.setHolField = (idx, field, val) => {
+  if (holidays[idx]) holidays[idx][field] = val;
+  saveVacationAndHours();
+};
+
+function renderHolidays() {
+  const el = document.getElementById('holiday-list');
+  if (!el) return;
+  if (!holidays.length) {
+    el.innerHTML = '<div class="vacation-empty">공휴일이 없습니다. + 공휴일 추가 버튼으로 입력하세요.</div>';
+    return;
+  }
+  el.innerHTML = holidays.map((v, i) => `
+    <div class="vacation-row">
+      <input type="text" class="vacation-input-label" value="${v.label||''}" placeholder="공휴일 이름 (예: 개천절)"
+        onchange="setHolField(${i},'label',this.value)">
+      <input type="date" class="vacation-input-date" value="${v.start||''}"
+        onchange="setHolField(${i},'start',this.value)">
+      <span style="font-size:13px;color:#aaa;">~</span>
+      <input type="date" class="vacation-input-date" value="${v.end||''}"
+        onchange="setHolField(${i},'end',this.value)">
+      <button class="btn-xs" onclick="removeHoliday(${i})" style="color:#E24B4A;border-color:#E24B4A;">삭제</button>
+    </div>`).join('');
+}
+
+function isHolidayDate(dateStr) {
+  return holidays.some(v => v.start && v.end && dateStr >= v.start && dateStr <= v.end);
+}
+
+function isNonSchoolDate(dateStr) {
+  return isVacationDate(dateStr) || isHolidayDate(dateStr);
+}
+
+// ==================== 학기 시작/종료일 ====================
+window.setSemDateField = (half, field, val) => {
+  const key = half === 1 ? 's1' : 's2';
+  if (!semDatesByYear[semYear]) semDatesByYear[semYear] = {};
+  if (!semDatesByYear[semYear][key]) semDatesByYear[semYear][key] = { start: '', end: '' };
+  semDatesByYear[semYear][key][field] = val;
+  saveVacationAndHours();
+  buildFullTimetable();
+};
+
+function renderSemDateInputs() {
+  const cur = semDatesByYear[semYear] || {};
+  const s1 = cur.s1 || {}, s2 = cur.s2 || {};
+  const s1El = document.getElementById('sem1-start'), s1EEl = document.getElementById('sem1-end');
+  const s2El = document.getElementById('sem2-start'), s2EEl = document.getElementById('sem2-end');
+  if (s1El) s1El.value = s1.start || '';
+  if (s1EEl) s1EEl.value = s1.end || '';
+  if (s2El) s2El.value = s2.start || '';
+  if (s2EEl) s2EEl.value = s2.end || '';
+}
+
 // ==================== 3번: 과목별 시수 ====================
 function buildSubjectHours() {
   const el = document.getElementById('subject-hours-wrap');
@@ -1602,7 +1689,7 @@ async function saveVacationAndHours() {
   try {
     const cached = localStorage.getItem(cacheKey);
     const prev = cached ? JSON.parse(cached) : {};
-    localStorage.setItem(cacheKey, JSON.stringify({ ...prev, vacationPeriods, subjectHoursData }));
+    localStorage.setItem(cacheKey, JSON.stringify({ ...prev, vacationPeriods, holidays, semDatesByYear, subjectHoursData }));
   } catch(e) {}
 }
 
@@ -1750,7 +1837,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v77';
+const APP_VERSION = 'v78';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');
