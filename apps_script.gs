@@ -1,8 +1,9 @@
 /**
  * 통합 Google Apps Script 백엔드
- * - 모둠뽑기: doPost  { action:'save'|'load', classId, data }
- * - 관피타:   doGet   ?action=get&key=...  /  ?action=set&key=...&value=...
+ * - 일해용! 전담: doPost { app:'journal-management', action, userId, ... }
+ * - 관피타:      doGet  ?action=get&key=...  /  ?action=set&key=...&value=...
  *
+ * GAS v89: 모둠뽑기가 별도 스크립트로 분리되어 더 이상 쓰이지 않는 모둠뽑기 코드 제거
  * [수정사항] writeKaoSheet에서 시트 전체를 지우던 것을 A~J열까지만 지우도록 변경
  *           → L열 이후 메모 영역은 더 이상 삭제되지 않음
  * GAS v88: 시수계산표 기준시수(s1base/s2base) 방식 전환, 실제시수 셀 개수 합산으로 변경
@@ -19,8 +20,6 @@ function migrateKaoData() {
   Logger.log('마이그레이션 완료!');
 }
 
-const SHEET_NAME   = '모둠뽑기';
-const SHEET_DETAIL = '모둠뽑기_보기';
 const KAO_SHEET    = '오케';
 const KAO_MAX_COL  = 10; // A~J열까지만 KAO 앱이 사용 (K열 이후는 사용자 메모 영역, 절대 건드리지 않음)
 
@@ -75,9 +74,6 @@ function doPost(e) {
       }
       result = {ok: true};
     }
-    // 모둠뽑기
-    else if (action === 'save') result = saveRecord(data.classId, data.data);
-    else if (action === 'load') result = loadRecords(data.classId);
     else result = {success: false, message: '알 수 없는 액션'};
 
     return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
@@ -175,118 +171,6 @@ function getOrCreateKaoSheet() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheet = ss.getSheetByName(KAO_SHEET);
   if (!sheet) sheet = ss.insertSheet(KAO_SHEET);
-  return sheet;
-}
-
-function saveRecord(classId, record) {
-  const sheet = getOrCreateSheet();
-  const data  = sheet.getDataRange().getValues();
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][0] === classId && data[i][1] === record.year && data[i][2] === record.month) {
-      sheet.getRange(i+1,1,1,5).setValues([[classId, record.year, record.month, record.date, JSON.stringify(record.groups)]]);
-      saveDetailSheet(classId, record);
-      return {success: true, message: '기존 기록 업데이트 완료'};
-    }
-  }
-  sheet.appendRow([classId, record.year, record.month, record.date, JSON.stringify(record.groups)]);
-  saveDetailSheet(classId, record);
-  return {success: true, message: '저장 완료'};
-}
-
-function saveDetailSheet(classId, record) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  let sheet = ss.getSheetByName(SHEET_DETAIL);
-  const maxGroups = 6;
-  const resultHeaders = ['반', '년도', '월', '1모둠', '2모둠', '3모둠', '4모둠', '5모둠', '6모둠'];
-  if (!sheet) {
-    sheet = ss.insertSheet(SHEET_DETAIL);
-    sheet.getRange(1,1,1,9).setValues([resultHeaders]);
-    sheet.getRange(1,1,1,9).setFontWeight('bold').setBackground('#534AB7').setFontColor('white');
-    sheet.setFrozenRows(1);
-    for (let i = 4; i <= 9; i++) sheet.setColumnWidth(i, 180);
-  }
-  const className = record.className || classId;
-  const existing = sheet.getDataRange().getValues();
-  const toDelete = [];
-  for (let i = existing.length-1; i >= 1; i--) {
-    if (existing[i][0] === className && existing[i][1] === record.year && existing[i][2] === record.month) {
-      toDelete.push(i+1);
-    }
-  }
-  toDelete.forEach(row => sheet.deleteRow(row));
-  const row = [className, record.year, record.month];
-  for (let i = 0; i < maxGroups; i++) {
-    const group = record.groups[i];
-    row.push(group ? group.students.join(', ') : '');
-  }
-  sheet.appendRow(row);
-  const lastRow = sheet.getLastRow();
-  sheet.getRange(lastRow,1,1,9).setBackground(lastRow%2===0 ? '#f0effe' : '#ffffff');
-  if (record.leaders && record.leaders.length > 0) {
-    updateLeaderCount(sheet, record.leaders, className);
-  }
-}
-
-function updateLeaderCount(sheet, leaders, className) {
-  const lastRow = sheet.getLastRow();
-  if (lastRow < 2) return;
-  const gradeMatch    = className.match(/(\d+)학년/);
-  const classNumMatch = className.match(/(\d+)반/);
-  if (!gradeMatch || !classNumMatch) return;
-  const grade  = gradeMatch[1];
-  const marker = grade + '-' + classNumMatch[1];
-  const gradeColMap = {
-    '3': {classCol:10, nameCol:12, countCol:13},
-    '4': {classCol:14, nameCol:16, countCol:17},
-    '5': {classCol:18, nameCol:20, countCol:21},
-    '6': {classCol:22, nameCol:24, countCol:25}
-  };
-  const cols = gradeColMap[grade];
-  if (!cols) return;
-  const classValues = sheet.getRange(2, cols.classCol, lastRow-1, 1).getValues();
-  const nameValues  = sheet.getRange(2, cols.nameCol,  lastRow-1, 1).getValues();
-  const countValues = sheet.getRange(2, cols.countCol, lastRow-1, 1).getValues();
-  let startIdx = -1, endIdx = classValues.length - 1;
-  for (let i = 0; i < classValues.length; i++) {
-    const val = String(classValues[i][0]).trim();
-    if (val === marker) { startIdx = i; }
-    else if (startIdx >= 0 && i > startIdx && val !== '') { endIdx = i-1; break; }
-  }
-  if (startIdx === -1) return;
-  leaders.forEach(leaderName => {
-    for (let i = startIdx; i <= endIdx; i++) {
-      if (String(nameValues[i][0]).trim() === String(leaderName).trim()) {
-        countValues[i][0] = (Number(countValues[i][0]) || 0) + 1;
-      }
-    }
-  });
-  sheet.getRange(2, cols.countCol, lastRow-1, 1).setValues(countValues);
-}
-
-function loadRecords(classId) {
-  const sheet   = getOrCreateSheet();
-  const data    = sheet.getDataRange().getValues();
-  const records = [];
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][0] === classId) {
-      try {
-        records.push({year:data[i][1], month:data[i][2], date:data[i][3], groups:JSON.parse(data[i][4])});
-      } catch(e) {}
-    }
-  }
-  return {success: true, records};
-}
-
-function getOrCreateSheet() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  let sheet = ss.getSheetByName(SHEET_NAME);
-  if (!sheet) {
-    sheet = ss.insertSheet(SHEET_NAME);
-    sheet.getRange(1,1,1,5).setValues([['반 ID','년도','월','날짜','모둠 데이터(JSON)']]);
-    sheet.setFrozenRows(1);
-    sheet.getRange(1,1,1,5).setFontWeight('bold').setBackground('#534AB7').setFontColor('white');
-    sheet.setColumnWidth(5, 400);
-  }
   return sheet;
 }
 

@@ -14,7 +14,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
 // GAS API URL
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbwAXsVansP19jNFv5fmmha1j5hD6aZD6KnUqK6tOyP6Sxb8P3j-rCtv9W8NTRkNbCx_/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxFWZfb8UiF0F4IFXilanRUhURvIZhiBJcWKe3pM_Cs4yFw3Tw93hLNbkBocbnxg0gb/exec';
 
 const TIMES = ['09:00~09:40','09:50~10:30','10:40~11:20','11:30~12:10','13:00~13:40','13:50~14:30'];
 const DAY_NAMES = ['일','월','화','수','목','금','토'];
@@ -314,6 +314,7 @@ function renderWeek(d, dow) {
   wc.innerHTML = slots.map((s, idx) => {
     const isLast = idx === slots.length - 1;
     const syl = getSyllabusCurrent(s.cls);
+    const finished = !syl && isSyllabusFinished(s.cls);
     const nextSyl = isLast ? getSyllabusNext(s.cls) : null;
     const isEnd = isLast && !nextSyl;
     const linkHtml = syl && syl.links ? syl.links.split('|').map(pair => {
@@ -334,7 +335,7 @@ function renderWeek(d, dow) {
       </div>
       <div class="lesson-right">
         <div class="lesson-class">${s.cls}</div>
-        <div class="lesson-detail">${syl ? syl.unit + (syl.ch ? '(' + syl.ch + ')' : '') + ' ' + syl.topic : '진도표 미등록'}</div>
+        <div class="lesson-detail">${syl ? syl.unit + (syl.ch ? '(' + syl.ch + ')' : '') + ' ' + syl.topic : (finished ? '수업종료' : '진도표 미등록')}</div>
         <div class="lesson-prep">${syl && (syl.prep || syl.memo) ? [syl.prep ? '준비물: ' + syl.prep : '', syl.memo].filter(Boolean).join(' | ') : ''}</div>
         ${linkHtml ? `<div class="lesson-links">${linkHtml}</div>` : ''}
       </div>
@@ -359,6 +360,20 @@ function getSyllabusNext(cls) {
     }
   }
   return null;
+}
+
+function isSyllabusFinished(cls) {
+  const grade = (cls.match(/\((\d+)-/) || [])[1] || cls.split('-')[0];
+  let hasSubject = false;
+  for (const subject in syllabusData) {
+    const subjGrade = (subject.match(/^(\d+)/) || [])[1];
+    if (subjGrade !== grade) continue;
+    const items = syllabusData[subject];
+    if (!items || !items.length) continue;
+    hasSubject = true;
+    if (items.some(i => !isDone(i))) return false;
+  }
+  return hasSubject;
 }
 
 function getSyllabusCurrent(cls) {
@@ -409,20 +424,15 @@ window.toggleProgSem = (sem) => {
   renderProgressRows();
 };
 
-function renderProgressRows() {
-  const body = document.getElementById('prog-rows');
-  if (!body) return;
+function progCellHtml(cls) {
   const semKey = progSem === 1 ? 's1base' : 's2base';
-  const classes = subjectHoursClasses.length ? subjectHoursClasses : [];
-  if (!classes.length) { body.innerHTML = '<div class="no-lesson">구글시트 연동 후 시수 데이터를 불러오세요</div>'; return; }
-  body.innerHTML = '<div class="prog-grid">' + classes.map(cls => {
-    const d = subjectHoursData[cls] || {};
-    const total = d[semKey] || 0;
-    const done = countActualHours(cls, progSem);
-    const pct = total ? Math.min(100, Math.round(done / total * 100)) : 0;
-    const over = done > total && total > 0;
-    const color = over ? '#F09595' : '#B5D4F4';
-    return `<div class="prog-cell">
+  const d = subjectHoursData[cls] || {};
+  const total = d[semKey] || 0;
+  const done = countActualHours(cls, progSem);
+  const pct = total ? Math.min(100, Math.round(done / total * 100)) : 0;
+  const over = done > total && total > 0;
+  const color = over ? '#F09595' : '#B5D4F4';
+  return `<div class="prog-cell">
       <div class="prog-cell-name">${clsDisplayName(cls)}</div>
       <div class="prog-cell-track">
         <div class="prog-cell-fill" style="width:${pct}%;background:${color};">
@@ -431,7 +441,33 @@ function renderProgressRows() {
       </div>
       <div class="prog-cell-num">${done}/${total}h${over ? ' <span class="prog-warn">초과</span>' : ''}</div>
     </div>`;
-  }).join('') + '</div>';
+}
+
+function renderProgressRows() {
+  const body = document.getElementById('prog-rows');
+  if (!body) return;
+  const classes = subjectHoursClasses.length ? subjectHoursClasses : [];
+  if (!classes.length) { body.innerHTML = '<div class="no-lesson">구글시트 연동 후 시수 데이터를 불러오세요</div>'; return; }
+
+  // 열=과목+학년 그룹(첫 등장 순서), 행=반 번호로 매트릭스 정렬
+  const groups = [];
+  const groupIdx = {};
+  classes.forEach(cls => {
+    const m = cls.match(/^(.+)\((\d+)-(\d+)\)$/);
+    if (!m) return;
+    const key = m[1] + m[2];
+    if (!(key in groupIdx)) { groupIdx[key] = groups.length; groups.push({ byRow: {} }); }
+    groups[groupIdx[key]].byRow[parseInt(m[3])] = cls;
+  });
+  const maxRow = groups.reduce((mx, g) => Math.max(mx, ...Object.keys(g.byRow).map(Number)), 1);
+
+  let cellsHtml = '';
+  for (let row = 1; row <= maxRow; row++) {
+    groups.forEach(g => {
+      cellsHtml += g.byRow[row] ? progCellHtml(g.byRow[row]) : '<div class="prog-cell prog-cell-empty"></div>';
+    });
+  }
+  body.innerHTML = `<div class="prog-grid" style="grid-template-columns:repeat(${groups.length || 1},minmax(0,1fr));">${cellsHtml}</div>`;
 }
 
 function buildProgress() {
@@ -1082,10 +1118,10 @@ const SYL_COLS = [
   { label:'순서',   style:'width:44px;text-align:center;' },
   { label:'기간',   style:'width:80px;' },
   { label:'차시',   style:'width:52px;text-align:center;' },
-  { label:'단원',   style:'width:22%;' },
-  { label:'학습주제', style:'width:20%;' },
-  { label:'준비물',  style:'width:10%;' },
-  { label:'메모',   style:'' },
+  { label:'단원',   style:'width:220px;' },
+  { label:'학습주제', style:'width:200px;' },
+  { label:'준비물',  style:'width:100px;' },
+  { label:'메모',   style:'width:300px;' },
 ];
 
 function sylColKey(subject){ return 'sylColW_' + subject; }
@@ -1683,7 +1719,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v73';
+const APP_VERSION = 'v74';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');
