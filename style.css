@@ -71,19 +71,31 @@ body{font-family:'Noto Sans KR',sans-serif;font-size:17px;background:#f5f5f5;col
 .day-cell.selected span{background:#EEEDFE;color:#3C3489;border-radius:50%;width:50px;height:50px;display:inline-flex;align-items:center;justify-content:center;font-size:28px;font-weight:600;}
 
 .week-title{flex-shrink:0;font-size:28px;font-weight:500;color:#222;margin-bottom:10px;}
-.week-scroll{flex:1;overflow-y:auto;min-height:0;}
-.lesson-item{display:flex;margin-bottom:10px;}
+.week-scroll{flex:1;overflow:hidden;min-height:0;display:flex;flex-direction:column;gap:8px;}
+.lesson-item{display:flex;flex:1;min-height:0;}
 .lesson-left{width:72px;background:#f5f5f5;border-radius:5px 0 0 5px;padding:8px 4px;display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;}
 .lesson-period{font-size:22px;font-weight:600;color:#3C3489;}
 .lesson-time{font-size:13px;color:#aaa;text-align:center;line-height:1.3;margin-top:3px;font-weight:500;}
-.lesson-right{flex:1;border:0.5px solid #e0e0e0;border-left:none;border-radius:0 5px 5px 0;padding:10px 16px;}
+.lesson-right{flex:1;min-width:0;min-height:0;overflow:hidden;border:0.5px solid #e0e0e0;border-left:none;border-radius:0 5px 5px 0;padding:10px 16px;display:flex;flex-direction:column;justify-content:center;}
 .lesson-class{font-size:26px;font-weight:600;color:#222;}
-.lesson-detail{font-size:18px;color:#534AB7;margin-top:4px;font-weight:500;}
-.lesson-prep{font-size:15px;color:#aaa;margin-top:3px;}
-.lesson-links{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
+.lesson-detail{font-size:18px;color:#534AB7;margin-top:4px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.lesson-prep{font-size:15px;color:#aaa;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.lesson-links{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;overflow:hidden;}
 .lesson-link-btn{display:inline-block;padding:4px 10px;background:#E6F1FB;color:#185FA5;border:1px solid #9DC4ED;border-radius:6px;font-size:13px;font-weight:500;text-decoration:none;cursor:pointer;}
 .lesson-link-btn:hover{background:#185FA5;color:#fff;}
 .no-lesson{font-size:20px;color:#aaa;text-align:center;padding:20px 0;}
+
+/* 5개 이상 수업 시 카드 축소 */
+.week-scroll.lesson-compact .lesson-left{width:56px;padding:4px;}
+.week-scroll.lesson-compact .lesson-period{font-size:16px;}
+.week-scroll.lesson-compact .lesson-time{font-size:10px;}
+.week-scroll.lesson-compact .lesson-right{padding:6px 12px;}
+.week-scroll.lesson-compact .lesson-class{font-size:18px;}
+.week-scroll.lesson-compact .lesson-detail{font-size:13px;margin-top:2px;}
+.week-scroll.lesson-compact .lesson-prep{display:none;}
+.week-scroll.lesson-compact .lesson-links{display:none;}
+.week-scroll.lesson-compact .next-topic{font-size:14px;}
+.week-scroll.lesson-compact .next-prep{display:none;}
 
 .sec-label{flex-shrink:0;font-size:18px;font-weight:500;color:#aaa;letter-spacing:.04em;text-transform:uppercase;margin:8px 0 8px;}
 .prog-card{flex-shrink:0;background:#fff;border:0.5px solid #e0e0e0;border-radius:12px;padding:8px 18px;}
@@ -101,6 +113,7 @@ body{font-family:'Noto Sans KR',sans-serif;font-size:17px;background:#f5f5f5;col
 .prog-sem-btn{font-size:13px;padding:3px 14px;border:1px solid #ccc;border-radius:20px;background:#fff;cursor:pointer;color:#888;}
 .prog-sem-btn.active{background:#534AB7;color:#fff;border-color:#534AB7;}
 .prog-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;}
+.prog-cell-empty{visibility:hidden;}
 .prog-cell{background:#f8f8f8;border-radius:8px;padding:7px 10px;display:flex;align-items:center;gap:8px;min-width:0;}
 .prog-cell-name{font-size:12px;color:#333;font-weight:500;white-space:nowrap;flex-shrink:0;}
 .prog-cell-track{flex:1;height:18px;background:#e8e8e8;border-radius:9px;position:relative;overflow:visible;min-width:0;}
@@ -184,7 +197,7 @@ body{font-family:'Noto Sans KR',sans-serif;font-size:17px;background:#f5f5f5;col
 .sub-tab.active{background:#EEEDFE;color:#3C3489;border-color:#AFA9EC;}
 .sub-content{display:none;}
 .sub-content.active{display:block;}
-.syl-table{width:100%;border-collapse:collapse;font-size:19px;table-layout:fixed;}
+.syl-table{border-collapse:collapse;font-size:19px;table-layout:fixed;}
 .syl-table th{background:#f8f8f8;padding:10px 14px;font-weight:500;color:#888;border:0.5px solid #eee;text-align:left;}
 .syl-table td{padding:8px 10px;border:0.5px solid #eee;color:#222;vertical-align:top;}
 .syl-table tr:hover td{background:#fafafa;}

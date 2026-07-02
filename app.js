@@ -310,6 +310,7 @@ function renderWeek(d, dow) {
     if (cls) slots.push({ p, cls });
   }
   const wc = document.getElementById('week-content');
+  wc.classList.toggle('lesson-compact', slots.length >= 5);
   if (!slots.length) { wc.innerHTML = '<div class="no-lesson">수업이 없습니다</div>'; return; }
   wc.innerHTML = slots.map((s, idx) => {
     const isLast = idx === slots.length - 1;
@@ -1719,7 +1720,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v74';
+const APP_VERSION = 'v75';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');
