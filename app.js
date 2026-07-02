@@ -315,6 +315,7 @@ function renderWeek(d, dow) {
     const isLast = idx === slots.length - 1;
     const syl = getSyllabusCurrent(s.cls);
     const nextSyl = isLast ? getSyllabusNext(s.cls) : null;
+    const isEnd = isLast && !nextSyl;
     const linkHtml = syl && syl.links ? syl.links.split('|').map(pair => {
       const ci = pair.indexOf(',');
       if (ci < 0) return '';
@@ -325,8 +326,8 @@ function renderWeek(d, dow) {
     const nextHtml = nextSyl ? `<div class="lesson-next">
       <div class="next-topic">${nextSyl.topic || ''}</div>
       <div class="next-prep">${[nextSyl.prep ? '준비물: ' + nextSyl.prep : '', nextSyl.memo].filter(Boolean).join(' | ')}</div>
-    </div>` : '';
-    return `<div class="lesson-item${isLast && nextSyl ? ' has-next' : ''}">
+    </div>` : (isEnd ? `<div class="lesson-next lesson-end"><div class="next-topic">수업종료</div></div>` : '');
+    return `<div class="lesson-item${isLast && (nextSyl || isEnd) ? ' has-next' : ''}">
       <div class="lesson-left">
         <div class="lesson-period">${s.p}교시</div>
         <div class="lesson-time">${TIMES[s.p-1].replace('~','~<br>')}</div>
@@ -870,12 +871,12 @@ function buildSubjectHoursFromGAS() {
     const d = subjectHoursData[cls] || {};
     const s1diff = (d.s1actual||0) - (d.s1base||0);
     const s2diff = (d.s2actual||0) - (d.s2base||0);
-    const s1color = s1diff < 0 ? 'color:#e53935' : s1diff > 0 ? 'color:#2e7d32' : '';
-    const s2color = s2diff < 0 ? 'color:#e53935' : s2diff > 0 ? 'color:#2e7d32' : '';
+    const s1style = s1diff !== 0 ? 'color:#e53935;background:#FDECEA;' : '';
+    const s2style = s2diff !== 0 ? 'color:#e53935;background:#FDECEA;' : '';
     html += `<tr>
       <td class="row-subject">${cls}</td>
-      <td>${d.s1base||0}</td><td style="${s1color}"><b>${d.s1actual||0}</b></td>
-      <td>${d.s2base||0}</td><td style="${s2color}"><b>${d.s2actual||0}</b></td>
+      <td>${d.s1base||0}</td><td style="${s1style}"><b>${d.s1actual||0}</b></td>
+      <td>${d.s2base||0}</td><td style="${s2style}"><b>${d.s2actual||0}</b></td>
       <td><b>${d.check||0}</b></td>
     </tr>`;
   });
@@ -1062,7 +1063,6 @@ function buildSyllabus() {
         </tbody>
       </table>
       </div>
-      <button class="btn-xs" style="margin-top:8px;" onclick="addSyllabusRow('${s.replace(/'/g,"\\'")}')">+ 행 추가</button>
     </div>`;
   }).join('');
   applyAllSylColWidths();
@@ -1261,18 +1261,6 @@ window.saveSyllabus = async () => {
 };
 
 // ==================== 구글 시트 연동 ====================
-
-window.addSyllabusRow = async (subject) => {
-  const ch = (syllabusData[subject]?.length || 0) + 1;
-  syllabusData[subject].push({ ch: String(ch), unit: '', topic: '', prep: '', memo: '', done: false });
-  await saveUserData();
-  buildSyllabus();
-  setTimeout(() => {
-    const rows = document.querySelectorAll(`#syl-${subject.replace(/ /g,'_')} tbody tr`);
-    const lastRow = rows[rows.length - 1];
-    if (lastRow) lastRow.querySelector('input')?.focus();
-  }, 100);
-};
 
 window.updateSylField = (subject, idx, field, val) => {
   if (syllabusData[subject]?.[idx]) {
@@ -1695,7 +1683,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v71';
+const APP_VERSION = 'v73';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');

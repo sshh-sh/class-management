@@ -184,7 +184,7 @@ body{font-family:'Noto Sans KR',sans-serif;font-size:17px;background:#f5f5f5;col
 .sub-tab.active{background:#EEEDFE;color:#3C3489;border-color:#AFA9EC;}
 .sub-content{display:none;}
 .sub-content.active{display:block;}
-.syl-table{width:100%;border-collapse:collapse;font-size:19px;}
+.syl-table{width:100%;border-collapse:collapse;font-size:19px;table-layout:fixed;}
 .syl-table th{background:#f8f8f8;padding:10px 14px;font-weight:500;color:#888;border:0.5px solid #eee;text-align:left;}
 .syl-table td{padding:8px 10px;border:0.5px solid #eee;color:#222;vertical-align:top;}
 .syl-table tr:hover td{background:#fafafa;}
@@ -302,6 +302,8 @@ body{font-family:'Noto Sans KR',sans-serif;font-size:17px;background:#f5f5f5;col
 .note-cell{padding:4px 8px;font-size:12px;color:#555;white-space:pre-wrap;min-width:150px;width:150px;}
 .lesson-next{flex:1;border:0.5px solid #e0e0e0;border-left:none;border-radius:0 5px 5px 0;padding:10px 16px;background:#E6F1FB;display:flex;flex-direction:column;justify-content:center;}
 .lesson-item.has-next .lesson-right{border-radius:0;}
+.lesson-end{background:#F0F0F0;align-items:center;}
+.lesson-end .next-topic{color:#888;font-size:16px;text-align:center;}
 .next-topic{font-size:18px;color:#185FA5;font-weight:500;line-height:1.4;}
 .next-prep{font-size:15px;color:#378ADD;margin-top:4px;}
 .syl-unit-link{color:#534AB7;text-decoration:underline;cursor:pointer;font-weight:500;}
