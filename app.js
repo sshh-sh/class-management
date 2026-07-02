@@ -301,12 +301,38 @@ window.selectDay = (d, dow) => {
   renderWeek(d, dow);
 };
 
+function getFullTTDaySlots(dateObj) {
+  const s1 = getSemDates(semYear, 1), s2 = getSemDates(semYear, 2);
+  let sem = null;
+  if (dateObj >= s1.start && dateObj <= s1.end) sem = 's1';
+  else if (dateObj >= s2.start && dateObj <= s2.end) sem = 's2';
+  if (!sem) return null;
+  const rows = fullTimetableData[sem] || [];
+  for (const w of rows) {
+    const m = String(w.period || '').match(/(\d+)\.\s*(\d+)\s*-\s*(\d+)\.\s*(\d+)/);
+    if (!m) continue;
+    const [sM, sD, eM, eD] = [m[1], m[2], m[3], m[4]].map(Number);
+    const sYear = (sem === 's2' && sM < 8) ? semYear + 1 : semYear;
+    const eYear = (sem === 's2' && eM < 8) ? semYear + 1 : semYear;
+    const start = new Date(sYear, sM - 1, sD, 0, 0, 0, 0);
+    const end = new Date(eYear, eM - 1, eD, 23, 59, 59, 999);
+    if (dateObj >= start && dateObj <= end) {
+      const dayIdx = dateObj.getDay() - 1; // 0=월..4=금
+      if (dayIdx < 0 || dayIdx > 4) return null;
+      return (w.days && w.days[dayIdx]) ? w.days[dayIdx] : null;
+    }
+  }
+  return null;
+}
+
 function renderWeek(d, dow) {
-  const dayName = DAY_NAMES[new Date(currentYear, currentMonth, d).getDay()];
+  const dateObj = new Date(currentYear, currentMonth, d);
+  const dayName = DAY_NAMES[dateObj.getDay()];
   document.getElementById('week-title').textContent = `${currentMonth + 1}월 ${d}일 (${dayName})`;
+  const fullSlots = getFullTTDaySlots(dateObj);
   const slots = [];
   for (let p = 1; p <= 6; p++) {
-    const cls = myTT[p] && myTT[p][dow - 1] ? myTT[p][dow - 1] : null;
+    const cls = fullSlots ? (fullSlots[p - 1] || null) : (myTT[p] && myTT[p][dow - 1] ? myTT[p][dow - 1] : null);
     if (cls) slots.push({ p, cls });
   }
   const wc = document.getElementById('week-content');
@@ -1724,7 +1750,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v76';
+const APP_VERSION = 'v77';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');
