@@ -800,7 +800,10 @@ window.startTTColResize = (e, colIdx) => {
   const startW = parseInt(col.style.width) || 36;
   document.body.style.cursor = 'col-resize';
   document.body.style.userSelect = 'none';
-  const onMove = ev => { col.style.width = Math.max(20, startW + (ev.pageX - startX)) + 'px'; };
+  const onMove = ev => {
+    col.style.width = Math.max(20, startW + (ev.pageX - startX)) + 'px';
+    void table.offsetHeight; // colgroup+rowspan 테이블에서 <col> 폭 변경이 리페인트 안 되는 브라우저 버그 방지용 강제 리플로우
+  };
   const onUp = ev => {
     document.removeEventListener('mousemove', onMove);
     document.removeEventListener('mouseup', onUp);
@@ -1793,7 +1796,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v80';
+const APP_VERSION = 'v81';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');
