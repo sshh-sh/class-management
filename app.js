@@ -777,16 +777,34 @@ function buildFullTimetable() {
     html += `<th class="period-header" style="position:relative;">${p+1}<span class="syl-col-resizer" onmousedown="startTTColResize(event,${ci})" onclick="event.stopPropagation()"></span></th>`;
   }
   html += '</tr></thead><tbody>';
+  const today = new Date(); today.setHours(0,0,0,0);
   rows.forEach(w => {
+    const weekStart = fullTTWeekStartDate(w.period, fullTTSem);
     html += `<tr><td class="week-num">${w.week}</td><td class="date-cell">${w.period||''}</td>`;
     for (let d=0;d<5;d++) for (let p=0;p<6;p++) {
       const cls = w.days && w.days[d] && w.days[d][p] ? w.days[d][p] : '';
-      html += cls ? `<td class="has-class">${cls}</td>` : `<td class="empty-cell">—</td>`;
+      const expected = (myTT[p+1] && myTT[p+1][d]) || '';
+      const isDiff = cls && cls !== expected;
+      let cellDate = null;
+      if (weekStart) { cellDate = new Date(weekStart); cellDate.setDate(cellDate.getDate() + d); }
+      const isPast = cellDate && cellDate < today;
+      const classes = [cls ? 'has-class' : 'empty-cell'];
+      if (isPast) classes.push('tt-past');
+      const style = isDiff ? ' style="color:#e53935;font-weight:600;"' : '';
+      html += `<td class="${classes.join(' ')}"${style}>${cls || '—'}</td>`;
     }
     html += `<td class="note-cell">${w.note||''}</td></tr>`;
   });
   html += '</tbody></table></div>';
   el.innerHTML = html;
+}
+
+function fullTTWeekStartDate(period, sem) {
+  const m = String(period || '').match(/(\d+)\.\s*(\d+)/);
+  if (!m) return null;
+  const mo = parseInt(m[1]), day = parseInt(m[2]);
+  const yr = (sem === 's2' && mo < 8) ? semYear + 1 : semYear;
+  return new Date(yr, mo - 1, day);
 }
 
 window.startTTColResize = (e, colIdx) => {
@@ -1043,13 +1061,42 @@ const CONCEPT_ICONS = [
   { key: '에너지효율', icon: 'ti-bolt',  color: '#993C1D', bg: '#FAECE7' },
 ];
 
+const CONCEPT_ICON_POOL = [
+  { icon: 'ti-bolt',        color: '#993C1D', bg: '#FAECE7' },
+  { icon: 'ti-droplet',     color: '#0B5394', bg: '#E3EEFA' },
+  { icon: 'ti-mountain',    color: '#4B5320', bg: '#EEF2E3' },
+  { icon: 'ti-cloud',       color: '#5B7C99', bg: '#EAF1F6' },
+  { icon: 'ti-atom',        color: '#7A3E9D', bg: '#F3E8FA' },
+  { icon: 'ti-seeding',     color: '#2E7D32', bg: '#E5F3E6' },
+  { icon: 'ti-thermometer', color: '#B33939', bg: '#FBEAEA' },
+  { icon: 'ti-magnet',      color: '#8E44AD', bg: '#F1E8F7' },
+  { icon: 'ti-wind',        color: '#2F7A78', bg: '#E4F2F1' },
+  { icon: 'ti-sun',         color: '#B8860B', bg: '#FBF3DD' },
+];
+
+function hashStr(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+
+function getConceptStyle(key) {
+  const known = CONCEPT_ICONS.find(c => c.key === key);
+  if (known) return known;
+  const pick = CONCEPT_ICON_POOL[hashStr(key) % CONCEPT_ICON_POOL.length];
+  return { key, ...pick };
+}
+
 function buildConceptIcons() {
   const bar = document.getElementById('concept-icons-bar');
   if (!bar) return;
-  bar.innerHTML = CONCEPT_ICONS.map(c => {
+  const allKeys = CONCEPT_ICONS.map(c => c.key);
+  Object.keys(conceptLinksData).forEach(k => { if (!allKeys.includes(k)) allKeys.push(k); });
+  bar.innerHTML = allKeys.map(key => {
+    const c = getConceptStyle(key);
     const hasLinks = (conceptLinksData[c.key] || []).length > 0;
-    const key = c.key.replace(/'/g,"\\'");
-    return `<div class="concept-icon-btn"${hasLinks ? ` onmouseenter="showConceptOverlay('${key}',event)" onmouseleave="scheduleHideConceptOverlay()"` : ''}>
+    const keyEsc = c.key.replace(/'/g,"\\'");
+    return `<div class="concept-icon-btn"${hasLinks ? ` onmouseenter="showConceptOverlay('${keyEsc}',event)" onmouseleave="scheduleHideConceptOverlay()"` : ''}>
       <div class="concept-icon-circle" style="background:${c.bg};border-color:${c.color}40;">
         <i class="ti ${c.icon}" style="color:${c.color};font-size:18px;" aria-hidden="true"></i>
       </div>
@@ -1796,7 +1843,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v81';
+const APP_VERSION = 'v82';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');
