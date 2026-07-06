@@ -326,11 +326,7 @@ body{font-family:'Noto Sans KR',sans-serif;font-size:17px;background:#f5f5f5;col
 .syl-row-selected td{background:#F0EFFE!important;}
 
 /* ==================== 3번: 방학·시수 ==================== */
-.academic-cal-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
 .vacation-block{border:0.5px solid #e0e0e0;border-radius:10px;padding:12px 16px;background:#fff;}
-.vacation-empty{font-size:13px;color:#aaa;padding:4px 0;}
-.vacation-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;}
-.vacation-input-label{font-size:13px;padding:5px 8px;border:0.5px solid #ddd;border-radius:5px;width:110px;}
 .vacation-input-date{font-size:13px;padding:5px 8px;border:0.5px solid #ddd;border-radius:5px;width:130px;}
 .sem-date-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;}
 .sem-date-label{font-size:13px;color:#534AB7;font-weight:600;width:36px;flex-shrink:0;}
@@ -421,9 +417,7 @@ body{font-size:17px;}
   .btn-xs{font-size:12px;height:30px;min-width:44px;}
   .btn-primary{font-size:14px;padding:12px;}
   .popup-box{padding:1rem;}
-  .vacation-row{flex-wrap:wrap;}
-  .vacation-input-label,.vacation-input-date{width:100%;}
-  .academic-cal-grid{grid-template-columns:1fr;}
+  .vacation-input-date{width:100%;}
 }
 
 /* 소형 모바일 (480px 이하) */
