@@ -821,7 +821,10 @@ window.startTTColResize = (e, colIdx) => {
   document.body.style.userSelect = 'none';
   const onMove = ev => {
     col.style.width = Math.max(20, startW + (ev.pageX - startX)) + 'px';
-    void table.offsetHeight; // colgroup+rowspan 테이블에서 <col> 폭 변경이 리페인트 안 되는 브라우저 버그 방지용 강제 리플로우
+    // colgroup+rowspan 테이블에서 <col> 폭 변경만으로는 리페인트 안 되는 문제 — table-layout을 껐다 켜서 강제 재계산
+    table.style.tableLayout = 'auto';
+    void table.offsetWidth;
+    table.style.tableLayout = 'fixed';
   };
   const onUp = ev => {
     document.removeEventListener('mousemove', onMove);
@@ -829,6 +832,7 @@ window.startTTColResize = (e, colIdx) => {
     document.body.style.cursor = '';
     document.body.style.userSelect = '';
     localStorage.setItem(`fulltt_c_${colIdx}`, String(Math.max(20, startW + (ev.pageX - startX))));
+    buildFullTimetable(); // 최종 상태를 표 전체 재빌드로 확실히 반영
   };
   document.addEventListener('mousemove', onMove);
   document.addEventListener('mouseup', onUp);
@@ -1844,7 +1848,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v83';
+const APP_VERSION = 'v84';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');
