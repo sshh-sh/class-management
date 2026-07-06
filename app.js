@@ -784,7 +784,8 @@ function buildFullTimetable() {
     for (let d=0;d<5;d++) for (let p=0;p<6;p++) {
       const cls = w.days && w.days[d] && w.days[d][p] ? w.days[d][p] : '';
       const expected = (myTT[p+1] && myTT[p+1][d]) || '';
-      const isDiff = cls && cls !== expected;
+      const isClassCode = /^.+\(\d+-\d+\)$/.test(cls);
+      const isDiff = isClassCode && cls !== expected;
       let cellDate = null;
       if (weekStart) { cellDate = new Date(weekStart); cellDate.setDate(cellDate.getDate() + d); }
       const isPast = cellDate && cellDate < today;
@@ -1843,7 +1844,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v82';
+const APP_VERSION = 'v83';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');
