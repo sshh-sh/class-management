@@ -758,7 +758,9 @@ function buildFullTimetable() {
   // col 0=주, 1=기간, 2~31=교시(5일×6교시), 32=비고
   const defaultW = [32, 90, ...Array(30).fill(36), 150];
   const colW = defaultW.map((def, i) => parseInt(localStorage.getItem(`fulltt_c_${i}`) || def));
-  let html = '<div class="full-tt-wrap"><table class="full-tt" style="table-layout:fixed;"><colgroup>';
+  // table-layout:fixed는 테이블 width가 auto면 브라우저가 무시하고 자동 레이아웃으로 동작함 — 반드시 width를 컬럼 합계로 명시
+  const totalW = colW.reduce((a, b) => a + b, 0);
+  let html = `<div class="full-tt-wrap"><table class="full-tt" style="table-layout:fixed;width:${totalW}px;"><colgroup>`;
   colW.forEach(w => html += `<col style="width:${w}px;">`);
   html += '</colgroup><thead>';
   html += `<tr><th rowspan="2" style="position:relative;">주<span class="syl-col-resizer" onmousedown="startTTColResize(event,0)" onclick="event.stopPropagation()"></span></th>`;
@@ -814,10 +816,8 @@ window.startTTColResize = (e, colIdx) => {
   document.body.style.userSelect = 'none';
   const onMove = ev => {
     col.style.width = Math.max(20, startW + (ev.pageX - startX)) + 'px';
-    // colgroup+rowspan 테이블에서 <col> 폭 변경만으로는 리페인트 안 되는 문제 — table-layout을 껐다 켜서 강제 재계산
-    table.style.tableLayout = 'auto';
-    void table.offsetWidth;
-    table.style.tableLayout = 'fixed';
+    // 테이블 width도 컬럼 합계로 갱신 — width가 auto가 되면 fixed 레이아웃이 꺼져서 col 폭이 무시됨
+    table.style.width = Array.from(table.querySelectorAll('col')).reduce((a, c) => a + (parseInt(c.style.width) || 36), 0) + 'px';
   };
   const onUp = ev => {
     document.removeEventListener('mousemove', onMove);
@@ -1801,7 +1801,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v85';
+const APP_VERSION = 'v86';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');
