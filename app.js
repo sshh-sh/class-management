@@ -820,11 +820,12 @@ function buildFullTimetable() {
   });
   html += '</tbody></table></div>';
   el.innerHTML = html;
-  const firstRowTh = el.querySelector('.full-tt thead tr:first-child th');
-  const secondRowThs = el.querySelectorAll('.full-tt thead tr:last-child th');
-  if (firstRowTh && secondRowThs.length) {
-    const h = firstRowTh.getBoundingClientRect().height;
-    secondRowThs.forEach(th => { th.style.top = h + 'px'; });
+  // rowspan=2 셀("주"/"기간"/"비고")은 두 줄 높이라 기준으로 쓰면 안 됨 — 1행짜리 day-header로 측정
+  const dayHeaderTh = el.querySelector('.full-tt thead .day-header');
+  const periodHeaderThs = el.querySelectorAll('.full-tt thead .period-header');
+  if (dayHeaderTh && periodHeaderThs.length) {
+    const h = dayHeaderTh.getBoundingClientRect().height;
+    periodHeaderThs.forEach(th => { th.style.top = h + 'px'; });
   }
 }
 
@@ -1847,7 +1848,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v88';
+const APP_VERSION = 'v89';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');
