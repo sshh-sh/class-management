@@ -790,13 +790,13 @@ function buildFullTimetable() {
   let html = `<div class="full-tt-wrap"><table class="full-tt" style="table-layout:fixed;width:${totalW}px;"><colgroup>`;
   colW.forEach(w => html += `<col style="width:${w}px;">`);
   html += '</colgroup><thead>';
-  html += `<tr><th rowspan="2" style="position:relative;">주<span class="syl-col-resizer" onmousedown="startTTColResize(event,0)" onclick="event.stopPropagation()"></span></th>`;
-  html += `<th rowspan="2" class="date-cell" style="position:relative;">기간<span class="syl-col-resizer" onmousedown="startTTColResize(event,1)" onclick="event.stopPropagation()"></span></th>`;
+  html += `<tr><th rowspan="2">주<span class="syl-col-resizer" onmousedown="startTTColResize(event,0)" onclick="event.stopPropagation()"></span></th>`;
+  html += `<th rowspan="2" class="date-cell">기간<span class="syl-col-resizer" onmousedown="startTTColResize(event,1)" onclick="event.stopPropagation()"></span></th>`;
   DAYS.forEach(d => html += `<th colspan="6" class="day-header">${d}</th>`);
-  html += `<th rowspan="2" class="day-header note-col-th" style="position:relative;">비고<span class="syl-col-resizer" onmousedown="startTTColResize(event,32)" onclick="event.stopPropagation()"></span></th></tr><tr>`;
+  html += `<th rowspan="2" class="day-header note-col-th">비고<span class="syl-col-resizer" onmousedown="startTTColResize(event,32)" onclick="event.stopPropagation()"></span></th></tr><tr>`;
   for (let d=0;d<5;d++) for (let p=0;p<6;p++) {
     const ci = 2 + d*6 + p;
-    html += `<th class="period-header" style="position:relative;">${p+1}<span class="syl-col-resizer" onmousedown="startTTColResize(event,${ci})" onclick="event.stopPropagation()"></span></th>`;
+    html += `<th class="period-header">${p+1}<span class="syl-col-resizer" onmousedown="startTTColResize(event,${ci})" onclick="event.stopPropagation()"></span></th>`;
   }
   html += '</tr></thead><tbody>';
   const today = new Date(); today.setHours(0,0,0,0);
@@ -1848,7 +1848,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v89';
+const APP_VERSION = 'v90';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');
