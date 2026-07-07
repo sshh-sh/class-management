@@ -51,11 +51,11 @@ function doPost(e) {
       } else if (action === 'saveTimetables') {
         result = saveTimetables(userId, data.myTT, data.classTTList, data.events);
       } else if (action === 'loadSyllabus') {
-        result = loadSyllabus(userId, data.subject);
+        result = loadSyllabus(userId, data.subject, data.semester);
       } else if (action === 'saveSyllabus') {
-        result = saveSyllabus(userId, data.subject, data.sylData);
+        result = saveSyllabus(userId, data.subject, data.sylData, data.semester);
       } else if (action === 'saveDoneFlag') {
-        result = saveDoneFlag(userId, data.subject, data.index, data.done);
+        result = saveDoneFlag(userId, data.subject, data.index, data.done, data.semester);
       } else if (action === 'setupTimetableSheet') {
         const ss2 = jm_getSpreadsheet();
         const ts = ss2.getSheetByName('시간표') || ss2.insertSheet('시간표');
@@ -278,6 +278,13 @@ function jm_syllabusSheet() {
     s.setColumnWidth(9, 250);
   }
 
+  // 학기 헤더 (J, 10열): 없으면 추가 — 기존 데이터 행 건드리지 않음
+  if (!String(s.getRange(1, 10).getValue()).trim()) {
+    s.getRange(1, 10).setValue('학기');
+    s.getRange(1, 10).setFontWeight('bold').setBackground('#4285F4').setFontColor('white');
+    s.setColumnWidth(10, 70);
+  }
+
   // 개념링크 헤더 (K~N, 11~14열): 없으면 추가 — 기존 데이터 행 건드리지 않음
   if (!String(s.getRange(1, 11).getValue()).trim()) {
     s.getRange(1, 11, 1, 4).setValues([['카테고리', '소카테고리', '주제', 'URL']]);
@@ -300,11 +307,13 @@ function loadAll(userId) {
   for (let i = 1; i < sylRows.length; i++) {
     const subject = String(sylRows[i][1]||'').trim();
     if (!subject) continue;
-    if (!syllabusData[subject]) syllabusData[subject] = [];
-    // 신형 컬럼: [완료체크(0), 과목(1), 순서(2), 기간(3), 차시(4), 단원(5), 학습주제(6), 준비물(7), 메모(8)]
+    // J열(9)=학기 — 비어있으면 구형 데이터로 간주해 1학기 취급
+    const semKey = String(sylRows[i][9]||'').trim() === '2학기' ? 's2' : 's1';
+    if (!syllabusData[subject]) syllabusData[subject] = { s1: [], s2: [] };
+    // 신형 컬럼: [완료체크(0), 과목(1), 순서(2), 기간(3), 차시(4), 단원(5), 학습주제(6), 준비물(7), 메모(8), 학기(9)]
     const unitUrl = sylSheet.getRange(i + 1, 6).getRichTextValue().getLinkUrl() || '';
     const topicUrl = sylSheet.getRange(i + 1, 7).getRichTextValue().getLinkUrl() || '';
-    syllabusData[subject].push({
+    syllabusData[subject][semKey].push({
       done: String(sylRows[i][0]||'').trim() === '완료',
       period: String(sylRows[i][3]||''),
       ch: String(sylRows[i][4]||''),
@@ -806,13 +815,21 @@ function calcTimetable(userId, semYear) {
 }
 
 // ---------- 진도표 ----------
-function loadSyllabus(userId, subject) {
+// semester: '1학기' | '2학기' (미지정 시 J열이 비어있는 구형 행도 1학기로 취급)
+function jm_semMatches(rowSemVal, semester) {
+  const sem = semester || '1학기';
+  const rowSem = String(rowSemVal||'').trim() || '1학기';
+  return rowSem === sem;
+}
+
+function loadSyllabus(userId, subject, semester) {
   const s = jm_syllabusSheet();
   const data = s.getDataRange().getValues();
   const items = [];
   for (let i = 1; i < data.length; i++) {
     if (String(data[i][1]||'').trim() !== subject) continue;
-    // 신형: [완료체크(0), 과목(1), 순서(2), 기간(3), 차시(4), 단원(5), 학습주제(6), 준비물(7), 메모(8)]
+    if (!jm_semMatches(data[i][9], semester)) continue;
+    // 신형: [완료체크(0), 과목(1), 순서(2), 기간(3), 차시(4), 단원(5), 학습주제(6), 준비물(7), 메모(8), 학기(9)]
     const unitUrl = s.getRange(i + 1, 6).getRichTextValue().getLinkUrl() || '';
     const topicUrl = s.getRange(i + 1, 7).getRichTextValue().getLinkUrl() || '';
     items.push({
@@ -830,12 +847,13 @@ function loadSyllabus(userId, subject) {
   return {success:true, items};
 }
 
-function saveDoneFlag(userId, subject, index, done) {
+function saveDoneFlag(userId, subject, index, done, semester) {
   const s = jm_syllabusSheet();
   const data = s.getDataRange().getValues();
   let count = 0;
   for (let i = 1; i < data.length; i++) {
     if (String(data[i][1]||'').trim() !== subject) continue;
+    if (!jm_semMatches(data[i][9], semester)) continue;
     if (count === index) {
       s.getRange(i + 1, 1).setValue(done ? '완료' : '할일');
       return { success: true };
@@ -845,14 +863,16 @@ function saveDoneFlag(userId, subject, index, done) {
   return { success: false, message: '행을 찾을 수 없습니다' };
 }
 
-function saveSyllabus(userId, subject, sylData) {
+function saveSyllabus(userId, subject, sylData, semester) {
   const s = jm_syllabusSheet();
   const data = s.getDataRange().getValues();
+  const semLabel = semester || '1학기';
 
-  // 과목+순서로 기존 행 위치 맵 생성 (순서 C열=index 2)
+  // 과목+학기+순서로 기존 행 위치 맵 생성 (순서 C열=index 2, 학기 J열=index 9)
   const rowMap = {}; // 순서번호 → sheet row번호(1-based)
   for (let i = 1; i < data.length; i++) {
     if (String(data[i][1]||'').trim() !== subject) continue;
+    if (!jm_semMatches(data[i][9], semester)) continue;
     const ord = String(data[i][2]||'').trim();
     if (ord) rowMap[ord] = i + 1;
   }
@@ -872,8 +892,9 @@ function saveSyllabus(userId, subject, sylData) {
     ];
 
     if (rowMap[ord]) {
-      // 기존 행 A~I열만 덮어쓰기 (J열 이후 K~N 보존)
+      // 기존 행 A~I열만 덮어쓰기 (K~N 개념링크는 보존), J열(학기)만 별도 갱신
       s.getRange(rowMap[ord], 1, 1, 9).setValues([values]);
+      s.getRange(rowMap[ord], 10).setValue(semLabel);
       // F열(단원) 하이퍼링크 복원
       if (item.unitUrl) {
         const rtv = SpreadsheetApp.newRichTextValue()
@@ -885,7 +906,7 @@ function saveSyllabus(userId, subject, sylData) {
     }
     // 시트에 없는 행이면 추가 (신규)
     else {
-      s.appendRow(values);
+      s.appendRow(values.concat([semLabel]));
     }
   });
 

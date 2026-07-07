@@ -28,11 +28,11 @@ Google Apps Script(GAS) + HTML/JS/CSS 구성의 **학교 교사용 수업 관리
 
 ## 3. 현재 라이브 버전
 
-**v46** (최신 배포)
+**v86** (최신 배포)
 
 GAS 웹앱 URL:
 ```
-https://script.google.com/macros/s/AKfycbyDnzHtR5fnj1FHvOKtxA0wF59BNzLNsD6jeZnBWNnj8lenwr0OqniWXqZ4e8s7MY03/exec
+https://script.google.com/macros/s/AKfycbxFWZfb8UiF0F4IFXilanRUhURvIZhiBJcWKe3pM_Cs4yFw3Tw93hLNbkBocbnxg0gb/exec
 ```
 (`app.js` 17번 줄 `GAS_URL` 상수)
 
@@ -71,11 +71,9 @@ node gas_updater.js
 
 ## 6. 수정 대기 중인 버그 / 기능
 
-| # | 항목 | 설명 | 상태 |
-|---|---|---|---|
-| 1 | **"3-1" 날짜 인식 버그** | 구글 시트가 "3-1" 같은 학급명을 날짜(3월 1일)로 자동 변환하는 문제. `apps_script.gs` 674~677줄에 임시 복원 로직 있음. 시간표 섹션에서도 같은 문제 발생 가능. | 🔧 대기 중 |
+없음 (대기 항목 전체 삭제됨, 2026-07-07).
 
-> v45에서 "전체시간표 생성 버튼 제거", v46에서 "행사 시트 반영 + 셀 서식" 완료됨.
+> v50~v86 사이 주요 변경: 시간표 4구역 신양식, 진도표 구글시트 연동, 시수계산표 신형 레이아웃(주당/17주/실제수업/시수체크), 학사일정(학기 시작·종료·방학) UI, 전체시간표 컬럼 리사이즈 버그 다수 재수정, 개념아이콘 자동배정, 오늘수업 카드가 전체시간표 우선 참조하도록 변경.
 
 ---
 

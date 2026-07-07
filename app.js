@@ -14,7 +14,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
 // GAS API URL
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbxFWZfb8UiF0F4IFXilanRUhURvIZhiBJcWKe3pM_Cs4yFw3Tw93hLNbkBocbnxg0gb/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbwLvo2y72xH4lknFApI1P367wHSCF9Z6lb2CFuEf_98QW43TkAb1WwpTZjUuiBA4mIm/exec';
 
 const TIMES = ['09:00~09:40','09:50~10:30','10:40~11:20','11:30~12:10','13:00~13:40','13:50~14:30'];
 const DAY_NAMES = ['일','월','화','수','목','금','토'];
@@ -39,6 +39,7 @@ let semDatesByYear = {};
 let subjectHoursData = {};
 let fullTimetableData = {s1:[], s2:[]};
 let fullTTSem = (new Date().getMonth() + 1) >= 8 ? 's2' : 's1';
+let sylSem = fullTTSem; // 진도표 탭 화면에 표시할 학기
 let subjectHoursClasses = [];
 // 6번: API 응답 캐시
 const apiCache = new Map();
@@ -235,10 +236,14 @@ async function saveUserData() {
       body: JSON.stringify({ app: 'journal-management', action: 'saveMyTimetable', userId, ttData: myTT })
     });
     for (const subject in syllabusData) {
-      await fetch(GAS_URL, {
-        method: 'POST',
-        body: JSON.stringify({ app: 'journal-management', action: 'saveSyllabus', userId, subject, sylData: syllabusData[subject] })
-      });
+      for (const sem of ['s1', 's2']) {
+        const items = sylItems(subject, sem);
+        if (!items.length) continue;
+        await fetch(GAS_URL, {
+          method: 'POST',
+          body: JSON.stringify({ app: 'journal-management', action: 'saveSyllabus', userId, subject, sylData: items, semester: sem === 's1' ? '1학기' : '2학기' })
+        });
+      }
     }
     apiCache.delete('loadAll_' + userId);
   } catch(e) {
@@ -254,10 +259,14 @@ function scheduleSylAutoSave() {
     if (!userId) return;
     try {
       for (const subject in syllabusData) {
-        await fetch(GAS_URL, {
-          method: 'POST',
-          body: JSON.stringify({ app: 'journal-management', action: 'saveSyllabus', userId, subject, sylData: syllabusData[subject] })
-        });
+        for (const sem of ['s1', 's2']) {
+          const items = sylItems(subject, sem);
+          if (!items.length) continue;
+          await fetch(GAS_URL, {
+            method: 'POST',
+            body: JSON.stringify({ app: 'journal-management', action: 'saveSyllabus', userId, subject, sylData: items, semester: sem === 's1' ? '1학기' : '2학기' })
+          });
+        }
       }
       apiCache.delete('loadAll_' + userId);
       const badge = document.getElementById('sync-badge');
@@ -349,11 +358,12 @@ function renderWeek(d, dow) {
   }
   wc.classList.toggle('lesson-compact', slots.length >= 5);
   if (!slots.length) { wc.innerHTML = '<div class="no-lesson">수업이 없습니다</div>'; return; }
+  const sylSemForDate = semesterKeyForDate(dateObj);
   wc.innerHTML = slots.map((s, idx) => {
     const isLast = idx === slots.length - 1;
-    const syl = getSyllabusCurrent(s.cls);
-    const finished = !syl && isSyllabusFinished(s.cls);
-    const nextSyl = isLast ? getSyllabusNext(s.cls) : null;
+    const syl = getSyllabusCurrent(s.cls, sylSemForDate);
+    const finished = !syl && isSyllabusFinished(s.cls, sylSemForDate);
+    const nextSyl = isLast ? getSyllabusNext(s.cls, sylSemForDate) : null;
     const isEnd = isLast && !nextSyl;
     const linkHtml = syl && syl.links ? syl.links.split('|').map(pair => {
       const ci = pair.indexOf(',');
@@ -382,12 +392,29 @@ function renderWeek(d, dow) {
   }).join('');
 }
 
-function getSyllabusNext(cls) {
+// 과목별 진도표는 학기(s1/s2)로 나뉜다. 구형(마이그레이션 전) 데이터는 배열 그대로 남아있을 수 있어 s1로 취급.
+function sylItems(subject, sem) {
+  const v = syllabusData[subject];
+  if (!v) return [];
+  if (Array.isArray(v)) return sem === 's1' ? v : [];
+  return v[sem] || [];
+}
+
+// 편집 시 사용 — 구형(배열) 데이터는 1학기로 간주해 신형 구조로 옮겨준다.
+function sylSubjectSem(subject) {
+  const v = syllabusData[subject];
+  if (!v || Array.isArray(v)) {
+    syllabusData[subject] = { s1: Array.isArray(v) ? v : [], s2: [] };
+  }
+  return syllabusData[subject][sylSem];
+}
+
+function getSyllabusNext(cls, sem) {
   const grade = (cls.match(/\((\d+)-/) || [])[1] || cls.split('-')[0];
   for (const subject in syllabusData) {
     const subjGrade = (subject.match(/^(\d+)/) || [])[1];
     if (subjGrade !== grade) continue;
-    const items = syllabusData[subject];
+    const items = sylItems(subject, sem);
     if (!items || !items.length) continue;
     let foundFirst = false;
     for (const item of items) {
@@ -400,13 +427,13 @@ function getSyllabusNext(cls) {
   return null;
 }
 
-function isSyllabusFinished(cls) {
+function isSyllabusFinished(cls, sem) {
   const grade = (cls.match(/\((\d+)-/) || [])[1] || cls.split('-')[0];
   let hasSubject = false;
   for (const subject in syllabusData) {
     const subjGrade = (subject.match(/^(\d+)/) || [])[1];
     if (subjGrade !== grade) continue;
-    const items = syllabusData[subject];
+    const items = sylItems(subject, sem);
     if (!items || !items.length) continue;
     hasSubject = true;
     if (items.some(i => !isDone(i))) return false;
@@ -414,12 +441,12 @@ function isSyllabusFinished(cls) {
   return hasSubject;
 }
 
-function getSyllabusCurrent(cls) {
+function getSyllabusCurrent(cls, sem) {
   const grade = (cls.match(/\((\d+)-/) || [])[1] || cls.split('-')[0];
   for (const subject in syllabusData) {
     const subjGrade = (subject.match(/^(\d+)/) || [])[1];
     if (subjGrade !== grade) continue;
-    const items = syllabusData[subject];
+    const items = sylItems(subject, sem);
     if (!items || !items.length) continue;
     const doneCount = items.filter(i => isDone(i)).length;
     const next = items.find(i => !isDone(i));
@@ -558,7 +585,7 @@ window.saveJournal = async () => {
   const cls = document.getElementById('jp-class').value;
   const name = document.getElementById('jp-name').value.trim();
   const content = document.getElementById('jp-content').value.trim();
-  if (!period || !name || !content) { alert('교시, 학생 이름, 지도내용을 모두 입력해 주세요.'); return; }
+  if (!period || !name || !content) { showToast('교시, 학생 이름, 지도내용을 모두 입력해 주세요.', 'error'); return; }
   const dateStr = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${String(selectedDate).padStart(2,'0')}`;
 
   const btn = document.querySelector('#journal-popup .btn-primary');
@@ -578,10 +605,10 @@ window.saveJournal = async () => {
       closeJournalPopupDirect();
       await loadJournal();
         } else {
-      alert('저장 실패: ' + result.message);
+      showToast('저장 실패: ' + result.message, 'error');
     }
   } catch(e) {
-    alert('저장 중 오류: ' + e.message);
+    showToast('저장 중 오류: ' + e.message, 'error');
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = '저장'; }
   }
@@ -707,10 +734,10 @@ window.deleteJournalRow = async (rowNum) => {
     if (result.success) {
       await loadJournal();
     } else {
-      alert('삭제 실패: ' + result.message);
+      showToast('삭제 실패: ' + result.message, 'error');
     }
   } catch(e) {
-    alert('삭제 중 오류: ' + e.message);
+    showToast('삭제 중 오류: ' + e.message, 'error');
   }
 };
 
@@ -793,6 +820,12 @@ function buildFullTimetable() {
   });
   html += '</tbody></table></div>';
   el.innerHTML = html;
+  const firstRowTh = el.querySelector('.full-tt thead tr:first-child th');
+  const secondRowThs = el.querySelectorAll('.full-tt thead tr:last-child th');
+  if (firstRowTh && secondRowThs.length) {
+    const h = firstRowTh.getBoundingClientRect().height;
+    secondRowThs.forEach(th => { th.style.top = h + 'px'; });
+  }
 }
 
 function fullTTWeekStartDate(period, sem) {
@@ -898,16 +931,7 @@ window.updateClsTT = (name, p, d, val) => {
 };
 
 function showToast(msg, type = 'success') {
-  let toast = document.getElementById('app-toast');
-  if (!toast) {
-    toast = document.createElement('div');
-    toast.id = 'app-toast';
-    document.body.appendChild(toast);
-  }
-  toast.textContent = msg;
-  toast.className = 'app-toast show' + (type === 'error' ? ' error' : '');
-  clearTimeout(toast._t);
-  toast._t = setTimeout(() => toast.classList.remove('show'), 2500);
+  // 알림 기능 비활성화 — 사용자 요청으로 모든 토스트/알림 표시 중지
 }
 
 window.syncFromGAS = async (btn) => {
@@ -1150,10 +1174,17 @@ window.hideConceptOverlay = () => {
   if (overlay) overlay.style.display = 'none';
 };
 
+window.toggleSylSem = () => {
+  sylSem = sylSem === 's1' ? 's2' : 's1';
+  buildSyllabus();
+};
+
 function buildSyllabus() {
   const subjects = Object.keys(syllabusData);
   const tabBar = document.getElementById('syllabus-tabs');
   const content = document.getElementById('syllabus-content');
+  const semBtn = document.getElementById('syl-sem-toggle-btn');
+  if (semBtn) semBtn.textContent = sylSem === 's1' ? '2학기 보기' : '1학기 보기';
   tabBar.innerHTML = subjects.map((s, i) =>
     `<button class="sub-tab${i===0?' active':''}" onclick="switchSyllabus('${s.replace(/'/g,"\\'")}',this)">${s}</button>`
   ).join('');
@@ -1173,7 +1204,7 @@ function buildSyllabus() {
       <div class="table-wrap">
       <table class="syl-table" data-subject="${sAttr}">
         <thead><tr>${ths}</tr></thead>
-        <tbody>${(syllabusData[s]||[]).map((r,idx) => {
+        <tbody>${sylItems(s, sylSem).map((r,idx) => {
           const done = isDone(r);
           const se = s.replace(/'/g,"\\'");
           const linksEsc = (r.links||'').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
@@ -1277,7 +1308,7 @@ window.openSylRowLink = (linksRaw) => {
 
 // 링크 편집 팝업
 window.openSylLinkEditor = (subject, idx) => {
-  const current = syllabusData[subject]?.[idx]?.links || '';
+  const current = sylSubjectSem(subject)?.[idx]?.links || '';
   const val = prompt(
     `링크 입력 (형식: 주제,URL|주제,URL)\n예) 물의상태변화,https://....|상태변화,https://...`,
     current
@@ -1312,7 +1343,7 @@ function showLinks(linksStr) {
 }
 
 window.updateLinkArea = (subject, idx) => {
-  const links = syllabusData[subject]?.[idx]?.links || '';
+  const links = sylSubjectSem(subject)?.[idx]?.links || '';
   showLinks(links);
 };
 
@@ -1329,8 +1360,9 @@ window.switchSyllabus = (name, el) => {
 };
 
 window.toggleDone = async (subject, idx, checked) => {
-  if (!syllabusData[subject]?.[idx]) return;
-  syllabusData[subject][idx].done = checked;
+  const items = sylSubjectSem(subject);
+  if (!items?.[idx]) return;
+  items[idx].done = checked;
   const activeTab = document.querySelector('.sub-tab.active');
   const activeName = activeTab ? activeTab.textContent.replace(/×$/, '').trim() : null;
   buildSyllabus();
@@ -1344,7 +1376,8 @@ window.toggleDone = async (subject, idx, checked) => {
   try {
     const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({
       app: 'journal-management', action: 'saveDoneFlag',
-      userId: currentUser.email, subject, index: idx, done: checked }) });
+      userId: currentUser.email, subject, index: idx, done: checked,
+      semester: sylSem === 's1' ? '1학기' : '2학기' }) });
     const d = await res.json();
     synced = !!d.success;
   } catch(e) {}
@@ -1368,16 +1401,21 @@ window.saveSyllabus = async () => {
   const subjects = Object.keys(syllabusData);
   try {
     for (const subject of subjects) {
-      await fetch(GAS_URL, {
-        method: 'POST',
-        body: JSON.stringify({
-          app: 'journal-management',
-          action: 'saveSyllabus',
-          userId: currentUser.email,
-          subject,
-          sylData: syllabusData[subject]
-        })
-      });
+      for (const sem of ['s1', 's2']) {
+        const items = sylItems(subject, sem);
+        if (!items.length) continue;
+        await fetch(GAS_URL, {
+          method: 'POST',
+          body: JSON.stringify({
+            app: 'journal-management',
+            action: 'saveSyllabus',
+            userId: currentUser.email,
+            subject,
+            sylData: items,
+            semester: sem === 's1' ? '1학기' : '2학기'
+          })
+        });
+      }
     }
     apiCache.delete('loadAll_' + currentUser.email);
     // 로컬 캐시도 갱신 — 새로고침해도 방금 저장한 내용 유지
@@ -1387,17 +1425,18 @@ window.saveSyllabus = async () => {
       localStorage.setItem(ck, JSON.stringify({ ...prev, syllabusData }));
     } catch(e) {}
     clearSylUnsaved();
-    alert('진도표가 저장되었습니다!');
+    showToast('진도표가 저장되었습니다!');
   } catch(e) {
-    alert('저장 중 오류: ' + e.message);
+    showToast('저장 중 오류: ' + e.message, 'error');
   }
 };
 
 // ==================== 구글 시트 연동 ====================
 
 window.updateSylField = (subject, idx, field, val) => {
-  if (syllabusData[subject]?.[idx]) {
-    syllabusData[subject][idx][field] = val;
+  const items = sylSubjectSem(subject);
+  if (items?.[idx]) {
+    items[idx][field] = val;
     scheduleSylAutoSave(); // 4번: 변경 즉시 자동저장 예약
   }
 };
@@ -1578,6 +1617,13 @@ function isNonSchoolDate(dateObj) {
   return !inSemester; // 학기 범위 밖 = 자동 방학
 }
 
+function semesterKeyForDate(dateObj) {
+  const s1 = getSemDates(semYear, 1), s2 = getSemDates(semYear, 2);
+  if (dateObj >= s1.start && dateObj <= s1.end) return 's1';
+  if (dateObj >= s2.start && dateObj <= s2.end) return 's2';
+  return 's1';
+}
+
 // ==================== 학기 시작/종료일 ====================
 window.openSemDateModal = () => {
   renderSemDateInputs();
@@ -1650,7 +1696,7 @@ window.setSubjectHours = (subject, key, val) => {
 window.saveSubjectHoursData = async () => {
   await saveVacationAndHours();
   buildSubjectHours();
-  alert('저장되었습니다!');
+  showToast('저장되었습니다!');
 };
 
 async function saveVacationAndHours() {
@@ -1801,7 +1847,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v86';
+const APP_VERSION = 'v87';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');
