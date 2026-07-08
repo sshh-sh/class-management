@@ -979,7 +979,33 @@ window.downloadTTExcel = () => {
 
 window.handleTTUpload = (input) => { input.value = ''; };
 
-window.calcSubjectHours = () => { buildSubjectHoursFromGAS(); };
+window.calcSubjectHours = async (btn) => {
+  if (!btn) btn = document.querySelector('[onclick^="calcSubjectHours"]');
+  const origText = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = '계산 중...'; }
+  try {
+    const userId = currentUser.email;
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      body: JSON.stringify({ app: 'journal-management', action: 'loadAll', userId })
+    });
+    const d = await res.json();
+    if (d.success) {
+      if (d.subjectHoursData) subjectHoursData = d.subjectHoursData;
+      if (d.subjectHoursClasses) subjectHoursClasses = d.subjectHoursClasses;
+      localStorage.setItem(`userdata_${userId}_ts`, String(Date.now()));
+      buildSubjectHoursFromGAS();
+      showToast('시수 계산 완료 ✓');
+    } else {
+      showToast('시수 계산 실패: ' + (d.message || ''), 'error');
+    }
+  } catch(e) {
+    console.error('시수 계산 오류:', e);
+    showToast('시수 계산 중 오류가 발생했습니다', 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = origText; }
+  }
+};
 
 function buildSubjectHoursFromGAS() {
   const el = document.getElementById('subject-hours-result');
@@ -1848,7 +1874,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v90';
+const APP_VERSION = 'v91';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');
