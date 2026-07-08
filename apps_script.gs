@@ -330,6 +330,7 @@ function loadAll(userId) {
   return {
     success: true,
     myTT: ttResult.myTT,
+    myTTLabels: ttResult.myTTLabels || {},
     classTTList: ttResult.classTTList,
     timetableEvents: ttResult.timetableEvents,
     vacationPeriods: ttResult.vacationPeriods,
@@ -426,7 +427,7 @@ function saveMyTimetable(userId, ttData) {
 function loadAllTimetables(userId) {
   const s = jm_timetableSheet();
   const lastRow = s.getLastRow();
-  if (lastRow < 1) return { success:true, myTT:{}, classTTList:[], timetableEvents:{}, vacationPeriods:[], subjectHoursData:{}, fullTimetable:{s1:[],s2:[]}, subjectHoursClasses:[] };
+  if (lastRow < 1) return { success:true, myTT:{}, myTTLabels:{}, classTTList:[], timetableEvents:{}, vacationPeriods:[], subjectHoursData:{}, fullTimetable:{s1:[],s2:[]}, subjectHoursClasses:[] };
   return loadAllTimetables_new(s, lastRow);
 }
 
@@ -436,7 +437,9 @@ function loadAllTimetables_new(s, lastRow) {
   const allData = s.getRange(1, 1, lastRow, totalCols).getValues();
 
   const myTT = {};
+  const myTTLabels = {};
   const classTTMap = {};
+  const classLabelMap = {};
   const fullTimetable = { s1: [], s2: [] };
   const subjectHoursData = {};
   let subjectHoursClasses = [];
@@ -462,9 +465,12 @@ function loadAllTimetables_new(s, lastRow) {
 
     if (currentSection === 'mytt') {
       if (type !== '내시간표') continue;
-      const m = String(allData[i][1]||'').trim().match(/^(\d+)/);
+      const label = String(allData[i][1]||'').trim();
+      const m = label.match(/^(\d+)/);
       if (!m) continue;
-      myTT[parseInt(m[1])] = [2,3,4,5,6].map(c => String(allData[i][c]||'').trim());
+      const p = parseInt(m[1]);
+      myTT[p] = [2,3,4,5,6].map(c => String(allData[i][c]||'').trim());
+      myTTLabels[p] = label;
     }
     else if (currentSection === 'classtt') {
       if (type === '[학급]') {
@@ -473,11 +479,16 @@ function loadAllTimetables_new(s, lastRow) {
           ? (raw.getMonth()+1) + '-' + raw.getDate()
           : String(raw||'').trim();
       } else if (type === '학급행' && currentClassKey) {
-        const m = String(allData[i][1]||'').trim().match(/^(\d+)/);
+        const label = String(allData[i][1]||'').trim();
+        const m = label.match(/^(\d+)/);
         if (!m) continue;
         const p = parseInt(m[1]) - 1;
         if (!classTTMap[currentClassKey]) classTTMap[currentClassKey] = Array.from({length:6},()=>['','','','','']);
-        if (p >= 0 && p < 6) classTTMap[currentClassKey][p] = [2,3,4,5,6].map(c => String(allData[i][c]||'').trim());
+        if (!classLabelMap[currentClassKey]) classLabelMap[currentClassKey] = Array.from({length:6},()=>'');
+        if (p >= 0 && p < 6) {
+          classTTMap[currentClassKey][p] = [2,3,4,5,6].map(c => String(allData[i][c]||'').trim());
+          classLabelMap[currentClassKey][p] = label;
+        }
       }
     }
     else if (currentSection === 'fulltt') {
@@ -541,8 +552,8 @@ function loadAllTimetables_new(s, lastRow) {
 
   const classTTList = Object.keys(classTTMap).sort()
     .filter(n => classTTMap[n].some(p => p.some(v => v !== '')))
-    .map(n => ({ name: n, tt: classTTMap[n] }));
-  return { success:true, myTT, classTTList, timetableEvents:{}, vacationPeriods:[],
+    .map(n => ({ name: n, tt: classTTMap[n], labels: classLabelMap[n] || [] }));
+  return { success:true, myTT, myTTLabels, classTTList, timetableEvents:{}, vacationPeriods:[],
            subjectHoursData, fullTimetable, subjectHoursClasses };
 }
 

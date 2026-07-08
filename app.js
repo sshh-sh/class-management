@@ -14,7 +14,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
 // GAS API URL
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbwLvo2y72xH4lknFApI1P367wHSCF9Z6lb2CFuEf_98QW43TkAb1WwpTZjUuiBA4mIm/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbyCRha7rxMnyUR68UqYzDNsQp9SImlSLr2LWkau_oVl-NnL1h6LaK_5h6Uyya7DJnEX/exec';
 
 const TIMES = ['09:00~09:40','09:50~10:30','10:40~11:20','11:30~12:10','13:00~13:40','13:50~14:30'];
 const DAY_NAMES = ['일','월','화','수','목','금','토'];
@@ -25,6 +25,7 @@ let currentMonth = new Date().getMonth();
 let selectedDate = null;
 let selectedDow = 0;
 let myTT = {1:['','','','',''],2:['','','','',''],3:['','','','',''],4:['','','','',''],5:['','','','',''],6:['','','','','']};
+let myTTLabels = {};
 let classTTList = [];
 let syllabusData = {};
 let conceptLinksData = {};
@@ -168,6 +169,7 @@ window.logout = async () => {
 // ==================== 데이터 로드/저장 ====================
 function applyUserData(d) {
   if (d.myTT) myTT = d.myTT;
+  if (d.myTTLabels) myTTLabels = d.myTTLabels;
   if (d.classTTList && d.classTTList.length) classTTList = d.classTTList;
   if (d.syllabusData && Object.keys(d.syllabusData).length) syllabusData = d.syllabusData;
   if (d.journals) journalData = d.journals.sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -206,7 +208,7 @@ async function loadUserData() {
         localStorage.setItem(tsKey, String(now));
         apiCache.set('loadAll_' + userId, { ts: now });
         localStorage.setItem(cacheKey, JSON.stringify({
-          myTT, classTTList, syllabusData, journals: journalData, timetableEvents,
+          myTT, myTTLabels, classTTList, syllabusData, journals: journalData, timetableEvents,
           semDatesByYear, subjectHoursData, conceptLinks: conceptLinksData,
           fullTimetable: fullTimetableData, subjectHoursClasses
         }));
@@ -225,7 +227,7 @@ async function saveUserData() {
   // 로컬 캐시 즉시 갱신 + 타임스탬프 초기화 (저장 직후엔 GAS 재요청 불필요)
   try {
     localStorage.setItem(cacheKey, JSON.stringify({
-      myTT, classTTList, syllabusData, journals: journalData, timetableEvents,
+      myTT, myTTLabels, classTTList, syllabusData, journals: journalData, timetableEvents,
       semDatesByYear, subjectHoursData
     }));
     localStorage.setItem(tsKey, String(Date.now()));
@@ -757,7 +759,7 @@ function buildMyTT() {
   const body = document.getElementById('my-tt-body');
   if (!body) return;
   body.innerHTML = [1,2,3,4,5,6].map(p => `<tr>
-    <td class="period-cell">${p}교시<br><span style="font-size:9px;">${TIMES[p-1].split('~')[0]}</span></td>
+    <td class="period-cell">${myTTLabels[p] || (p + '교시')}<br><span style="font-size:9px;">${TIMES[p-1].split('~')[0]}</span></td>
     ${[0,1,2,3,4].map(d => {
       const v = myTT[p]?.[d] || '';
       return `<td class="tt-read-cell${v ? '' : ' empty'}">${v || '—'}</td>`;
@@ -910,9 +912,9 @@ function renderClassTTs() {
             <div class="cls-name">${cls.name}</div>
           </div>
           <table class="cls-table">
-            <thead><tr><th style="width:18px;"></th><th>월</th><th>화</th><th>수</th><th>목</th><th>금</th></tr></thead>
+            <thead><tr><th style="width:30px;"></th><th>월</th><th>화</th><th>수</th><th>목</th><th>금</th></tr></thead>
             <tbody>${[0,1,2,3,4,5].map(p => `<tr>
-              <td class="p-cell">${p+1}</td>
+              <td class="p-cell">${(cls.labels && cls.labels[p]) || (p+1)}</td>
               ${[0,1,2,3,4].map(d => {
                 const v = cls.tt && cls.tt[p] && cls.tt[p][d] ? cls.tt[p][d] : '';
                 const isMine = v && (myTT[p+1] && myTT[p+1][d] === v);
@@ -952,7 +954,7 @@ window.syncFromGAS = async (btn) => {
       applyUserData(d);
       localStorage.setItem(`userdata_${userId}_ts`, String(Date.now()));
       localStorage.setItem(`userdata_${userId}`, JSON.stringify({
-        myTT, classTTList, syllabusData, journals: journalData, timetableEvents,
+        myTT, myTTLabels, classTTList, syllabusData, journals: journalData, timetableEvents,
         semDatesByYear, subjectHoursData, fullTimetable: fullTimetableData, subjectHoursClasses
       }));
       buildMyTT(); renderClassTTs(); buildFullTimetable(); buildSyllabus(); filterJournal(); buildSubjectHoursFromGAS();
@@ -1829,7 +1831,7 @@ window.refreshFromSheets = async () => {
       applyUserData(d);
       localStorage.setItem(`userdata_${userId}_ts`, String(Date.now()));
       localStorage.setItem(`userdata_${userId}`, JSON.stringify({
-        myTT, classTTList, syllabusData, journals: journalData, timetableEvents,
+        myTT, myTTLabels, classTTList, syllabusData, journals: journalData, timetableEvents,
         semDatesByYear, subjectHoursData
       }));
       buildMyTT();
@@ -1874,7 +1876,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v91';
+const APP_VERSION = 'v92';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');
