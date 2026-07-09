@@ -560,6 +560,7 @@ function openJournalPopup(d, dow) {
   document.getElementById('jp-class').value = '';
   document.getElementById('jp-name').value = '';
   document.getElementById('jp-content').value = '';
+  document.getElementById('jp-delete-btn').style.display = 'none';
   document.getElementById('journal-popup').classList.remove('hidden');
 }
 
@@ -580,7 +581,33 @@ window.openEditJournal = (rowNum) => {
   document.getElementById('jp-class').value = j.class || '';
   document.getElementById('jp-name').value = j.name || '';
   document.getElementById('jp-content').value = j.content || '';
+  document.getElementById('jp-delete-btn').style.display = '';
   document.getElementById('journal-popup').classList.remove('hidden');
+};
+
+window.deleteFromJournalPopup = async () => {
+  if (!editingJournalRowNum) return;
+  if (!confirm('이 항목을 삭제할까요?')) return;
+  const rowNum = editingJournalRowNum;
+  const btn = document.getElementById('jp-delete-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '삭제 중...'; }
+  try {
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      body: JSON.stringify({ app: 'journal-management', action: 'deleteJournal', userId: currentUser.email, rowNum })
+    });
+    const result = await res.json();
+    if (result.success) {
+      closeJournalPopupDirect();
+      await loadJournal();
+    } else {
+      showToast('삭제 실패: ' + result.message, 'error');
+    }
+  } catch(e) {
+    showToast('삭제 중 오류: ' + e.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '삭제'; }
+  }
 };
 
 function updateJournalPopupTitle() {
@@ -1964,7 +1991,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v97';
+const APP_VERSION = 'v98';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');

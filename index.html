@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>일해용! 전담</title>
-  <link rel="stylesheet" href="style.css?v=97">
+  <link rel="stylesheet" href="style.css?v=98">
   <link rel="icon" href="images/ilhaeyong.jpg" type="image/jpeg">
   <!-- 【6번】외부 도메인 preconnect: 첫 연결 레이턴시 단축 -->
   <link rel="preconnect" href="https://www.gstatic.com">
@@ -209,7 +209,7 @@
 
   <footer class="app-footer">
     © 2026 일해용!전담 · 개발 최송희. 무단 복제 및 배포를 금지합니다.
-    <span class="version-badge" id="app-version">v97</span>
+    <span class="version-badge" id="app-version">v98</span>
   </footer>
 </div>
 
@@ -251,7 +251,10 @@
       <label>지도내용</label>
       <textarea id="jp-content" rows="4" placeholder="지도 내용을 입력하세요"></textarea>
     </div>
-    <button class="btn-primary" onclick="saveJournal()">저장</button>
+    <div style="display:flex;gap:8px;">
+      <button class="btn-primary" onclick="saveJournal()" style="flex:1;">저장</button>
+      <button class="btn-sm" id="jp-delete-btn" onclick="deleteFromJournalPopup()" style="display:none;color:#e53935;">삭제</button>
+    </div>
   </div>
 </div>
 
@@ -360,6 +363,6 @@
   </div>
 </div>
 
-<script type="module" src="app.js?v=97"></script>
+<script type="module" src="app.js?v=98"></script>
 </body>
 </html>
