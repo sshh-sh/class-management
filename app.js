@@ -466,8 +466,7 @@ function clsDisplayName(cls) {
   if (!m) return cls;
   const subj = m[1].trim(), grade = m[2], classNum = m[3];
   const kr = SUBJ_KR[subj] || subj;
-  if (subj === '즐') return `${grade}학년 ${classNum}반 ${kr}`;
-  return `${grade}학년 ${kr}`;
+  return `${grade}-${classNum}${kr}`;
 }
 
 function countActualHours(cls, sem) {
@@ -498,7 +497,8 @@ function progCellHtml(cls) {
   const done = countActualHours(cls, progSem);
   const pct = total ? Math.min(100, Math.round(done / total * 100)) : 0;
   const over = done > total && total > 0;
-  const color = over ? '#F09595' : '#B5D4F4';
+  const finished = total > 0 && done === total;
+  const color = over ? '#F09595' : finished ? '#F4A6C6' : '#B5D4F4';
   return `<div class="prog-cell">
       <div class="prog-cell-name">${clsDisplayName(cls)}</div>
       <div class="prog-cell-track">
@@ -1941,7 +1941,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v94';
+const APP_VERSION = 'v95';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');
