@@ -399,6 +399,14 @@ function saveJournal(userId, j) {
   const s = jm_journalSheet();
   const headers = s.getRange(1, 1, 1, s.getLastColumn()).getValues()[0];
   const has대상 = String(headers[4]).includes('대상');
+  if (j.rowNum) {
+    if (has대상) {
+      s.getRange(j.rowNum, 2, 1, 6).setValues([[j.date, j.period, j.class, j.target||'학생', j.name, j.content]]);
+    } else {
+      s.getRange(j.rowNum, 2, 1, 5).setValues([[j.date, j.period, j.class, j.name, j.content]]);
+    }
+    return {success:true};
+  }
   const seq = s.getLastRow();
   if (has대상) {
     s.appendRow([seq, j.date, j.period, j.class, j.target||'학생', j.name, j.content]);

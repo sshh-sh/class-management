@@ -14,7 +14,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
 // GAS API URL
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbyCRha7rxMnyUR68UqYzDNsQp9SImlSLr2LWkau_oVl-NnL1h6LaK_5h6Uyya7DJnEX/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycby3gRr84-pjpZhSTvFF4D-Uh8PC6_lgu8tmy9QUi8-62UJ1L_l26tnxJiZwzX3EBZDh/exec';
 
 const TIMES = ['09:00~09:40','09:50~10:30','10:40~11:20','11:30~12:10','13:00~13:40','13:50~14:30'];
 const DAY_NAMES = ['일','월','화','수','목','금','토'];
@@ -549,7 +549,10 @@ function buildProgress() {
 }
 
 // ==================== 수업일지 팝업 ====================
+let editingJournalRowNum = null;
+
 function openJournalPopup(d, dow) {
+  editingJournalRowNum = null;
   const dateStr = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
   document.getElementById('jp-date').value = dateStr;
   updateJournalPopupTitle();
@@ -559,6 +562,26 @@ function openJournalPopup(d, dow) {
   document.getElementById('jp-content').value = '';
   document.getElementById('journal-popup').classList.remove('hidden');
 }
+
+window.openEditJournal = (rowNum) => {
+  const j = journalData.find(x => x.rowNum === rowNum);
+  if (!j) return;
+  editingJournalRowNum = rowNum;
+  document.getElementById('jp-date').value = j.date || '';
+  updateJournalPopupTitle();
+  const sel = document.getElementById('jp-period');
+  const periodVal = j.period || '';
+  if (periodVal && ![...sel.options].some(o => o.value === periodVal)) {
+    const opt = document.createElement('option');
+    opt.value = periodVal; opt.textContent = periodVal;
+    sel.appendChild(opt);
+  }
+  sel.value = periodVal;
+  document.getElementById('jp-class').value = j.class || '';
+  document.getElementById('jp-name').value = j.name || '';
+  document.getElementById('jp-content').value = j.content || '';
+  document.getElementById('journal-popup').classList.remove('hidden');
+};
 
 function updateJournalPopupTitle() {
   const val = document.getElementById('jp-date').value;
@@ -619,7 +642,7 @@ window.saveJournal = async () => {
         app: 'journal-management',
         action: 'saveJournal',
         userId: currentUser.email,
-        journalData: { date: dateStr, period, class: cls, name, content }
+        journalData: { rowNum: editingJournalRowNum, date: dateStr, period, class: cls, name, content }
       })
     });
     const result = await res.json();
@@ -769,7 +792,7 @@ function renderJournal(data) {
   const colSpan = deleteMode ? 7 : 6;
   if (!data.length) { tbody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align:center;padding:16px;color:#aaa;">기록이 없습니다</td></tr>`; return; }
   tbody.innerHTML = data.map((j, idx) => `
-    <tr>
+    <tr${deleteMode ? '' : ` class="jl-row" onclick="openEditJournal(${j.rowNum})" style="cursor:pointer;"`}>
       <td style="text-align:center;color:#aaa;font-size:12px;">${idx + 1}</td>
       <td>${fmtJournalDate(j.date)}</td>
       <td>${j.period || ''}</td>
@@ -1941,7 +1964,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v96';
+const APP_VERSION = 'v97';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');
