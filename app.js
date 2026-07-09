@@ -637,8 +637,17 @@ window.saveJournal = async () => {
 };
 
 // ==================== 수업일지 탭 ====================
-let showOldJournals = false;
 let deleteMode = false;
+let selectedJournalYear = null;
+let journalActiveSearch = { cls: '', name: '', month: '' };
+
+function getSchoolYear(dateStr) {
+  if (!dateStr) return null;
+  const y = parseInt(String(dateStr).slice(0, 4));
+  const m = parseInt(String(dateStr).slice(5, 7));
+  if (isNaN(y) || isNaN(m)) return null;
+  return m >= 3 ? y : y - 1;
+}
 
 async function loadJournal() {
   try {
@@ -669,10 +678,60 @@ async function loadJournal() {
 }
 
 function updateJournalFilter() {
-  const sel = document.getElementById('jl-filter-class');
-  const classes = [...new Set(journalData.map(j => fmtClass(j.class)).filter(Boolean))].sort();
-  sel.innerHTML = '<option value="">전체 학급</option>' + classes.map(c => `<option>${c}</option>`).join('');
+  const sel = document.getElementById('js-class');
+  if (sel) {
+    const classes = [...new Set(journalData.map(j => fmtClass(j.class)).filter(Boolean))].sort();
+    sel.innerHTML = '<option value="">전체 학급</option>' + classes.map(c => `<option>${c}</option>`).join('');
+    sel.value = journalActiveSearch.cls || '';
+  }
+  updateJournalYearOptions();
 }
+
+function updateJournalYearOptions() {
+  const sel = document.getElementById('jl-year-select');
+  if (!sel) return;
+  if (selectedJournalYear === null) selectedJournalYear = semYear;
+  const years = new Set(journalData.map(j => getSchoolYear(j.date)).filter(y => y !== null));
+  years.add(semYear);
+  years.add(selectedJournalYear);
+  const sorted = [...years].sort((a, b) => b - a);
+  sel.innerHTML = sorted.map(y => `<option value="${y}"${y === selectedJournalYear ? ' selected' : ''}>${y}학년도</option>`).join('');
+}
+
+window.onJournalYearChange = () => {
+  const sel = document.getElementById('jl-year-select');
+  selectedJournalYear = parseInt(sel.value);
+  filterJournal();
+};
+
+window.openJournalSearchModal = () => {
+  document.getElementById('js-class').value = journalActiveSearch.cls || '';
+  document.getElementById('js-name').value = journalActiveSearch.name || '';
+  document.getElementById('js-month').value = journalActiveSearch.month || '';
+  document.getElementById('journal-search-popup').classList.remove('hidden');
+};
+window.closeJournalSearchModal = (e) => {
+  if (e.target === document.getElementById('journal-search-popup')) closeJournalSearchModalDirect();
+};
+window.closeJournalSearchModalDirect = () => document.getElementById('journal-search-popup').classList.add('hidden');
+
+window.applyJournalSearch = () => {
+  journalActiveSearch = {
+    cls: document.getElementById('js-class').value,
+    name: document.getElementById('js-name').value.trim(),
+    month: document.getElementById('js-month').value
+  };
+  closeJournalSearchModalDirect();
+  filterJournal();
+};
+
+window.resetJournalSearch = () => {
+  journalActiveSearch = { cls: '', name: '', month: '' };
+  document.getElementById('js-class').value = '';
+  document.getElementById('js-name').value = '';
+  document.getElementById('js-month').value = '';
+  filterJournal();
+};
 
 window.syncJournal = async () => {
   const btn = document.getElementById('jl-sync-btn');
@@ -681,28 +740,14 @@ window.syncJournal = async () => {
   if (btn) { btn.disabled = false; btn.textContent = '☁ 구글시트 연동'; }
 };
 
-window.toggleOldJournals = () => {
-  showOldJournals = !showOldJournals;
-  const btn = document.getElementById('toggle-old-btn');
-  btn.textContent = showOldJournals ? '이전 학년도 숨기기' : '이전 학년도 보기';
-  filterJournal();
-};
-
 window.filterJournal = () => {
-  const cls = document.getElementById('jl-filter-class').value;
-  const name = document.getElementById('jl-filter-name').value.trim();
-  const month = document.getElementById('jl-filter-month').value;
-  let filtered = journalData;
-  if (!showOldJournals) {
-    const startDate = `${semYear}-03-01`;
-    const endDate = `${semYear + 1}-03-01`;
-    filtered = filtered.filter(j => j.date && j.date >= startDate && j.date < endDate);
-  }
+  if (selectedJournalYear === null) selectedJournalYear = semYear;
+  let filtered = journalData.filter(j => getSchoolYear(j.date) === selectedJournalYear);
   // 이름·내용 모두 빈 행 제외
   filtered = filtered.filter(j => (j.name && j.name.trim()) || (j.content && j.content.trim()));
-  if (cls) filtered = filtered.filter(j => fmtClass(j.class) === cls);
-  if (name) filtered = filtered.filter(j => j.name && j.name.includes(name));
-  if (month) filtered = filtered.filter(j => j.date && j.date.startsWith(month));
+  if (journalActiveSearch.cls) filtered = filtered.filter(j => fmtClass(j.class) === journalActiveSearch.cls);
+  if (journalActiveSearch.name) filtered = filtered.filter(j => j.name && j.name.includes(journalActiveSearch.name));
+  if (journalActiveSearch.month) filtered = filtered.filter(j => j.date && j.date.startsWith(journalActiveSearch.month));
   renderJournal(filtered);
 };
 
@@ -1896,7 +1941,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v93';
+const APP_VERSION = 'v94';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');
