@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>일해용! 전담</title>
-  <link rel="stylesheet" href="style.css?v=92">
+  <link rel="stylesheet" href="style.css?v=93">
   <link rel="icon" href="images/ilhaeyong.jpg" type="image/jpeg">
   <!-- 【6번】외부 도메인 preconnect: 첫 연결 레이턴시 단축 -->
   <link rel="preconnect" href="https://www.gstatic.com">
@@ -170,7 +170,7 @@
             </div>
             <div class="table-wrap">
               <table class="tt-table" id="my-tt-table">
-                <thead><tr><th style="width:60px;">교시</th><th>월</th><th>화</th><th>수</th><th>목</th><th>금</th></tr></thead>
+                <thead><tr><th style="width:120px;">교시</th><th>월</th><th>화</th><th>수</th><th>목</th><th>금</th></tr></thead>
                 <tbody id="my-tt-body"></tbody>
               </table>
             </div>
@@ -214,7 +214,7 @@
 
   <footer class="app-footer">
     © 2026 일해용!전담 · 개발 최송희. 무단 복제 및 배포를 금지합니다.
-    <span class="version-badge" id="app-version">v92</span>
+    <span class="version-badge" id="app-version">v93</span>
   </footer>
 </div>
 
@@ -232,6 +232,10 @@
       <button class="popup-close" onclick="closeJournalPopupDirect()">×</button>
     </div>
     <div class="form-row">
+      <div class="form-field" style="max-width:150px;">
+        <label>날짜</label>
+        <input type="date" id="jp-date" onchange="onJournalDateChange()">
+      </div>
       <div class="form-field" style="max-width:90px;">
         <label>교시</label>
         <select id="jp-period" onchange="autoFillClass()">
@@ -335,6 +339,6 @@
   </div>
 </div>
 
-<script type="module" src="app.js?v=92"></script>
+<script type="module" src="app.js?v=93"></script>
 </body>
 </html>

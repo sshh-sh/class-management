@@ -231,8 +231,8 @@ body{font-family:'Noto Sans KR',sans-serif;font-size:17px;background:#f5f5f5;col
 .full-tt-section-title{font-size:16px;font-weight:500;color:#3C3489;margin-bottom:6px;}
 .full-tt-wrap{overflow:auto;max-height:65vh;}
 .full-tt{border-collapse:collapse;font-size:14px;white-space:nowrap;}
-.full-tt th{background:#f0f0f0;padding:6px 8px;border:0.5px solid #ddd;text-align:center;font-weight:500;color:#666;overflow:hidden;text-overflow:ellipsis;}
-.full-tt td{padding:5px 7px;border:0.5px solid #eee;text-align:center;color:#555;font-size:13px;overflow:hidden;text-overflow:ellipsis;}
+.full-tt th{background:#f0f0f0;padding:6px 8px;border:1px solid #bbb;text-align:center;font-weight:500;color:#666;overflow:hidden;text-overflow:ellipsis;}
+.full-tt td{padding:5px 7px;border:1px solid #ccc;text-align:center;color:#555;font-size:13px;overflow:hidden;text-overflow:ellipsis;}
 .full-tt .week-num{background:#EEEDFE;color:#3C3489;font-weight:600;}
 .full-tt .date-cell{background:#f8f8f8;color:#888;font-size:12px;white-space:nowrap;}
 .full-tt .day-header{background:#dddaf8;color:#3C3489;font-weight:500;}

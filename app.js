@@ -550,14 +550,34 @@ function buildProgress() {
 
 // ==================== 수업일지 팝업 ====================
 function openJournalPopup(d, dow) {
-  const dayName = DAY_NAMES[new Date(currentYear, currentMonth, d).getDay()];
-  document.getElementById('journal-popup-title').textContent = `${currentMonth+1}월 ${d}일 (${dayName}) 수업일지`;
+  const dateStr = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  document.getElementById('jp-date').value = dateStr;
+  updateJournalPopupTitle();
   document.getElementById('jp-period').value = '';
   document.getElementById('jp-class').value = '';
   document.getElementById('jp-name').value = '';
   document.getElementById('jp-content').value = '';
   document.getElementById('journal-popup').classList.remove('hidden');
 }
+
+function updateJournalPopupTitle() {
+  const val = document.getElementById('jp-date').value;
+  if (!val) return;
+  const [y, m, d] = val.split('-').map(Number);
+  const dateObj = new Date(y, m - 1, d);
+  const dayName = DAY_NAMES[dateObj.getDay()];
+  document.getElementById('journal-popup-title').textContent = `${m}월 ${d}일 (${dayName}) 수업일지`;
+}
+
+window.onJournalDateChange = () => {
+  const val = document.getElementById('jp-date').value;
+  if (!val) return;
+  const [y, m, d] = val.split('-').map(Number);
+  const dateObj = new Date(y, m - 1, d);
+  selectedDow = dateObj.getDay();
+  updateJournalPopupTitle();
+  document.getElementById('jp-class').value = '';
+};
 
 window.openNewJournal = () => {
   const today = new Date();
@@ -587,8 +607,8 @@ window.saveJournal = async () => {
   const cls = document.getElementById('jp-class').value;
   const name = document.getElementById('jp-name').value.trim();
   const content = document.getElementById('jp-content').value.trim();
-  if (!period || !name || !content) { showToast('교시, 학생 이름, 지도내용을 모두 입력해 주세요.', 'error'); return; }
-  const dateStr = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${String(selectedDate).padStart(2,'0')}`;
+  const dateStr = document.getElementById('jp-date').value;
+  if (!dateStr || !period || !name || !content) { showToast('날짜, 교시, 학생 이름, 지도내용을 모두 입력해 주세요.', 'error'); return; }
 
   const btn = document.querySelector('#journal-popup .btn-primary');
   if (btn) { btn.disabled = true; btn.textContent = '저장 중...'; }
@@ -759,7 +779,7 @@ function buildMyTT() {
   const body = document.getElementById('my-tt-body');
   if (!body) return;
   body.innerHTML = [1,2,3,4,5,6].map(p => `<tr>
-    <td class="period-cell">${myTTLabels[p] || (p + '교시')}<br><span style="font-size:9px;">${TIMES[p-1].split('~')[0]}</span></td>
+    <td class="period-cell">${myTTLabels[p] || (p + '교시')}<br><span style="font-size:10px;">${TIMES[p-1]}</span></td>
     ${[0,1,2,3,4].map(d => {
       const v = myTT[p]?.[d] || '';
       return `<td class="tt-read-cell${v ? '' : ' empty'}">${v || '—'}</td>`;
@@ -1876,7 +1896,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v92';
+const APP_VERSION = 'v93';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');
