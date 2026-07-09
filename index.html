@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>일해용! 전담</title>
-  <link rel="stylesheet" href="style.css?v=95">
+  <link rel="stylesheet" href="style.css?v=96">
   <link rel="icon" href="images/ilhaeyong.jpg" type="image/jpeg">
   <!-- 【6번】외부 도메인 preconnect: 첫 연결 레이턴시 단축 -->
   <link rel="preconnect" href="https://www.gstatic.com">
@@ -129,9 +129,9 @@
       <div class="jl-toolbar">
         <button class="btn-sm primary" onclick="openNewJournal()" style="font-weight:600;">+ 새 일지 입력</button>
         <button class="btn-sm" onclick="openJournalSearchModal()">&#128269; 검색</button>
-        <button class="btn-sm" onclick="exportJournalExcel()">&#8595; 엑셀</button>
         <button class="btn-sm" id="jl-delete-btn" onclick="toggleDeleteMode()">삭제</button>
         <select class="btn-sm" id="jl-year-select" onchange="onJournalYearChange()"></select>
+        <button class="btn-sm" onclick="exportJournalExcel()">&#8595; 엑셀</button>
         <button class="btn-sm primary" id="jl-sync-btn" onclick="syncJournal()">&#9729; 구글시트 연동</button>
       </div>
       <div class="table-wrap">
@@ -209,7 +209,7 @@
 
   <footer class="app-footer">
     © 2026 일해용!전담 · 개발 최송희. 무단 복제 및 배포를 금지합니다.
-    <span class="version-badge" id="app-version">v95</span>
+    <span class="version-badge" id="app-version">v96</span>
   </footer>
 </div>
 
@@ -360,6 +360,6 @@
   </div>
 </div>
 
-<script type="module" src="app.js?v=95"></script>
+<script type="module" src="app.js?v=96"></script>
 </body>
 </html>
