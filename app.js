@@ -118,7 +118,8 @@ async function initApp() {
   const name = document.getElementById('user-name');
   if (currentUser.photoURL) { photo.src = currentUser.photoURL; photo.style.display = 'inline-block'; }
   name.textContent = currentUser.displayName || currentUser.email;
-  document.getElementById('sync-badge').style.display = 'inline';
+  document.getElementById('user-email').textContent = currentUser.email || '';
+  document.getElementById('sync-badge').style.display = 'block';
 
   await loadUserData();
   buildSemSelect();
@@ -165,6 +166,16 @@ window.logout = async () => {
   document.getElementById('app').classList.add('hidden');
   document.getElementById('login-screen').classList.remove('hidden');
 };
+
+window.toggleProfileDropdown = () => {
+  document.getElementById('profile-dropdown').classList.toggle('hidden');
+};
+
+document.addEventListener('click', (e) => {
+  const wrap = document.getElementById('profile-wrap');
+  const dd = document.getElementById('profile-dropdown');
+  if (wrap && dd && !wrap.contains(e.target)) dd.classList.add('hidden');
+});
 
 // ==================== 데이터 로드/저장 ====================
 function applyUserData(d) {
@@ -1736,7 +1747,7 @@ function updateSheetsBtn(connected) {
   } else {
     btn.classList.remove('connected');
     icon.textContent = '☁';
-    text.textContent = '구글 시트 연결 확인';
+    text.textContent = '구글 시트 연결';
   }
 }
 
@@ -1991,7 +2002,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v98';
+const APP_VERSION = 'v.1';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');

@@ -36,11 +36,15 @@ body{font-family:'Noto Sans KR',sans-serif;font-size:17px;background:#f5f5f5;col
 .header-btn:hover{background:#e8e8e8;}
 .header-btn.connected{background:#e8f5e9;border-color:#81c784;color:#2e7d32;}
 .btn-small-text{font-size:11px;color:#888;text-decoration:underline;cursor:pointer;background:none;border:none;padding:0;}
-.header-user{display:flex;align-items:center;gap:6px;font-size:13px;color:#555;background:#EEEDFE;border-radius:20px;padding:6px 14px;}
-#user-photo{width:24px;height:24px;border-radius:50%;object-fit:cover;}
-.sync-badge{font-size:11px;color:#534AB7;font-weight:500;}
-.logout-btn{background:none;border:none;font-size:11px;color:#aaa;cursor:pointer;padding:0 2px;}
-.logout-btn:hover{color:#E24B4A;}
+.profile-wrap{position:relative;}
+.profile-photo{width:36px;height:36px;border-radius:50%;object-fit:cover;cursor:pointer;border:2px solid #EEEDFE;}
+.profile-photo:hover{border-color:#AFA9EC;}
+.profile-dropdown{position:absolute;top:44px;right:0;background:#fff;border:0.5px solid #ddd;border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,0.12);padding:14px 16px;min-width:180px;z-index:100;text-align:left;}
+.profile-dd-name{font-size:14px;font-weight:600;color:#333;}
+.profile-dd-email{font-size:12px;color:#888;margin-top:2px;margin-bottom:8px;}
+.sync-badge{font-size:11px;color:#534AB7;font-weight:500;display:block;margin-bottom:8px;}
+.logout-btn-full{width:100%;background:#f5f5f5;border:0.5px solid #ddd;border-radius:8px;padding:6px 0;font-size:12px;color:#555;cursor:pointer;}
+.logout-btn-full:hover{background:#fdeaea;color:#E24B4A;border-color:#e8a8a8;}
 .icon-btn{background:#f0f0f0;border:0.5px solid #ddd;border-radius:50%;width:34px;height:34px;font-size:15px;font-weight:500;cursor:pointer;color:#555;display:flex;align-items:center;justify-content:center;}
 .icon-btn:hover{background:#e8e8e8;}
 
