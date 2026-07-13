@@ -392,9 +392,9 @@ body{font-size:17px;}
   body{font-size:13px;}
   .main-grid{grid-template-columns:1fr;flex:none;}
   #tab-main{overflow-y:auto;}
-  #tab-main .card{min-height:auto;overflow:visible;}
+  #tab-main .main-grid>.card:first-child{flex:none;height:300px;}
+  #tab-main .main-grid>.card:nth-child(2){min-height:auto;overflow:visible;}
   #tab-main .week-scroll{flex:none;overflow:visible;min-height:auto;}
-  #tab-main .mo-grid{height:auto;}
   .grade-row{grid-template-columns:1fr;}
   .tt-bottom-grid{grid-template-columns:1fr;}
   .full-tt-split{grid-template-columns:1fr;}
