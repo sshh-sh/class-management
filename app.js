@@ -911,7 +911,9 @@ function buildFullTimetable() {
   }
   const DAYS = ['월','화','수','목','금'];
   // col 0=주, 1=기간, 2~31=교시(5일×6교시), 32=비고
-  const defaultW = [32, 90, ...Array(30).fill(36), 150];
+  // 모바일 폭에서는 교시칸 기본너비를 넓혀서 과목명이 "과(..."처럼 잘리지 않게 함 (대신 가로스크롤 폭이 늘어남)
+  const periodDefaultW = window.innerWidth <= 768 ? 58 : 36;
+  const defaultW = [32, 90, ...Array(30).fill(periodDefaultW), 150];
   const colW = defaultW.map((def, i) => parseInt(localStorage.getItem(`fulltt_c_${i}`) || def));
   // table-layout:fixed는 테이블 width가 auto면 브라우저가 무시하고 자동 레이아웃으로 동작함 — 반드시 width를 컬럼 합계로 명시
   const totalW = colW.reduce((a, b) => a + b, 0);
@@ -2002,7 +2004,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v.5';
+const APP_VERSION = 'v.6';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');

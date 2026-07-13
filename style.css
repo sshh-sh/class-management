@@ -390,7 +390,11 @@ body{font-size:17px;}
 /* 모바일 (768px 이하) */
 @media(max-width:768px){
   body{font-size:13px;}
-  .main-grid{grid-template-columns:1fr;}
+  .main-grid{grid-template-columns:1fr;flex:none;}
+  #tab-main{overflow-y:auto;}
+  #tab-main .card{min-height:auto;overflow:visible;}
+  #tab-main .week-scroll{flex:none;overflow:visible;min-height:auto;}
+  #tab-main .mo-grid{height:auto;}
   .grade-row{grid-template-columns:1fr;}
   .tt-bottom-grid{grid-template-columns:1fr;}
   .full-tt-split{grid-template-columns:1fr;}
