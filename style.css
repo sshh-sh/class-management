@@ -324,7 +324,7 @@ body{font-family:'Noto Sans KR',sans-serif;font-size:17px;background:#f5f5f5;col
 .syl-cell-input.syl-dirty{color:#d00 !important;}
 .syl-link-mini-btn{font-size:13px;text-decoration:none;flex-shrink:0;line-height:1;}
 .note-cell{padding:4px 8px;font-size:12px;color:#555;white-space:pre-wrap;min-width:150px;width:150px;}
-.lesson-next{flex:1;border:0.5px solid #e0e0e0;border-left:none;border-radius:0 5px 5px 0;padding:10px 16px;background:#E6F1FB;display:flex;flex-direction:column;justify-content:center;}
+.lesson-next{flex:1;min-width:0;overflow:hidden;border:0.5px solid #e0e0e0;border-left:none;border-radius:0 5px 5px 0;padding:10px 16px;background:#E6F1FB;display:flex;flex-direction:column;justify-content:center;}
 .lesson-item.has-next .lesson-right{border-radius:0;}
 .lesson-end{background:#F0F0F0;align-items:center;}
 .lesson-end .next-topic{color:#888;font-size:16px;text-align:center;}
