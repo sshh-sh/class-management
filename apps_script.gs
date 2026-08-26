@@ -3,6 +3,8 @@
  * - 일해용! 전담: doPost { app:'journal-management', action, userId, ... }
  * - 관피타:      doGet  ?action=get&key=...  /  ?action=set&key=...&value=...
  *
+ * GAS v93: 학사일정(학기 시작/종료일)이 로컬에만 저장되고 서버에 전혀 저장 안 되던 버그 수정
+ *          → PropertiesService에 saveSemDates/loadSemDates로 저장, loadAll 응답에 semDatesByYear 포함
  * GAS v89: 모둠뽑기가 별도 스크립트로 분리되어 더 이상 쓰이지 않는 모둠뽑기 코드 제거
  * [수정사항] writeKaoSheet에서 시트 전체를 지우던 것을 A~J열까지만 지우도록 변경
  *           → L열 이후 메모 영역은 더 이상 삭제되지 않음
@@ -63,6 +65,8 @@ function doPost(e) {
         result = { success: true, message: '시간표 양식이 초기화되었습니다.' };
       } else if (action === 'calcTimetable') {
         result = calcTimetable(userId, data.semYear);
+      } else if (action === 'saveSemDates') {
+        result = saveSemDates(userId, data.semDatesByYear);
       } else {
         result = {success: false, message: '알 수 없는 액션'};
       }
@@ -339,8 +343,25 @@ function loadAll(userId) {
     subjectHoursClasses: ttResult.subjectHoursClasses || [],
     syllabusData,
     journals: journalResult.journals,
-    conceptLinks: conceptResult.data
+    conceptLinks: conceptResult.data,
+    semDatesByYear: loadSemDates(userId)
   };
+}
+
+// ==================== 학사일정(학기 시작/종료일) ====================
+// 사용자별로 PropertiesService(스크립트 속성)에 JSON으로 저장. 시트 구조를 건드리지 않는 별도 설정값.
+function loadSemDates(userId) {
+  try {
+    const raw = PropertiesService.getScriptProperties().getProperty('semDates_' + userId);
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function saveSemDates(userId, semDatesByYear) {
+  PropertiesService.getScriptProperties().setProperty('semDates_' + userId, JSON.stringify(semDatesByYear || {}));
+  return { success: true };
 }
 
 // ---------- 개념링크 ----------

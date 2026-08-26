@@ -82,6 +82,7 @@ window.changeSemYear = async () => {
   selectedDate = 1;
   selectedDow = 1;
   await saveUserData();
+  updateDefaultProgSem();
   buildCalendar();
   buildProgress();
   buildFullTimetable();
@@ -125,6 +126,7 @@ async function initApp() {
   buildSemSelect();
   currentYear = semYear;
   currentMonth = new Date().getMonth();
+  updateDefaultProgSem();
 
   buildCalendar();
   buildProgress();
@@ -552,11 +554,17 @@ function buildProgress() {
   const card = document.getElementById('prog-card');
   card.innerHTML = `
     <div class="prog-sem-bar">
-      <button class="prog-sem-btn active" data-sem="1" onclick="toggleProgSem(1)">1학기</button>
-      <button class="prog-sem-btn" data-sem="2" onclick="toggleProgSem(2)">2학기</button>
+      <button class="prog-sem-btn${progSem === 1 ? ' active' : ''}" data-sem="1" onclick="toggleProgSem(1)">1학기</button>
+      <button class="prog-sem-btn${progSem === 2 ? ' active' : ''}" data-sem="2" onclick="toggleProgSem(2)">2학기</button>
     </div>
     <div id="prog-rows"></div>`;
   renderProgressRows();
+}
+
+// 오늘 날짜가 학사일정상 몇 학기에 속하는지로 진도표 기본 탭 결정
+function updateDefaultProgSem() {
+  const today = new Date();
+  progSem = semesterKeyForDate(today) === 's2' ? 2 : 1;
 }
 
 // ==================== 수업일지 팝업 ====================
@@ -1795,8 +1803,20 @@ window.setSemDateField = (half, field, val) => {
   if (!semDatesByYear[semYear][key]) semDatesByYear[semYear][key] = { start: '', end: '' };
   semDatesByYear[semYear][key][field] = val;
   saveVacationAndHours();
+  saveSemDatesToGAS();
   buildFullTimetable();
+  updateDefaultProgSem();
+  buildProgress();
 };
+
+function saveSemDatesToGAS() {
+  const userId = currentUser?.email;
+  if (!userId) return;
+  fetch(GAS_URL, {
+    method: 'POST',
+    body: JSON.stringify({ app: 'journal-management', action: 'saveSemDates', userId, semDatesByYear })
+  }).catch(e => console.log('학사일정 저장 실패:', e));
+}
 
 function renderSemDateInputs() {
   const cur = semDatesByYear[semYear] || {};
@@ -1967,6 +1987,10 @@ window.refreshFromSheets = async () => {
       buildFullTimetable();
       buildSyllabus();
       filterJournal();
+      renderSemDateInputs();
+      updateDefaultProgSem();
+      buildProgress();
+      if (selectedDate) renderWeek(selectedDate, selectedDow);
       if (btn) btn.textContent = '완료 ✓';
     } else {
       if (btn) btn.textContent = '실패';
@@ -2004,7 +2028,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v.7';
+const APP_VERSION = 'v.8';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');

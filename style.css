@@ -424,6 +424,11 @@ body{font-size:17px;}
   .data-table{font-size:13px;}
   .data-table th,.data-table td{padding:6px 8px;}
   .tt-table{font-size:13px;}
+  #journal-table{min-width:640px;}
+  #journal-table th:nth-child(2),#journal-table td:nth-child(2){width:110px;}
+  #journal-table th:nth-child(3),#journal-table td:nth-child(3){width:70px;}
+  #journal-table th:nth-child(4),#journal-table td:nth-child(4){width:70px;}
+  #journal-table th:nth-child(5),#journal-table td:nth-child(5){width:100px;}
   .jl-toolbar{flex-wrap:wrap;gap:5px;}
   .jl-toolbar select,.jl-toolbar input{font-size:14px;height:38px;}
   .btn-sm{font-size:14px;height:38px;padding:5px 12px;min-width:44px;}
