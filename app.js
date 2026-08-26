@@ -1786,7 +1786,8 @@ function semesterKeyForDate(dateObj) {
   const s1 = getSemDates(semYear, 1), s2 = getSemDates(semYear, 2);
   if (dateObj >= s1.start && dateObj <= s1.end) return 's1';
   if (dateObj >= s2.start && dateObj <= s2.end) return 's2';
-  return 's1';
+  // 학기 사이 방학 등 애매한 날짜: 1학기가 이미 끝났으면 2학기로 취급
+  return dateObj > s1.end ? 's2' : 's1';
 }
 
 // ==================== 학기 시작/종료일 ====================
@@ -2028,7 +2029,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v.8';
+const APP_VERSION = 'v.9';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');
