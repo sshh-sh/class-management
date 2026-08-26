@@ -414,9 +414,12 @@ body{font-size:17px;}
   .lesson-class{font-size:17px;}
   .lesson-detail{font-size:13px;}
   .lesson-time{font-size:11px;}
-  .prog-name{font-size:13px;width:90px;}
-  .prog-num{font-size:13px;}
-  .prog-track{height:20px;}
+  .next-topic{font-size:15px;}
+  .next-prep{font-size:13px;}
+  .prog-grid{grid-template-columns:1fr!important;}
+  .prog-cell-name{font-size:13px;width:70px;}
+  .prog-cell-num{font-size:13px;}
+  .prog-cell-track{height:20px;}
   .sec-label{font-size:13px;}
   .section-title{font-size:16px;}
   .syl-table{font-size:13px;}
