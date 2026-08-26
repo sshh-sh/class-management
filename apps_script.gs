@@ -3,7 +3,7 @@
  * - 일해용! 전담: doPost { app:'journal-management', action, userId, ... }
  * - 관피타:      doGet  ?action=get&key=...  /  ?action=set&key=...&value=...
  *
- * GAS v93: 학사일정(학기 시작/종료일)이 로컬에만 저장되고 서버에 전혀 저장 안 되던 버그 수정
+ * GAS v95: 학사일정(학기 시작/종료일)이 로컬에만 저장되고 서버에 전혀 저장 안 되던 버그 수정
  *          → PropertiesService에 saveSemDates/loadSemDates로 저장, loadAll 응답에 semDatesByYear 포함
  * GAS v89: 모둠뽑기가 별도 스크립트로 분리되어 더 이상 쓰이지 않는 모둠뽑기 코드 제거
  * [수정사항] writeKaoSheet에서 시트 전체를 지우던 것을 A~J열까지만 지우도록 변경
