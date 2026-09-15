@@ -503,7 +503,7 @@ window.toggleProgSem = (sem) => {
   renderProgressRows();
 };
 
-function progCellHtml(cls) {
+function progCellHtml(cls, col, row) {
   const semKey = progSem === 1 ? 's1base' : 's2base';
   const d = subjectHoursData[cls] || {};
   const total = d[semKey] || 0;
@@ -512,7 +512,9 @@ function progCellHtml(cls) {
   const over = done > total && total > 0;
   const finished = total > 0 && done === total;
   const color = over ? '#F09595' : finished ? '#F4A6C6' : '#B5D4F4';
-  return `<div class="prog-cell">
+  // grid-column/row을 명시해서 데스크톱 매트릭스 배치를 고정 — 그래야 모바일에서 1열로 접혀도
+  // DOM 순서(학년·반 오름차순)대로 자연스럽게 세로 나열됨
+  return `<div class="prog-cell" style="grid-column:${col};grid-row:${row};">
       <div class="prog-cell-name">${clsDisplayName(cls)}</div>
       <div class="prog-cell-track">
         <div class="prog-cell-fill" style="width:${pct}%;background:${color};">
@@ -529,24 +531,26 @@ function renderProgressRows() {
   const classes = subjectHoursClasses.length ? subjectHoursClasses : [];
   if (!classes.length) { body.innerHTML = '<div class="no-lesson">구글시트 연동 후 시수 데이터를 불러오세요</div>'; return; }
 
-  // 열=과목+학년 그룹(첫 등장 순서), 행=반 번호로 매트릭스 정렬
+  // 열=과목+학년 그룹, 행=반 번호로 매트릭스 정렬. 그룹은 학년 오름차순으로 정렬.
   const groups = [];
   const groupIdx = {};
   classes.forEach(cls => {
     const m = cls.match(/^(.+)\((\d+)-(\d+)\)$/);
     if (!m) return;
     const key = m[1] + m[2];
-    if (!(key in groupIdx)) { groupIdx[key] = groups.length; groups.push({ byRow: {} }); }
+    if (!(key in groupIdx)) { groupIdx[key] = groups.length; groups.push({ grade: parseInt(m[2]), byRow: {} }); }
     groups[groupIdx[key]].byRow[parseInt(m[3])] = cls;
   });
-  const maxRow = groups.reduce((mx, g) => Math.max(mx, ...Object.keys(g.byRow).map(Number)), 1);
+  groups.sort((a, b) => a.grade - b.grade);
 
+  // DOM에는 그룹(학년) 순 → 그룹 내 반 오름차순으로 출력해, 모바일 1열 화면에서도 오름차순 그대로 보이게 함.
+  // 각 셀은 grid-column/row을 명시해서 데스크톱 매트릭스 위치는 그대로 유지.
   let cellsHtml = '';
-  for (let row = 1; row <= maxRow; row++) {
-    groups.forEach(g => {
-      cellsHtml += g.byRow[row] ? progCellHtml(g.byRow[row]) : '<div class="prog-cell prog-cell-empty"></div>';
+  groups.forEach((g, gi) => {
+    Object.keys(g.byRow).map(Number).sort((a, b) => a - b).forEach(row => {
+      cellsHtml += progCellHtml(g.byRow[row], gi + 1, row);
     });
-  }
+  });
   body.innerHTML = `<div class="prog-grid" style="grid-template-columns:repeat(${groups.length || 1},minmax(0,1fr));">${cellsHtml}</div>`;
 }
 
@@ -2029,7 +2033,7 @@ window.resetTimetableSheet = async () => {
 };
 
 // ==================== 7번: 버전 관리 ====================
-const APP_VERSION = 'v.11';
+const APP_VERSION = 'v.12';
 window.addEventListener('DOMContentLoaded', () => {
   // 버전 표시
   const vEl = document.getElementById('app-version');
