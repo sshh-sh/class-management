@@ -47,6 +47,11 @@ body{font-family:'Noto Sans KR',sans-serif;font-size:17px;background:#f5f5f5;col
 .logout-btn-full:hover{background:#fdeaea;color:#E24B4A;border-color:#e8a8a8;}
 .icon-btn{background:#f0f0f0;border:0.5px solid #ddd;border-radius:50%;width:34px;height:34px;font-size:15px;font-weight:500;cursor:pointer;color:#555;display:flex;align-items:center;justify-content:center;}
 .icon-btn:hover{background:#e8e8e8;}
+a.icon-btn{text-decoration:none;flex-shrink:0;}
+.shortcut-dice{background:#EEEDFE;border-color:#AFA9EC;font-size:18px;line-height:1;}
+.shortcut-dice:hover{background:#CECBF6;}
+.shortcut-sheet{background:#EAF3DE;border-color:#97C459;color:#3B6D11;font-size:18px;}
+.shortcut-sheet:hover{background:#C0DD97;}
 
 .tab-bar{flex-shrink:0;display:flex;gap:4px;padding:8px 28px 0;background:#fff;border-bottom:0.5px solid #e0e0e0;}
 .tab{padding:8px 22px;border-radius:20px 20px 0 0;font-size:22.5px;cursor:pointer;border:0.5px solid transparent;color:#888;background:none;}
@@ -398,7 +403,9 @@ body{font-size:17px;}
   .grade-row{grid-template-columns:1fr;}
   .tt-bottom-grid{grid-template-columns:1fr;}
   .full-tt-split{grid-template-columns:1fr;}
-  .header-right{gap:4px;flex-wrap:wrap;}
+  .app-header{flex-wrap:nowrap;}
+  .header-left{min-width:0;}
+  .header-right{gap:4px;flex-wrap:nowrap;flex-shrink:0;}
   .app-content{padding:8px 10px;}
   .tab-bar{padding:6px 8px 0;gap:4px;}
   .app-header{padding:8px 12px;}
@@ -448,8 +455,17 @@ body{font-size:17px;}
   .app-title{font-size:18px;}
   .header-icon-main{width:34px;height:34px;}
   .tab{font-size:14px;padding:7px 6px;flex:1;text-align:center;white-space:nowrap;}
-  .app-header{flex-wrap:wrap;gap:6px;}
-  .header-left{gap:8px;}
+  .app-header{flex-wrap:nowrap;gap:6px;padding:6px 8px;}
+  .header-left{gap:6px;}
+  .header-left>div{gap:4px!important;}
+  .app-title{font-size:16px;white-space:nowrap;}
+  .sem-select{width:80px;font-size:12px;padding:2px 0;}
+  .header-right{gap:3px;}
+  #sheets-status-text{display:none;}
+  .header-btn{padding:0;width:30px;height:30px;justify-content:center;border-radius:50%;font-size:14px;}
+  .icon-btn{width:30px;height:30px;}
+  .shortcut-dice,.shortcut-sheet{font-size:16px;}
+  .profile-photo{width:30px;height:30px;}
   .cal-title{font-size:16px;}
   .day-cell{font-size:14px;}
   .day-cell.today span,.day-cell.selected span{width:26px;height:26px;font-size:14px;}
@@ -462,4 +478,13 @@ body{font-size:17px;}
   .full-tt-split{grid-template-columns:1fr;}
   .annual-week-grid{grid-template-columns:1fr;}
   .link-btn{font-size:12px;padding:4px 10px;}
+}
+
+/* 아주 좁은 폰 (340px 이하): 헤더를 한 줄로 유지하기 위해 로고 그림 숨김 */
+@media(max-width:340px){
+  .header-icon-main{display:none;}
+  .app-title{font-size:14px;}
+  .sem-select{width:66px;}
+  .icon-btn,.header-btn,.profile-photo{width:26px;height:26px;}
+  .shortcut-dice,.shortcut-sheet{font-size:14px;}
 }

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>일해용! 전담</title>
-  <link rel="stylesheet" href="style.css?v=110">
+  <link rel="stylesheet" href="style.css?v=111">
   <link rel="icon" href="images/ilhaeyong.jpg" type="image/jpeg">
   <!-- 【6번】외부 도메인 preconnect: 첫 연결 레이턴시 단축 -->
   <link rel="preconnect" href="https://www.gstatic.com">
@@ -73,7 +73,9 @@
       </div>
     </div>
     <div class="header-right">
-      <button class="header-btn" id="sheets-btn" onclick="openSheetsModal()">
+      <a class="icon-btn shortcut-dice" href="https://sshh-sh.github.io/jari/" target="_blank" rel="noopener" title="모둠뽑기" aria-label="모둠뽑기 사이트 열기">🎲</a>
+      <a class="icon-btn shortcut-sheet" href="https://docs.google.com/spreadsheets/d/15guvRV5h9kD1iTyoIjDbPaBDDe0OaiqNeV15ILx_3_E/edit?gid=1670895759#gid=1670895759" target="_blank" rel="noopener" title="구글시트" aria-label="구글시트 열기"><i class="ti ti-table"></i></a>
+      <button class="header-btn" id="sheets-btn" onclick="openSheetsModal()" title="구글 시트 연결">
         <span id="sheets-status-icon">☁</span>
         <span id="sheets-status-text">구글 시트 연결</span>
       </button>
@@ -212,7 +214,7 @@
 
   <footer class="app-footer">
     © 2026 일해용!전담 · 개발 최송희. 무단 복제 및 배포를 금지합니다.
-    <span class="version-badge" id="app-version">v.11</span>
+    <span class="version-badge" id="app-version">v.13</span>
   </footer>
 </div>
 
@@ -366,6 +368,6 @@
   </div>
 </div>
 
-<script type="module" src="app.js?v=110"></script>
+<script type="module" src="app.js?v=111"></script>
 </body>
 </html>
